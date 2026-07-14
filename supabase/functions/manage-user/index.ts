@@ -62,12 +62,13 @@ Deno.serve(async (request) => {
       })
       if (createError || !created.user) throw createError ?? new Error('Não foi possível criar o usuário.')
 
-      const { error: profileError } = await admin.from('profiles').update({
+      const { error: profileError } = await admin.from('profiles').upsert({
+        id: created.user.id,
         name: body.name.trim(),
         email: body.email.trim().toLowerCase(),
         role: body.role,
         company_id: targetCompanyId,
-      }).eq('id', created.user.id)
+      }, { onConflict: 'id' })
       if (profileError) throw profileError
       return Response.json({ id: created.user.id }, { headers: corsHeaders })
     }
