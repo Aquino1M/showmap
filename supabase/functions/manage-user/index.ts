@@ -8,13 +8,14 @@ const corsHeaders = {
 type Role = 'superadmin' | 'company_admin' | 'agent'
 
 type RequestBody = {
-  action: 'bootstrap' | 'create' | 'update' | 'delete'
+  action: 'bootstrap' | 'create' | 'update' | 'delete' | 'save_event' | 'delete_event'
   id?: string
   name?: string
   email?: string
   password?: string
   role?: Role
   companyId?: string | null
+  event?: Record<string, unknown>
 }
 
 Deno.serve(async (request) => {
@@ -74,6 +75,51 @@ Deno.serve(async (request) => {
 
     const canManage = (role: Role, companyId: string | null) =>
       isMaster || (isCompanyAdmin && role === 'agent' && companyId === caller.company_id)
+
+    if (body.action === 'save_event') {
+      const event = body.event
+      if (!event || typeof event.company_id !== 'string') throw new Error('Dados da agenda inválidos.')
+      const eventCompanyId = event.company_id
+      const eventAgentId = typeof event.agent_id === 'string' ? event.agent_id : null
+      const eventId = typeof event.id === 'string' ? event.id : null
+
+      if (!isMaster && eventCompanyId !== caller.company_id) {
+        throw new Error('Você não pode salvar dados de outro escritório.')
+      }
+      if (!isMaster && !isCompanyAdmin && eventAgentId !== authData.user.id) {
+        throw new Error('O agente só pode registrar propostas em seu próprio nome.')
+      }
+
+      if (eventId) {
+        const { data: existing, error: existingError } = await admin.from('events')
+          .select('company_id, agent_id').eq('id', eventId).single()
+        if (existingError || !existing) throw new Error('Registro da agenda não encontrado.')
+        if (!isMaster && existing.company_id !== caller.company_id) {
+          throw new Error('Você não pode alterar dados de outro escritório.')
+        }
+        if (!isMaster && !isCompanyAdmin && existing.agent_id && existing.agent_id !== authData.user.id) {
+          throw new Error('O agente só pode alterar propostas assumidas por ele.')
+        }
+      }
+
+      const { data: savedEvent, error: eventError } = await admin.from('events')
+        .upsert(event).select('id').single()
+      if (eventError) throw eventError
+      return Response.json({ id: savedEvent.id }, { headers: corsHeaders })
+    }
+
+    if (body.action === 'delete_event') {
+      if (!body.id) throw new Error('Registro da agenda não informado.')
+      const { data: event, error: eventError } = await admin.from('events')
+        .select('company_id').eq('id', body.id).single()
+      if (eventError || !event) throw new Error('Registro da agenda não encontrado.')
+      if (!isMaster && (!isCompanyAdmin || event.company_id !== caller.company_id)) {
+        throw new Error('Você não tem permissão para excluir este registro.')
+      }
+      const { error: deleteError } = await admin.from('events').delete().eq('id', body.id)
+      if (deleteError) throw deleteError
+      return Response.json({ id: body.id }, { headers: corsHeaders })
+    }
 
     if (body.action === 'create') {
       if (!body.name || !body.email || !body.password || !body.role || !canManage(body.role, targetCompanyId)) {

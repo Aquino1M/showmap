@@ -156,6 +156,14 @@ export const saveDocument = async (collectionName, data) => {
   }
 
   const row = collectionName === 'companies' ? fromCompany(data) : fromEvent(data);
+  if (collectionName === 'events') {
+    const { data: result, error } = await supabase.functions.invoke('manage-user', {
+      body: { action: 'save_event', event: row },
+    });
+    await throwFunctionError(error, 'Não foi possível salvar a agenda.');
+    if (result?.error) throw new Error(result.error);
+    return result?.id;
+  }
   const { data: result, error } = await supabase
     .from(TABLES[collectionName])
     .upsert(row)
@@ -171,6 +179,15 @@ export const deleteDocument = async (collectionName, docId) => {
       body: { action: 'delete', id: docId },
     });
     await throwFunctionError(error, 'Não foi possível excluir o usuário.');
+    if (data?.error) throw new Error(data.error);
+    return;
+  }
+
+  if (collectionName === 'events') {
+    const { data, error } = await supabase.functions.invoke('manage-user', {
+      body: { action: 'delete_event', id: docId },
+    });
+    await throwFunctionError(error, 'Não foi possível excluir a agenda.');
     if (data?.error) throw new Error(data.error);
     return;
   }
