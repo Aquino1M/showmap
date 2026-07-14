@@ -302,8 +302,8 @@ export default function App() {
         return;
       }
 
-      const profile = users.find((user) => user.id === dbUser.id)
-        || resolvedProfile
+      const profile = resolvedProfile
+        || users.find((user) => user.id === dbUser.id)
         || (dbUser.email?.toLowerCase() === 'diogenesdidi83@gmail.com'
           ? {
               id: dbUser.id,
@@ -499,10 +499,14 @@ export default function App() {
       companyId: authUser.companyId,
       agentId: authUser.id,
     };
-    await saveDocument('events', newEvent);
-    showToast('Proposta de Contratante adicionada à Agenda!');
-    setIsContractorModalOpen(false);
-    setActiveTab('proposals');
+    try {
+      await saveDocument('events', newEvent);
+      showToast('Proposta salva com sucesso.');
+      setIsContractorModalOpen(false);
+      setActiveTab('proposals');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Não foi possível salvar a proposta.', 'error');
+    }
   };
 
   // --- CRUD Shows / Eventos Livres (Escritório) ---
@@ -529,27 +533,39 @@ export default function App() {
       contractorEmail: existing ? existing.contractorEmail : '',
       contractorPhone: existing ? existing.contractorPhone : ''
     };
-    await saveDocument('events', eventToSave);
-    showToast(formData.id ? 'Evento updated com sucesso!' : 'Data livre registada com sucesso!');
-    setIsEventModalOpen(false);
+    try {
+      await saveDocument('events', eventToSave);
+      showToast(formData.id ? 'Evento atualizado com sucesso!' : 'Data livre registrada com sucesso!');
+      setIsEventModalOpen(false);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Não foi possível salvar a agenda.', 'error');
+    }
   };
 
   const handleUpdateStatus = async (eventId, newStatus, assignedAgentId = null) => {
     const ev = events.find(e => String(e.id) === String(eventId));
     if (ev) {
-      await saveDocument('events', {
-        ...ev,
-        status: newStatus,
-        agentId: assignedAgentId || ev.agentId
-      });
-      showToast(`Status atualizado para ${newStatus}`);
+      try {
+        await saveDocument('events', {
+          ...ev,
+          status: newStatus,
+          agentId: assignedAgentId || ev.agentId
+        });
+        showToast(`Status atualizado para ${newStatus}`);
+      } catch (error) {
+        showToast(error instanceof Error ? error.message : 'Não foi possível atualizar o status.', 'error');
+      }
     }
   };
 
   const handleDeleteEvent = async (eventId) => {
     if (!window.confirm('Tem certeza que deseja excluir este registro? Esta ação não pode ser desfeita.')) return;
-    await deleteDocument('events', eventId);
-    showToast('Registo apagado com sucesso.', 'error');
+    try {
+      await deleteDocument('events', eventId);
+      showToast('Registro apagado com sucesso.');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Não foi possível apagar o registro.', 'error');
+    }
   };
 
   const handleExportDatabase = async () => {
@@ -931,6 +947,9 @@ export default function App() {
                       </tr>
                     )
                   })}
+                  {users.filter(u => u.role === 'agent' && (authUser.role === 'superadmin' || u.companyId === authUser.companyId)).length === 0 && (
+                    <tr><td colSpan={authUser.role === 'superadmin' ? 4 : 3} className="py-8 text-center text-sm text-slate-500">Nenhum agente cadastrado neste escritório.</td></tr>
+                  )}
                 </tbody>
               </table>
             </div>

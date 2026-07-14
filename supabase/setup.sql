@@ -48,13 +48,23 @@ language plpgsql
 security definer set search_path = public
 as $$
 begin
-  insert into public.profiles (id, name, role)
+  insert into public.profiles (id, name, email, role, company_id)
   values (
     new.id,
     coalesce(new.raw_user_meta_data ->> 'name', split_part(coalesce(new.email, ''), '@', 1)),
-    case when new.email = 'diogenesdidi83@gmail.com' then 'superadmin' else 'agent' end
+    new.email,
+    case
+      when new.email = 'diogenesdidi83@gmail.com' then 'superadmin'
+      when new.raw_user_meta_data ->> 'role' in ('company_admin', 'agent') then new.raw_user_meta_data ->> 'role'
+      else 'agent'
+    end,
+    nullif(new.raw_user_meta_data ->> 'company_id', '')::uuid
   )
-  on conflict (id) do nothing;
+  on conflict (id) do update set
+    email = excluded.email,
+    name = excluded.name,
+    role = excluded.role,
+    company_id = excluded.company_id;
   return new;
 end;
 $$;

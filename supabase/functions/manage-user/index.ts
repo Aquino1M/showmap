@@ -41,22 +41,19 @@ Deno.serve(async (request) => {
       .single()
 
     if (body.action === 'bootstrap') {
-      if (caller) return Response.json({ profile: {
-        id: caller.id, name: caller.name, email: caller.email,
-        role: caller.role, companyId: caller.company_id,
-      } }, { headers: corsHeaders })
-
       const email = authData.user.email?.trim().toLowerCase()
       if (!email) throw new Error('E-mail do usuário não encontrado.')
       const { data: matchingCompany } = await admin.from('companies')
         .select('id').ilike('email', email).maybeSingle()
+      const metadataRole = authData.user.user_metadata?.role as Role | undefined
+      const metadataCompanyId = authData.user.user_metadata?.company_id as string | undefined
       const role: Role = email === 'diogenesdidi83@gmail.com'
-        ? 'superadmin' : matchingCompany ? 'company_admin' : 'agent'
-      const companyId = role === 'superadmin' ? null : matchingCompany?.id ?? null
+        ? 'superadmin' : matchingCompany || metadataRole === 'company_admin' || caller?.role === 'company_admin' ? 'company_admin' : (caller?.role as Role | undefined) ?? 'agent'
+      const companyId = role === 'superadmin' ? null : matchingCompany?.id ?? caller?.company_id ?? metadataCompanyId ?? null
       if (role === 'agent' && !companyId) throw new Error('Perfil do agente não possui escritório vinculado.')
       const profile = {
         id: authData.user.id,
-        name: authData.user.user_metadata?.name || email.split('@')[0],
+        name: authData.user.user_metadata?.name || caller?.name || email.split('@')[0],
         email,
         role,
         company_id: companyId,
@@ -88,7 +85,11 @@ Deno.serve(async (request) => {
         email: body.email.trim().toLowerCase(),
         password: body.password,
         email_confirm: true,
-        user_metadata: { name: body.name.trim() },
+        user_metadata: {
+          name: body.name.trim(),
+          role: body.role,
+          company_id: targetCompanyId,
+        },
       })
       if (createError || !created.user) throw createError ?? new Error('Não foi possível criar o usuário.')
 
