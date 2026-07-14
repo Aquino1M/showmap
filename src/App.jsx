@@ -552,7 +552,10 @@ export default function App() {
               <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/25">
                 <Map size={24} className="text-white" />
               </div>
-              <h1 className="font-extrabold text-white text-2xl tracking-tight">ShowMap</h1>
+              <div className="leading-none">
+                <h1 className="font-extrabold text-white text-2xl tracking-tight">ShowMap</h1>
+                <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-indigo-300">Solução logística de espetáculos</p>
+              </div>
             </div>
             <div className="hidden sm:flex gap-4">
               <button onClick={() => handleLoginClick('office')} className="text-slate-300 hover:text-white font-semibold transition-colors px-4 py-2">Área do Escritório</button>
@@ -562,7 +565,7 @@ export default function App() {
         </header>
 
         {/* Hero Section & Mapa Político Oficial */}
-        <main className="flex-1 w-full max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-center p-6 sm:p-8 gap-12 lg:gap-16 relative z-10 pt-28 lg:pt-0">
+        <main className="flex-1 w-full max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-center p-6 sm:p-8 gap-12 lg:gap-16 relative z-10 pt-36 lg:pt-36">
           
           {/* Coluna Esquerda */}
           <div className="flex-1 w-full flex flex-col gap-8 mt-6 lg:mt-0 text-center lg:text-left z-20">
