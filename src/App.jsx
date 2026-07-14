@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import {
   initAuth,
   subscribeCollection,
@@ -260,6 +260,8 @@ export default function App() {
   
   const [companyForm, setCompanyForm] = useState({ id: null, name: '', email: '', phone: '', active: true, adminId: null, adminName: '', adminLogin: '', adminPassword: '' });
   const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
+  const [isSavingCompany, setIsSavingCompany] = useState(false);
+  const companySaveInFlight = useRef(false);
 
   const [contractorForm, setContractorForm] = useState({ contractorName: '', email: '', phone: '', date: '', time: '', city: '', stateId: 'GO', type: 'cache' });
   const [isContractorModalOpen, setIsContractorModalOpen] = useState(false);
@@ -367,6 +369,10 @@ export default function App() {
       return;
     }
 
+    if (companySaveInFlight.current) return;
+    companySaveInFlight.current = true;
+    setIsSavingCompany(true);
+    try {
     const companyId = await saveDocument('companies', companyToSave);
     await saveDocument('users', {
       id: adminId,
@@ -378,18 +384,26 @@ export default function App() {
     });
     showToast(companyForm.id ? 'Escritório atualizado com sucesso!' : 'Escritório criado com sucesso!');
     setIsCompanyModalOpen(false);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'NÃ£o foi possÃ­vel salvar o escritÃ³rio.', 'error');
+    } finally {
+      companySaveInFlight.current = false;
+      setIsSavingCompany(false);
+    }
   };
 
   const handleDeleteCompany = async (id) => {
-    const hasLinkedUsers = users.some((user) => user.companyId === id);
-    const hasLinkedEvents = events.some((event) => event.companyId === id);
-    if (hasLinkedUsers || hasLinkedEvents) {
-      showToast('Não é possível excluir este escritório enquanto houver agentes ou eventos vinculados.', 'error');
-      return;
+    const linkedUsers = users.filter((user) => user.companyId === id);
+    const linkedEvents = events.filter((event) => event.companyId === id);
+    if (!window.confirm(`Excluir este escritório também apagará ${linkedUsers.length} login(s) e ${linkedEvents.length} agenda(s)/proposta(s). Deseja continuar?`)) return;
+    try {
+      for (const event of linkedEvents) await deleteDocument('events', event.id);
+      for (const user of linkedUsers) await deleteDocument('users', user.id);
+      await deleteDocument('companies', id);
+      showToast('Escritório e dados vinculados excluídos com sucesso.');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Não foi possível excluir o escritório.', 'error');
     }
-    if (!window.confirm('Tem certeza que deseja excluir este escritório?')) return;
-    await deleteDocument('companies', id);
-    showToast('Escritório excluído com sucesso.', 'error');
   };
 
   // --- CRUD Agentes ---
@@ -1365,8 +1379,8 @@ export default function App() {
                 <input type="checkbox" id="activeCompany" checked={companyForm.active} onChange={e=>setCompanyForm({...companyForm, active: e.target.checked})} className="w-4 h-4 rounded text-indigo-600 bg-gray-700 border-gray-600 focus:ring-indigo-600 focus:ring-2" />
                 <label htmlFor="activeCompany" className="text-sm text-slate-300 font-bold">Escritório Ativo (Acesso Liberado)</label>
               </div>
-              <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3.5 rounded-xl font-bold mt-4 flex justify-center items-center gap-2">
-                 <Save size={18} /> Salvar Empresa
+              <button type="submit" disabled={isSavingCompany} className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60 text-white py-3.5 rounded-xl font-bold mt-4 flex justify-center items-center gap-2">
+                 <Save size={18} /> {isSavingCompany ? 'Salvando...' : 'Salvar Empresa'}
               </button>
             </form>
           </div>
