@@ -214,6 +214,7 @@ export default function App() {
   const [loginType, setLoginType] = useState(''); 
   
   const [companies, setCompanies] = useState([]);
+  const [companiesLoaded, setCompaniesLoaded] = useState(false);
   const [users, setUsers] = useState([]);
   const [events, setEvents] = useState([]);
   const [dbUser, setDbUser] = useState(null);
@@ -237,10 +238,16 @@ export default function App() {
   }, [dbUser]);
 
   useEffect(() => {
-    if (!dbUser) return;
+    if (!dbUser) {
+      const timer = setTimeout(() => setCompaniesLoaded(false), 0);
+      return () => clearTimeout(timer);
+    }
+
+    const resetTimer = setTimeout(() => setCompaniesLoaded(false), 0);
 
     const unsubCompanies = subscribeCollection('companies', (data) => {
       setCompanies(data);
+      setCompaniesLoaded(true);
     });
 
     const unsubUsers = subscribeCollection('users', (data) => {
@@ -252,6 +259,7 @@ export default function App() {
     });
 
     return () => {
+      clearTimeout(resetTimer);
       unsubCompanies();
       unsubUsers();
       unsubEvents();
@@ -269,6 +277,8 @@ export default function App() {
   
   const [agentForm, setAgentForm] = useState({ id: null, name: '', email: '', password: '', companyId: '' });
   const [isAgentModalOpen, setIsAgentModalOpen] = useState(false);
+  const [isSavingAgent, setIsSavingAgent] = useState(false);
+  const agentSaveInFlight = useRef(false);
   
   const [companyForm, setCompanyForm] = useState({ id: null, name: '', email: '', phone: '', active: true, adminId: null, adminName: '', adminLogin: '', adminPassword: '' });
   const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
@@ -305,6 +315,7 @@ export default function App() {
           : null);
       if (!profile) return;
       const company = profile.companyId ? companies.find((item) => item.id === profile.companyId) : null;
+      if (profile.companyId && !companiesLoaded) return;
       if (profile.companyId && (!company || !company.active)) {
         showToast('O escritório deste usuário está inativo ou não existe.', 'error');
         signOut();
@@ -327,7 +338,7 @@ export default function App() {
       setCurrentView('dashboard');
     }, 0);
     return () => clearTimeout(timer);
-  }, [companies, dbUser, loginType, resolvedProfile, users]);
+  }, [companies, companiesLoaded, dbUser, loginType, resolvedProfile, users]);
 
   // --- Fluxo de Autenticação ---
   const handleLoginClick = (type) => {
@@ -437,15 +448,30 @@ export default function App() {
     const loginAlreadyUsed = users.some((user) => user.id !== agentForm.id && user.email.toLowerCase() === agentForm.email.trim().toLowerCase());
     if (loginAlreadyUsed) { showToast('Este login já está em uso.', 'error'); return; }
 
+    if (agentSaveInFlight.current) return;
+    agentSaveInFlight.current = true;
+    setIsSavingAgent(true);
+    try {
     const agentToSave = {
       ...agentForm,
       email: agentForm.email.trim(),
       role: 'agent',
       companyId: targetCompanyId
     };
-    await saveDocument('users', agentToSave);
+    const savedId = await saveDocument('users', agentToSave);
+    const savedAgent = { ...agentToSave, id: savedId };
+    setUsers((currentUsers) => [
+      ...currentUsers.filter((user) => user.id !== savedId),
+      savedAgent,
+    ]);
     showToast(agentForm.id ? 'Agente atualizado com sucesso!' : 'Agente registado com sucesso!');
     setIsAgentModalOpen(false);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Não foi possível salvar o agente.', 'error');
+    } finally {
+      agentSaveInFlight.current = false;
+      setIsSavingAgent(false);
+    }
   };
 
   const handleDeleteAgent = async (id) => {
@@ -1336,8 +1362,8 @@ export default function App() {
                 </div>
               )}
               
-              <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3.5 rounded-xl font-bold mt-2 flex justify-center items-center gap-2">
-                 <Save size={18} /> Salvar Agente
+              <button type="submit" disabled={isSavingAgent} className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60 text-white py-3.5 rounded-xl font-bold mt-2 flex justify-center items-center gap-2">
+                 <Save size={18} /> {isSavingAgent ? 'Salvando...' : 'Salvar Agente'}
               </button>
             </form>
           </div>
