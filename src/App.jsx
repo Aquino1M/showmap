@@ -198,7 +198,7 @@ const getCityCoordinates = (stateId, cityName) => {
 function ToastNotification({ toast }) {
   if (!toast) return null;
   return (
-    <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] animate-bounce w-full max-w-xs sm:max-w-md px-4">
+    <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[200] animate-bounce w-full max-w-xs sm:max-w-md px-4">
       <div className={`px-6 py-3 rounded-xl shadow-2xl font-bold flex items-center justify-center gap-2 ${toast.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'} text-white text-sm text-center`}>
         {toast.msg}
       </div>
@@ -442,6 +442,14 @@ export default function App() {
 
   const handleSaveAgent = async (e) => {
     e.preventDefault();
+    if (!agentForm.id && agentForm.password.length < 6) {
+      showToast('A senha do agente deve ter pelo menos 6 caracteres.', 'error');
+      return;
+    }
+    if (agentForm.id && agentForm.password && agentForm.password.length < 6) {
+      showToast('A nova senha deve ter pelo menos 6 caracteres.', 'error');
+      return;
+    }
     const targetCompanyId = authUser.role === 'superadmin' ? agentForm.companyId : authUser.companyId;
     if (!targetCompanyId) { showToast('Selecione um escritório.', 'error'); return; }
 
@@ -1368,7 +1376,8 @@ export default function App() {
               </div>
               <div>
                 <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">{agentForm.id ? 'Nova senha (opcional)' : 'Senha'}</label>
-                <input required={!agentForm.id} type="password" value={agentForm.password} onChange={e=>setAgentForm({...agentForm, password: e.target.value})} className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" />
+                <input required={!agentForm.id} minLength={6} type="password" value={agentForm.password} onChange={e=>setAgentForm({...agentForm, password: e.target.value})} className={`w-full bg-[#1F2937] border rounded-xl px-4 py-3 text-white text-sm outline-none ${agentForm.password && agentForm.password.length < 6 ? 'border-red-500' : 'border-slate-700'}`} />
+                <p className={`mt-1 text-xs ${agentForm.password && agentForm.password.length < 6 ? 'text-red-400' : 'text-slate-500'}`}>A senha precisa ter pelo menos 6 caracteres.</p>
               </div>
               
               {authUser.role === 'superadmin' && (
