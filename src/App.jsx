@@ -386,6 +386,14 @@ export default function App() {
   const handleSaveCompany = async (e) => {
     e.preventDefault();
     const { adminId, adminName, adminLogin, adminPassword, ...companyToSave } = companyForm;
+    if (!adminId && adminPassword.length < 6) {
+      showToast('A senha do administrador deve ter pelo menos 6 caracteres.', 'error');
+      return;
+    }
+    if (adminId && adminPassword && adminPassword.length < 6) {
+      showToast('A nova senha deve ter pelo menos 6 caracteres.', 'error');
+      return;
+    }
     const login = adminLogin.trim();
     const loginAlreadyUsed = users.some((user) => user.id !== adminId && user.email.toLowerCase() === login.toLowerCase());
     if (loginAlreadyUsed) {
@@ -1441,7 +1449,8 @@ export default function App() {
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">{companyForm.id ? 'Nova senha (opcional)' : 'Senha'}</label>
-                  <input required={!companyForm.id} type="password" value={companyForm.adminPassword} onChange={e=>setCompanyForm({...companyForm, adminPassword: e.target.value})} className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" />
+                  <input required={!companyForm.id} minLength={6} type="password" value={companyForm.adminPassword} onChange={e=>setCompanyForm({...companyForm, adminPassword: e.target.value})} className={`w-full bg-[#1F2937] border rounded-xl px-4 py-3 text-white text-sm outline-none ${companyForm.adminPassword && companyForm.adminPassword.length < 6 ? 'border-red-500' : 'border-slate-700'}`} />
+                  <p className={`mt-1 text-xs ${companyForm.adminPassword && companyForm.adminPassword.length < 6 ? 'text-red-400' : 'text-slate-500'}`}>A senha precisa ter pelo menos 6 caracteres.</p>
                 </div>
               </div>
               <div className="flex items-center gap-2 mt-4">

@@ -77,6 +77,10 @@ Deno.serve(async (request) => {
     const canManage = (role: Role, companyId: string | null) =>
       isMaster || (isCompanyAdmin && role === 'agent' && companyId === caller.company_id)
 
+    if (body.password && body.password.length < 6) {
+      throw new Error('A senha deve ter pelo menos 6 caracteres.')
+    }
+
     if (body.action === 'list_events') {
       let query = admin.from('events').select('*').order('date', { ascending: true })
       if (!isMaster) query = query.eq('company_id', caller.company_id)
