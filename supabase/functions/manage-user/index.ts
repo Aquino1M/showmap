@@ -109,14 +109,32 @@ Deno.serve(async (request) => {
       if (!isMaster || !body.company || typeof body.company.name !== 'string') {
         throw new Error('Somente o Administrador Master pode salvar escritórios.')
       }
+      const companyInput = body.company
+      const safeCompany = {
+        ...(typeof companyInput.id === 'string' ? { id: companyInput.id } : {}),
+        name: companyInput.name.trim(),
+        email: typeof companyInput.email === 'string' ? companyInput.email.trim().toLowerCase() || null : null,
+        phone: typeof companyInput.phone === 'string' ? companyInput.phone.trim() || null : null,
+        active: companyInput.active !== false,
+      }
+      if (!safeCompany.name) throw new Error('Informe o nome do escritório.')
       const { data: company, error } = await admin.from('companies')
-        .upsert(body.company).select('id').single()
+        .upsert(safeCompany).select('id').single()
       if (error) throw error
       return Response.json({ id: company.id }, { headers: corsHeaders })
     }
 
     if (body.action === 'delete_company') {
       if (!isMaster || !body.id) throw new Error('Somente o Administrador Master pode excluir escritórios.')
+      const { data: members, error: membersError } = await admin.from('profiles')
+        .select('id').eq('company_id', body.id)
+      if (membersError) throw membersError
+      const { error: eventsError } = await admin.from('events').delete().eq('company_id', body.id)
+      if (eventsError) throw eventsError
+      for (const member of members) {
+        const { error } = await admin.auth.admin.deleteUser(member.id)
+        if (error) throw error
+      }
       const { error } = await admin.from('companies').delete().eq('id', body.id)
       if (error) throw error
       return Response.json({ id: body.id }, { headers: corsHeaders })
@@ -125,9 +143,24 @@ Deno.serve(async (request) => {
     if (body.action === 'save_event') {
       const event = body.event
       if (!event || typeof event.company_id !== 'string') throw new Error('Dados da agenda inválidos.')
-      const eventCompanyId = event.company_id
-      const eventAgentId = typeof event.agent_id === 'string' ? event.agent_id : null
-      const eventId = typeof event.id === 'string' ? event.id : null
+      const safeEvent = {
+        ...(typeof event.id === 'string' ? { id: event.id } : {}),
+        state_id: typeof event.state_id === 'string' ? event.state_id.trim().toUpperCase() : '',
+        city: typeof event.city === 'string' ? event.city.trim() : '',
+        date: typeof event.date === 'string' ? event.date : '',
+        time: typeof event.time === 'string' ? event.time : null,
+        type: typeof event.type === 'string' ? event.type : '',
+        status: typeof event.status === 'string' ? event.status : 'Disponível',
+        company_id: event.company_id,
+        agent_id: typeof event.agent_id === 'string' ? event.agent_id : null,
+        contractor_name: typeof event.contractor_name === 'string' ? event.contractor_name.trim() || null : null,
+        contractor_email: typeof event.contractor_email === 'string' ? event.contractor_email.trim().toLowerCase() || null : null,
+        contractor_phone: typeof event.contractor_phone === 'string' ? event.contractor_phone.trim() || null : null,
+      }
+      if (!safeEvent.state_id || !safeEvent.city || !safeEvent.date || !safeEvent.type) throw new Error('Preencha os dados obrigatórios da agenda.')
+      const eventCompanyId = safeEvent.company_id
+      const eventAgentId = safeEvent.agent_id
+      const eventId = safeEvent.id || null
 
       if (!isMaster && eventCompanyId !== caller.company_id) {
         throw new Error('Você não pode salvar dados de outro escritório.')
@@ -149,7 +182,7 @@ Deno.serve(async (request) => {
       }
 
       const { data: savedEvent, error: eventError } = await admin.from('events')
-        .upsert(event).select('id').single()
+        .upsert(safeEvent).select('id').single()
       if (eventError) throw eventError
       return Response.json({ id: savedEvent.id }, { headers: corsHeaders })
     }

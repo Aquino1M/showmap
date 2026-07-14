@@ -152,6 +152,9 @@ export const subscribeCollection = (collectionName, callback) => {
   };
 
   refresh();
+  // A gravação é feita pela função segura; esta atualização periódica mantém
+  // outra sessão aberta sincronizada mesmo quando o Realtime não recebe o evento.
+  const refreshInterval = setInterval(refresh, 20000);
   const channel = supabase
     .channel(`showmap-${collectionName}-${crypto.randomUUID()}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: TABLES[collectionName] }, refresh)
@@ -159,6 +162,7 @@ export const subscribeCollection = (collectionName, callback) => {
 
   return () => {
     active = false;
+    clearInterval(refreshInterval);
     supabase.removeChannel(channel);
   };
 };

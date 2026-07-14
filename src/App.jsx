@@ -429,8 +429,6 @@ export default function App() {
     const linkedEvents = events.filter((event) => event.companyId === id);
     if (!window.confirm(`Excluir este escritório também apagará ${linkedUsers.length} login(s) e ${linkedEvents.length} agenda(s)/proposta(s). Deseja continuar?`)) return;
     try {
-      for (const event of linkedEvents) await deleteDocument('events', event.id);
-      for (const user of linkedUsers) await deleteDocument('users', user.id);
       await deleteDocument('companies', id);
       showToast('Escritório e dados vinculados excluídos com sucesso.');
     } catch (error) {
@@ -826,7 +824,7 @@ export default function App() {
   const userCompanyName = authUser.companyId ? companies.find(c => c.id === authUser.companyId)?.name : '';
 
   return (
-    <div className="min-h-screen bg-[#0B0F19] text-slate-200 flex flex-col h-screen overflow-hidden">
+    <div className="min-h-[100dvh] bg-[#0B0F19] text-slate-200 flex flex-col h-[100dvh] overflow-hidden">
       <ToastNotification toast={toast} />
       
       {/* Header Dashboard */}
@@ -859,7 +857,7 @@ export default function App() {
           {TABS.map(tab => {
             const Icon = tab.icon;
             return (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold transition-colors ${activeTab === tab.id ? 'bg-indigo-600 text-white' : 'bg-[#0B0F19] text-slate-400 border border-slate-800 hover:text-white'}`}>
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`shrink-0 flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold transition-colors ${activeTab === tab.id ? 'bg-indigo-600 text-white' : 'bg-[#0B0F19] text-slate-400 border border-slate-800 hover:text-white'}`}>
                 <Icon size={16} /> {tab.label}
               </button>
             )
@@ -1169,7 +1167,7 @@ export default function App() {
         
         {/* TAB: MAPA (Visualização do Dashboard Logado em 2D Realista) */}
         {activeTab === 'map' && (
-          <div className="max-w-7xl mx-auto flex flex-col h-[calc(100vh-180px)]">
+          <div className="max-w-7xl mx-auto flex flex-col h-[calc(100dvh-180px)]">
              <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2"><Map className="text-indigo-400"/> Mapa Logístico</h2>
              </div>
@@ -1209,7 +1207,7 @@ export default function App() {
                   )}
                 </div>
 
-                <div className="w-full h-full max-w-[500px] flex items-center justify-center p-8">
+                <div className="w-full h-full max-w-[500px] flex items-center justify-center p-3 sm:p-8">
                   {/* Viewbox ajustado com base nos paths fornecidos para enquadrar 100% perfeitamente */}
                   <svg viewBox="0 0 1000 912" className="w-full h-full">
                     {Object.entries(BRAZIL_STATES).map(([uf, data]) => {
@@ -1329,12 +1327,12 @@ export default function App() {
       {/* Modal - Edição de Show/Fila Livre */}
       {isEventModalOpen && (
         <div className="fixed inset-0 bg-[#0B0F19]/90 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-[#111827] rounded-3xl border border-slate-800 w-full max-w-lg shadow-2xl overflow-hidden">
+          <div className="bg-[#111827] rounded-3xl border border-slate-800 w-full max-w-lg shadow-2xl overflow-hidden max-h-[calc(100dvh-2rem)] flex flex-col">
             <div className="p-4 sm:p-5 border-b border-slate-800 flex justify-between items-center bg-[#0B0F19]">
               <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2"><FileText className="text-indigo-500" /> {formData.id ? 'Editar Show/Data' : 'Cadastrar Data Livre'}</h3>
               <button onClick={() => setIsEventModalOpen(false)} className="text-slate-400 hover:text-white"><X size={20} /></button>
             </div>
-            <form onSubmit={handleSaveEvent} className="p-4 sm:p-6 space-y-4">
+            <form onSubmit={handleSaveEvent} className="p-4 sm:p-6 space-y-4 overflow-y-auto">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-bold text-slate-500 uppercase mb-2">Data</label>
@@ -1375,12 +1373,12 @@ export default function App() {
       {/* Modal - Agent CRUD */}
       {isAgentModalOpen && (
         <div className="fixed inset-0 bg-[#0B0F19]/90 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-[#111827] rounded-3xl border border-slate-800 w-full max-w-lg shadow-2xl overflow-hidden">
+          <div className="bg-[#111827] rounded-3xl border border-slate-800 w-full max-w-lg shadow-2xl overflow-hidden max-h-[calc(100dvh-2rem)] flex flex-col">
             <div className="p-4 sm:p-5 border-b border-slate-800 flex justify-between items-center bg-[#0B0F19]">
               <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2"><UserPlus className="text-indigo-400"/> {agentForm.id ? 'Editar Agente' : 'Novo Agente'}</h3>
               <button onClick={() => setIsAgentModalOpen(false)} className="text-slate-400 hover:text-white"><X size={20}/></button>
             </div>
-            <form onSubmit={handleSaveAgent} className="p-4 sm:p-6 space-y-4">
+            <form onSubmit={handleSaveAgent} className="p-4 sm:p-6 space-y-4 overflow-y-auto">
               <div>
                 <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Nome</label>
                 <input required type="text" value={agentForm.name} onChange={e=>setAgentForm({...agentForm, name: e.target.value})} className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" />
@@ -1416,12 +1414,12 @@ export default function App() {
       {/* Modal - Company CRUD (Super Admin) */}
       {isCompanyModalOpen && (
         <div className="fixed inset-0 bg-[#0B0F19]/90 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-[#111827] rounded-3xl border border-slate-800 w-full max-w-sm shadow-2xl overflow-hidden">
+          <div className="bg-[#111827] rounded-3xl border border-slate-800 w-full max-w-sm shadow-2xl overflow-hidden max-h-[calc(100dvh-2rem)] flex flex-col">
             <div className="p-4 sm:p-5 border-b border-slate-800 flex justify-between items-center bg-[#0B0F19]">
               <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2"><Building className="text-indigo-400"/> {companyForm.id ? 'Editar Escritório' : 'Novo Escritório'}</h3>
               <button onClick={() => setIsCompanyModalOpen(false)} className="text-slate-400 hover:text-white"><X size={20}/></button>
             </div>
-            <form onSubmit={handleSaveCompany} className="p-4 sm:p-6 space-y-4">
+            <form onSubmit={handleSaveCompany} className="p-4 sm:p-6 space-y-4 overflow-y-auto">
               <div>
                 <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Razão Social / Nome</label>
                 <input required type="text" value={companyForm.name} onChange={e=>setCompanyForm({...companyForm, name: e.target.value})} className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" />
