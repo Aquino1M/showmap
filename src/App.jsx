@@ -546,7 +546,7 @@ export default function App() {
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-cyan-600/10 blur-[120px] rounded-full pointer-events-none"></div>
         
         {/* Navbar */}
-        <header className="w-full bg-transparent p-6 absolute top-0 z-50">
+        <header className="w-full bg-transparent p-6 relative z-50">
           <div className="max-w-7xl mx-auto flex justify-between items-center">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/25">
@@ -565,7 +565,7 @@ export default function App() {
         </header>
 
         {/* Hero Section & Mapa Político Oficial */}
-        <main className="flex-1 w-full max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-center p-6 sm:p-8 gap-12 lg:gap-16 relative z-10 pt-36 lg:pt-36">
+        <main className="flex-1 w-full max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-center p-6 sm:p-8 gap-12 lg:gap-16 relative z-10">
           
           {/* Coluna Esquerda */}
           <div className="flex-1 w-full flex flex-col gap-8 mt-6 lg:mt-0 text-center lg:text-left z-20">
