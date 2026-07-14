@@ -1,146 +1,170 @@
-// Banco de dados local do ShowMap.
-// Os dados ficam neste navegador, em localStorage, e podem ser salvos/restaurados
-// pela aba Backup do Administrador Master.
+import { supabase } from './supabase';
 
-const INITIAL_COMPANIES = [
-  { id: 'comp1', name: 'Top Shows Produções', email: 'contato@topshows.com', phone: '(11) 9999-9999', active: true },
-  { id: 'comp2', name: 'Sertanejo VIP', email: 'vendas@sertanejovip.com', phone: '(62) 8888-8888', active: true },
-];
-
-const INITIAL_USERS = [
-  { id: 'super1', name: 'Admin Geral', email: 'admin', password: '123', role: 'superadmin' },
-  { id: 'cadmin1', name: 'Diretor Top Shows', email: 'admintop', password: '123', role: 'company_admin', companyId: 'comp1' },
-  { id: 'cadmin2', name: 'Diretor Sertanejo', email: 'adminsertanejo', password: '123', role: 'company_admin', companyId: 'comp2' },
-  { id: 'agente1', name: 'João (Agente Top)', email: 'agente1', password: '123', role: 'agent', companyId: 'comp1' },
-  { id: 'agente2', name: 'Maria (Agente Vip)', email: 'agente2', password: '123', role: 'agent', companyId: 'comp2' },
-];
-
-const INITIAL_EVENTS = [
-  { id: '1', stateId: 'GO', city: 'Goiânia', date: '2026-08-15', time: '22:00', status: 'Disponível', companyId: 'comp1', agentId: 'agente1', type: 'cache' },
-  { id: '2', stateId: 'SP', city: 'Campinas', date: '2026-09-10', time: '23:30', status: 'Confirmado', companyId: 'comp2', agentId: 'agente2', type: 'portaria', contractorName: 'Prefeitura M.', contractorEmail: 'pref@cidade.com', contractorPhone: '(11) 9999-9999' },
-  { id: '3', stateId: 'MG', city: 'Uberlândia', date: '2026-10-20', time: '21:00', status: 'Proposta', companyId: 'comp1', agentId: 'agente1', type: 'emenda', contractorName: 'Festa da Uva', contractorEmail: 'festa@uva.com', contractorPhone: '(34) 9999-8888' },
-];
-
-const COLLECTIONS = ['companies', 'users', 'events'];
-const STORAGE_PREFIX = 'showmap:';
-const INITIAL_DATA = {
-  companies: INITIAL_COMPANIES,
-  users: INITIAL_USERS,
-  events: INITIAL_EVENTS,
+const TABLES = {
+  companies: 'companies',
+  users: 'profiles',
+  events: 'events',
 };
 
-const listeners = {
-  companies: [],
-  users: [],
-  events: [],
+const toCompany = (row) => ({
+  id: row.id,
+  name: row.name,
+  email: row.email || '',
+  phone: row.phone || '',
+  active: row.active,
+});
+
+const toUser = (row) => ({
+  id: row.id,
+  name: row.name,
+  email: row.email || '',
+  role: row.role,
+  companyId: row.company_id,
+});
+
+const toEvent = (row) => ({
+  id: row.id,
+  stateId: row.state_id,
+  city: row.city,
+  date: row.date,
+  time: row.time?.slice(0, 5) || '',
+  type: row.type,
+  status: row.status,
+  companyId: row.company_id,
+  agentId: row.agent_id,
+  contractorName: row.contractor_name || '',
+  contractorEmail: row.contractor_email || '',
+  contractorPhone: row.contractor_phone || '',
+});
+
+const fromCompany = (data) => ({
+  ...(data.id ? { id: data.id } : {}),
+  name: data.name.trim(),
+  email: data.email?.trim() || null,
+  phone: data.phone?.trim() || null,
+  active: Boolean(data.active),
+});
+
+const fromEvent = (data) => ({
+  ...(data.id ? { id: data.id } : {}),
+  state_id: data.stateId,
+  city: data.city.trim(),
+  date: data.date,
+  time: data.time || null,
+  type: data.type,
+  status: data.status,
+  company_id: data.companyId,
+  agent_id: data.agentId || null,
+  contractor_name: data.contractorName?.trim() || null,
+  contractor_email: data.contractorEmail?.trim() || null,
+  contractor_phone: data.contractorPhone?.trim() || null,
+});
+
+const throwIfError = (error) => {
+  if (error) throw new Error(error.message || 'Não foi possível concluir a operação no Supabase.');
 };
 
-const clone = (data) => JSON.parse(JSON.stringify(data));
-const storageKey = (collectionName) => `${STORAGE_PREFIX}${collectionName}`;
+const fetchCollection = async (collectionName) => {
+  const table = TABLES[collectionName];
+  if (!table) throw new Error(`Coleção inválida: ${collectionName}`);
 
-const assertCollection = (collectionName) => {
-  if (!COLLECTIONS.includes(collectionName)) {
-    throw new Error(`Coleção inválida: ${collectionName}`);
-  }
-};
-
-const getLocalData = (collectionName) => {
-  assertCollection(collectionName);
-  const saved = localStorage.getItem(storageKey(collectionName));
-  if (!saved) {
-    const initialData = clone(INITIAL_DATA[collectionName]);
-    localStorage.setItem(storageKey(collectionName), JSON.stringify(initialData));
-    return initialData;
-  }
-
-  try {
-    const data = JSON.parse(saved);
-    if (!Array.isArray(data)) throw new Error('Formato inválido');
-    return data;
-  } catch {
-    const initialData = clone(INITIAL_DATA[collectionName]);
-    localStorage.setItem(storageKey(collectionName), JSON.stringify(initialData));
-    return initialData;
-  }
-};
-
-const setLocalData = (collectionName, data) => {
-  assertCollection(collectionName);
-  localStorage.setItem(storageKey(collectionName), JSON.stringify(data));
-};
-
-const notify = (collectionName) => {
-  const data = getLocalData(collectionName);
-  listeners[collectionName].forEach((callback) => callback(clone(data)));
+  const { data, error } = await supabase.from(table).select('*');
+  throwIfError(error);
+  if (collectionName === 'companies') return data.map(toCompany);
+  if (collectionName === 'users') return data.map(toUser);
+  return data.map(toEvent);
 };
 
 export const initAuth = (onUserLoaded) => {
-  onUserLoaded({ uid: 'local-user', isAnonymous: true });
-  return () => {};
+  supabase.auth.getSession().then(({ data }) => onUserLoaded(data.session?.user || null));
+  const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    onUserLoaded(session?.user || null);
+  });
+  return () => subscription.unsubscribe();
+};
+
+export const signIn = async (email, password) => {
+  const { error } = await supabase.auth.signInWithPassword({ email: email.trim().toLowerCase(), password });
+  throwIfError(error);
+};
+
+export const signOut = async () => {
+  const { error } = await supabase.auth.signOut();
+  throwIfError(error);
 };
 
 export const subscribeCollection = (collectionName, callback) => {
-  assertCollection(collectionName);
-  listeners[collectionName].push(callback);
-  callback(clone(getLocalData(collectionName)));
+  let active = true;
+  const refresh = async () => {
+    try {
+      const list = await fetchCollection(collectionName);
+      if (active) callback(list);
+    } catch (error) {
+      console.error(`Erro ao carregar ${collectionName}:`, error);
+    }
+  };
+
+  refresh();
+  const channel = supabase
+    .channel(`showmap-${collectionName}-${crypto.randomUUID()}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: TABLES[collectionName] }, refresh)
+    .subscribe();
 
   return () => {
-    listeners[collectionName] = listeners[collectionName].filter((listener) => listener !== callback);
+    active = false;
+    supabase.removeChannel(channel);
   };
 };
 
 export const saveDocument = async (collectionName, data) => {
-  assertCollection(collectionName);
-  const docId = data.id ? String(data.id) : `${collectionName.slice(0, 4)}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-  const documentToSave = { ...data, id: docId };
-  const currentList = getLocalData(collectionName);
-  const updatedList = currentList.some((item) => String(item.id) === docId)
-    ? currentList.map((item) => String(item.id) === docId ? documentToSave : item)
-    : [...currentList, documentToSave];
+  if (collectionName === 'users') {
+    const action = data.id ? 'update' : 'create';
+    const { data: result, error } = await supabase.functions.invoke('manage-user', {
+      body: {
+        action,
+        id: data.id || undefined,
+        name: data.name,
+        email: data.email,
+        password: data.password || undefined,
+        role: data.role,
+        companyId: data.companyId || null,
+      },
+    });
+    throwIfError(error);
+    if (result?.error) throw new Error(result.error);
+    return result?.id || data.id;
+  }
 
-  setLocalData(collectionName, updatedList);
-  notify(collectionName);
-  return docId;
+  const row = collectionName === 'companies' ? fromCompany(data) : fromEvent(data);
+  const { data: result, error } = await supabase
+    .from(TABLES[collectionName])
+    .upsert(row)
+    .select('id')
+    .single();
+  throwIfError(error);
+  return result.id;
 };
 
 export const deleteDocument = async (collectionName, docId) => {
-  assertCollection(collectionName);
-  const id = String(docId);
-  setLocalData(collectionName, getLocalData(collectionName).filter((item) => String(item.id) !== id));
-  notify(collectionName);
-};
-
-export const exportLocalDatabase = () => ({
-  version: 1,
-  exportedAt: new Date().toISOString(),
-  database: Object.fromEntries(COLLECTIONS.map((collectionName) => [collectionName, getLocalData(collectionName)])),
-});
-
-const validateBackup = (backup) => {
-  if (!backup || backup.version !== 1 || !backup.database || typeof backup.database !== 'object') {
-    throw new Error('Arquivo de backup inválido.');
+  if (collectionName === 'users') {
+    const { data, error } = await supabase.functions.invoke('manage-user', {
+      body: { action: 'delete', id: docId },
+    });
+    throwIfError(error);
+    if (data?.error) throw new Error(data.error);
+    return;
   }
 
-  COLLECTIONS.forEach((collectionName) => {
-    const records = backup.database[collectionName];
-    if (!Array.isArray(records)) throw new Error(`A coleção ${collectionName} está ausente ou inválida.`);
-
-    const ids = new Set();
-    records.forEach((record) => {
-      if (!record || typeof record !== 'object' || !record.id) {
-        throw new Error(`A coleção ${collectionName} contém um registro inválido.`);
-      }
-      const id = String(record.id);
-      if (ids.has(id)) throw new Error(`A coleção ${collectionName} contém IDs repetidos.`);
-      ids.add(id);
-    });
-  });
+  const { error } = await supabase.from(TABLES[collectionName]).delete().eq('id', docId);
+  throwIfError(error);
 };
 
-export const importLocalDatabase = async (backup) => {
-  validateBackup(backup);
-  COLLECTIONS.forEach((collectionName) => {
-    setLocalData(collectionName, clone(backup.database[collectionName]));
-  });
-  COLLECTIONS.forEach(notify);
-};
+export const exportDatabase = async () => ({
+  version: 1,
+  exportedAt: new Date().toISOString(),
+  database: {
+    companies: await fetchCollection('companies'),
+    users: await fetchCollection('users'),
+    events: await fetchCollection('events'),
+  },
+});

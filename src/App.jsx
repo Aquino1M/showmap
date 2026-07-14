@@ -1,11 +1,12 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   initAuth,
   subscribeCollection,
   saveDocument,
   deleteDocument,
-  exportLocalDatabase,
-  importLocalDatabase
+  signIn,
+  signOut,
+  exportDatabase
 } from './firebase';
 import { 
   Map, CalendarDays, MapPin, Plus, ChevronRight, Users, 
@@ -244,7 +245,7 @@ export default function App() {
       unsubEvents();
     };
   }, [dbUser]);
-  
+
   const [authUser, setAuthUser] = useState(null);
   const [activeTab, setActiveTab] = useState('map');
   const [hoveredState, setHoveredState] = useState(null);
@@ -264,12 +265,45 @@ export default function App() {
   const [isContractorModalOpen, setIsContractorModalOpen] = useState(false);
 
   const [toast, setToast] = useState(null);
-  const importInputRef = useRef(null);
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
   };
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!dbUser) {
+        setAuthUser(null);
+        return;
+      }
+
+      const profile = users.find((user) => user.id === dbUser.id);
+      if (!profile) return;
+      const company = profile.companyId ? companies.find((item) => item.id === profile.companyId) : null;
+      if (profile.companyId && (!company || !company.active)) {
+        showToast('O escritório deste usuário está inativo ou não existe.', 'error');
+        signOut();
+        return;
+      }
+
+      if (loginType === 'office' && profile.role === 'agent') {
+        showToast('Acesso negado. Use o Portal do Agente.', 'error');
+        signOut();
+        return;
+      }
+      if (loginType === 'agent' && profile.role !== 'agent') {
+        showToast('Acesso negado. Use a Área do Escritório.', 'error');
+        signOut();
+        return;
+      }
+
+      setAuthUser(profile);
+      setActiveTab(profile.role === 'superadmin' ? 'stats' : 'map');
+      setCurrentView('dashboard');
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [companies, dbUser, loginType, users]);
 
   // --- Fluxo de Autenticação ---
   const handleLoginClick = (type) => {
@@ -278,39 +312,23 @@ export default function App() {
     setAuthForm({ email: '', password: '' });
   };
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
-    const user = users.find(u => u.email === authForm.email.trim() && u.password === authForm.password);
-    
-    if (!user) {
-      showToast('Credenciais incorretas.', 'error');
-      return;
+    try {
+      await signIn(authForm.email, authForm.password);
+      showToast('Login realizado com sucesso.');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Credenciais incorretas.', 'error');
     }
-
-    if (loginType === 'office' && (user.role !== 'company_admin' && user.role !== 'superadmin')) {
-      showToast('Acesso negado. Requer perfil de Escritório ou Administrador.', 'error'); return;
-    }
-    if (loginType === 'agent' && user.role !== 'agent') {
-      showToast('Acesso negado. Requer perfil de Agente.', 'error'); return;
-    }
-
-    if (user.companyId) {
-      const company = companies.find((item) => item.id === user.companyId);
-      if (!company || !company.active) {
-        showToast('O escritório deste usuário está inativo ou não existe.', 'error');
-        return;
-      }
-    }
-
-    setAuthUser(user);
-    setActiveTab(user.role === 'superadmin' ? 'stats' : 'map');
-    setCurrentView('dashboard');
-    showToast(`Bem-vindo, ${user.name}!`);
   };
 
-  const handleLogout = () => {
-    setAuthUser(null);
-    setCurrentView('home');
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      setCurrentView('home');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Não foi possível sair.', 'error');
+    }
   };
 
   // --- CRUD Escritórios (Apenas Super Admin) ---
@@ -322,7 +340,7 @@ export default function App() {
         adminId: companyAdmin?.id || null,
         adminName: companyAdmin?.name || '',
         adminLogin: companyAdmin?.email || '',
-        adminPassword: companyAdmin?.password || '',
+        adminPassword: '',
       });
     } else {
       setCompanyForm({ id: null, name: '', email: '', phone: '', active: true, adminId: null, adminName: '', adminLogin: '', adminPassword: '' });
@@ -368,7 +386,7 @@ export default function App() {
   // --- CRUD Agentes ---
   const openAgentModal = (agent = null) => {
     if (agent) {
-      setAgentForm({ ...agent });
+      setAgentForm({ ...agent, password: '' });
     } else {
       setAgentForm({ id: null, name: '', email: '', password: '', companyId: authUser.role === 'superadmin' ? '' : authUser.companyId });
     }
@@ -472,9 +490,9 @@ export default function App() {
     showToast('Registo apagado com sucesso.', 'error');
   };
 
-  const handleExportDatabase = () => {
+  const handleExportDatabase = async () => {
     try {
-      const backup = exportLocalDatabase();
+      const backup = await exportDatabase();
       const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -485,23 +503,6 @@ export default function App() {
       showToast('Backup exportado com sucesso.');
     } catch {
       showToast('Não foi possível exportar o backup.', 'error');
-    }
-  };
-
-  const handleImportDatabase = async (event) => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
-    if (!window.confirm('Importar um backup substituirá todos os dados locais atuais. Deseja continuar?')) return;
-
-    try {
-      const backup = JSON.parse(await file.text());
-      await importLocalDatabase(backup);
-      setAuthUser(null);
-      setCurrentView('home');
-      showToast('Backup importado com sucesso. Entre novamente para continuar.');
-    } catch (error) {
-      showToast(error instanceof Error ? error.message : 'Não foi possível importar este backup.', 'error');
     }
   };
 
@@ -691,9 +692,9 @@ export default function App() {
             </button>
             
             <div className="text-[10px] text-slate-500 mt-4 text-center leading-relaxed">
-              Logins para teste:<br/>
-              {loginType === 'office' && <span><b>admintop / 123</b> (Escritório 1) ou <b>admin / 123</b> (Admin Geral)</span>}
-              {loginType === 'agent' && <span><b>agente1 / 123</b> (Agente Escritório 1)</span>}
+              Use o e-mail e a senha cadastrados no Supabase.<br/>
+              {loginType === 'office' && <span>O Administrador Master entra pela Área do Escritório.</span>}
+              {loginType === 'agent' && <span>Seu administrador cria seu acesso no sistema.</span>}
             </div>
           </form>
         </div>
@@ -936,7 +937,7 @@ export default function App() {
                         )}
 
                         {authUser.role === 'superadmin' && (
-                          <button onClick={() => handleDeleteEvent(ev.id)} className="text-slate-500 hover:text-red-400 bg-[#0B0F19] p-1.5 rounded-lg border border-slate-800" title="Excluir registro">
+                          <button onClick={() => handleDeleteEvent(ev.id)} className="text-slate-500 hover:text-red-400 bg-[#0B0F19] p-1.5 rounded-lg border border-slate-800" title="Excluir agenda ou proposta">
                             <Trash2 size={16} />
                           </button>
                         )}
@@ -1003,8 +1004,8 @@ export default function App() {
         {activeTab === 'backup' && authUser.role === 'superadmin' && (
           <div className="max-w-3xl mx-auto">
             <div className="mb-6">
-              <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2"><Save className="text-indigo-400"/> Backup do Banco Local</h2>
-              <p className="text-sm text-slate-400 mt-2">Salve uma cópia do banco deste navegador ou restaure um backup anterior.</p>
+              <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2"><Save className="text-indigo-400"/> Backup do Banco Supabase</h2>
+              <p className="text-sm text-slate-400 mt-2">Exporte uma cópia dos dados salvos com segurança no Supabase.</p>
             </div>
 
             <div className="bg-[#111827] border border-slate-800 rounded-2xl p-5 sm:p-6 space-y-6">
@@ -1016,14 +1017,6 @@ export default function App() {
                 </button>
               </div>
 
-              <div className="rounded-xl border border-red-900/50 bg-red-950/10 p-4">
-                <h3 className="font-bold text-white">Importar backup</h3>
-                <p className="text-sm text-slate-400 mt-1">Substitui todos os dados locais atuais pelo conteúdo do arquivo selecionado.</p>
-                <input ref={importInputRef} type="file" accept="application/json,.json" onChange={handleImportDatabase} className="hidden" />
-                <button onClick={() => importInputRef.current?.click()} className="mt-4 bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2">
-                  <FileText size={16}/> Importar arquivo JSON
-                </button>
-              </div>
             </div>
           </div>
         )}
@@ -1292,11 +1285,11 @@ export default function App() {
               </div>
               <div>
                 <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Login</label>
-                <input required type="text" value={agentForm.email} onChange={e=>setAgentForm({...agentForm, email: e.target.value})} className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" />
+                  <input required type="email" value={agentForm.email} onChange={e=>setAgentForm({...agentForm, email: e.target.value})} className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" />
               </div>
               <div>
-                <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Senha</label>
-                <input required type="text" value={agentForm.password} onChange={e=>setAgentForm({...agentForm, password: e.target.value})} className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" />
+                <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">{agentForm.id ? 'Nova senha (opcional)' : 'Senha'}</label>
+                <input required={!agentForm.id} type="password" value={agentForm.password} onChange={e=>setAgentForm({...agentForm, password: e.target.value})} className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" />
               </div>
               
               {authUser.role === 'superadmin' && (
@@ -1349,11 +1342,11 @@ export default function App() {
                 </div>
                 <div>
                   <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Login de acesso</label>
-                  <input required type="text" value={companyForm.adminLogin} onChange={e=>setCompanyForm({...companyForm, adminLogin: e.target.value})} className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" />
+                  <input required type="email" value={companyForm.adminLogin} onChange={e=>setCompanyForm({...companyForm, adminLogin: e.target.value})} className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Senha</label>
-                  <input required type="password" value={companyForm.adminPassword} onChange={e=>setCompanyForm({...companyForm, adminPassword: e.target.value})} className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" />
+                  <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">{companyForm.id ? 'Nova senha (opcional)' : 'Senha'}</label>
+                  <input required={!companyForm.id} type="password" value={companyForm.adminPassword} onChange={e=>setCompanyForm({...companyForm, adminPassword: e.target.value})} className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" />
                 </div>
               </div>
               <div className="flex items-center gap-2 mt-4">
