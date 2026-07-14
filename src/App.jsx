@@ -10,7 +10,7 @@ import {
   exportDatabase
 } from './firebase';
 import { 
-  Map, CalendarDays, MapPin, Plus, ChevronRight, Users, 
+  Map, CalendarDays, MapPin, Plus, ChevronLeft, ChevronRight, Users,
   LayoutDashboard, X, Briefcase, FileText, Building, 
   UserPlus, Trash2, Edit, Save, HandMetal, Hand, LogOut, Clock,
   Globe2, ArrowRight
@@ -219,6 +219,7 @@ export default function App() {
   const [events, setEvents] = useState([]);
   const [dbUser, setDbUser] = useState(null);
   const [resolvedProfile, setResolvedProfile] = useState(null);
+  const [profileError, setProfileError] = useState('');
 
   useEffect(() => {
     const unsubscribeAuth = initAuth((usr) => {
@@ -233,8 +234,16 @@ export default function App() {
       return () => clearTimeout(timer);
     }
     ensureCurrentProfile()
-      .then(setResolvedProfile)
-      .catch((error) => console.error('Erro ao preparar perfil:', error));
+      .then((profile) => {
+        setProfileError('');
+        setResolvedProfile(profile);
+      })
+      .catch((error) => {
+        const message = error instanceof Error ? error.message : 'Não foi possível preparar o acesso.';
+        setProfileError(message);
+        setCurrentView('login');
+        signOut().catch(() => undefined);
+      });
   }, [dbUser]);
 
   useEffect(() => {
@@ -268,6 +277,8 @@ export default function App() {
 
   const [authUser, setAuthUser] = useState(null);
   const [activeTab, setActiveTab] = useState('map');
+  const [calendarCursor, setCalendarCursor] = useState(() => new Date());
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState('');
   const [hoveredState, setHoveredState] = useState(null);
   
   // Estados para Modais & Formulários
@@ -345,13 +356,15 @@ export default function App() {
     setLoginType(type);
     setCurrentView('login');
     setAuthForm({ email: '', password: '' });
+    setProfileError('');
   };
 
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
+      setProfileError('');
       await signIn(authForm.email, authForm.password);
-      showToast('Login realizado com sucesso.');
+      showToast('Verificando seu acesso...');
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Credenciais incorretas.', 'error');
     }
@@ -632,10 +645,27 @@ export default function App() {
     };
   }, [visibleEvents, users, authUser]);
 
+  const calendarDays = useMemo(() => {
+    const year = calendarCursor.getFullYear();
+    const month = calendarCursor.getMonth();
+    const firstWeekDay = new Date(year, month, 1).getDay();
+    const totalDays = new Date(year, month + 1, 0).getDate();
+    return Array.from({ length: firstWeekDay + totalDays }, (_, index) => {
+      if (index < firstWeekDay) return null;
+      const day = index - firstWeekDay + 1;
+      return { day, date: `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` };
+    });
+  }, [calendarCursor]);
+
+  const calendarEvents = useMemo(() => visibleEvents.filter((event) =>
+    (event.status === 'Confirmado' || event.status === 'Reservado') &&
+    (!selectedCalendarDate || event.date === selectedCalendarDate)
+  ), [visibleEvents, selectedCalendarDate]);
+
   // ================= VIEW: HOME (Landing Page) =================
   if (currentView === 'home') {
     return (
-      <div className="min-h-screen bg-[#0B0F19] text-slate-200 relative flex flex-col font-sans overflow-x-hidden selection:bg-indigo-500/30">
+      <div className="h-[100dvh] bg-[#0B0F19] text-slate-200 relative flex flex-col overflow-hidden font-sans selection:bg-indigo-500/30">
         <ToastNotification toast={toast} />
         
         {/* Efeitos de Fundo Modernos */}
@@ -662,15 +692,15 @@ export default function App() {
         </header>
 
         {/* Hero Section & Mapa Político Oficial */}
-        <main className="flex-1 w-full max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-center p-5 sm:p-8 gap-8 sm:gap-12 lg:gap-16 relative z-10">
+        <main className="min-h-0 flex-1 w-full max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-center p-4 sm:p-6 gap-6 lg:gap-12 relative z-10">
           
           {/* Coluna Esquerda */}
-          <div className="flex-1 w-full flex flex-col gap-8 mt-6 lg:mt-0 text-center lg:text-left z-20">
+          <div className="flex-1 w-full flex flex-col gap-5 sm:gap-7 mt-2 lg:mt-0 text-center lg:text-left z-20">
             <div className="inline-flex max-w-full items-center justify-center lg:justify-start gap-2 px-3 sm:px-4 py-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] sm:text-xs font-bold uppercase tracking-[0.1em] sm:tracking-widest mx-auto lg:mx-0 text-center">
                <Globe2 size={14} /> Solução Logística de Espetáculos
             </div>
             
-            <h2 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold text-white tracking-tight leading-[1.1]">
+            <h2 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-extrabold text-white tracking-tight leading-[1.1]">
               A inteligência por trás das maiores <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">Turnés do País.</span>
             </h2>
             
@@ -690,7 +720,7 @@ export default function App() {
           </div>
 
           {/* Coluna Direita: Mapa Político Exato e Contíguo (Totalmente Plano, Sem 3D, Sem Nomes Escritos) */}
-          <div className="flex-1 w-full max-w-[500px] lg:max-w-none h-[260px] sm:h-[600px] lg:h-[700px] relative flex items-center justify-center">
+          <div className="hidden lg:flex flex-1 w-full max-w-[500px] lg:max-w-none h-[min(68dvh,620px)] relative items-center justify-center">
             
             {/* Tooltip Dinâmico ao passar o Rato */}
             <div className={`absolute top-0 right-0 z-20 w-48 sm:w-64 bg-[#0B0F19]/95 backdrop-blur-xl border border-slate-700/80 p-4 rounded-2xl shadow-2xl transition-all duration-200 ease-out ${hoveredState ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'}`}>
@@ -777,6 +807,7 @@ export default function App() {
         <div className="z-10 text-center w-full max-w-[400px]">
           <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">{loginType === 'office' ? 'Acesso Escritório' : 'Acesso Agente'}</h1>
           <p className="text-slate-400 mb-8 text-sm">Insira as suas credenciais corporativas.</p>
+          {profileError && <p className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">{profileError}</p>}
           
           <form onSubmit={handleLogin} className="bg-[#111827] p-6 sm:p-8 rounded-3xl border border-slate-800 shadow-2xl space-y-5 text-left w-full">
             <div>
@@ -798,6 +829,13 @@ export default function App() {
   }
 
   // ================= VIEW: DASHBOARD =================
+  if (!authUser) {
+    return (
+      <div className="min-h-[100dvh] bg-[#0B0F19] text-slate-200 flex items-center justify-center p-6 text-center">
+        <div><p className="text-lg font-bold text-white">Preparando seu painel...</p><p className="mt-2 text-sm text-slate-400">Aguarde enquanto validamos seu acesso.</p></div>
+      </div>
+    );
+  }
   const TABS = [];
   if (authUser.role === 'superadmin') {
     TABS.push(
@@ -821,7 +859,7 @@ export default function App() {
       { id: 'map', label: 'Mapa', icon: Map },
       { id: 'proposals', label: 'Propostas', icon: FileText },
       { id: 'calendar', label: 'Calendário', icon: CalendarDays },
-      { id: 'contractors', label: 'Contratantes', icon: UserPlus }
+      { id: 'contractors', label: 'Novo Evento', icon: UserPlus }
     );
   }
 
@@ -986,17 +1024,17 @@ export default function App() {
           <div className="max-w-7xl mx-auto">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
               <div>
-                <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2"><UserPlus className="text-indigo-400"/> Cadastro de Contratantes</h2>
-                <p className="text-xs text-slate-400 mt-1">Registe novas propostas de espetáculos no sistema.</p>
+                <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2"><UserPlus className="text-indigo-400"/> Novo Evento</h2>
+                <p className="text-xs text-slate-400 mt-1">Registre uma nova proposta de espetáculo no sistema.</p>
               </div>
               <button onClick={() => setIsContractorModalOpen(true)} className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg">
-                <Plus size={16}/> Adicionar Contratante (Proposta)
+                <Plus size={16}/> Novo Evento
               </button>
             </div>
             
             <div className="bg-[#111827] border border-slate-800 rounded-2xl p-6 text-center">
               <Users size={48} className="mx-auto text-slate-600 mb-4" />
-              <p className="text-slate-400 text-sm">Os contratantes não possuem login no sistema.<br/>Clique no botão acima para registar uma proposta em nome de um contratante.</p>
+              <p className="text-slate-400 text-sm">Cadastre os dados do contratante e do evento para criar uma nova proposta.</p>
             </div>
           </div>
         )}
@@ -1132,9 +1170,31 @@ export default function App() {
             <h2 className="text-xl sm:text-2xl font-bold text-white mb-6 flex items-center gap-2"><CalendarDays className="text-indigo-400"/> Calendário {authUser.role === 'superadmin' ? 'Global' : 'do Escritório'}</h2>
             
             <div className="bg-[#111827] border border-slate-800 rounded-2xl p-4 sm:p-6">
+              <div className="mb-6">
+                <div className="flex items-center justify-between gap-3 mb-4">
+                  <button onClick={() => setCalendarCursor((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))} className="p-2 rounded-lg border border-slate-700 text-slate-300 hover:text-white"><ChevronLeft size={18}/></button>
+                  <h3 className="text-base sm:text-lg font-bold text-white capitalize">{calendarCursor.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}</h3>
+                  <button onClick={() => setCalendarCursor((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))} className="p-2 rounded-lg border border-slate-700 text-slate-300 hover:text-white"><ChevronRight size={18}/></button>
+                </div>
+                <div className="grid grid-cols-7 gap-1 text-center text-[10px] sm:text-xs text-slate-500 font-bold mb-1">
+                  {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => <span key={day}>{day}</span>)}
+                </div>
+                <div className="grid grid-cols-7 gap-1 sm:gap-2">
+                  {calendarDays.map((item, index) => {
+                    if (!item) return <div key={`empty-${index}`} />;
+                    const eventsOnDay = visibleEvents.filter((event) => event.date === item.date && (event.status === 'Confirmado' || event.status === 'Reservado'));
+                    const selected = selectedCalendarDate === item.date;
+                    return <button key={item.date} onClick={() => setSelectedCalendarDate(selected ? '' : item.date)} className={`min-h-12 sm:min-h-16 rounded-lg border p-1.5 text-left transition-colors ${selected ? 'border-indigo-400 bg-indigo-500/20' : eventsOnDay.length ? 'border-emerald-500/50 bg-emerald-500/10' : 'border-slate-800 bg-[#0B0F19] hover:border-slate-600'}`}>
+                      <span className="text-xs font-bold text-white">{item.day}</span>
+                      {eventsOnDay.length > 0 && <span className="mt-1 block text-[9px] text-emerald-300 truncate">{eventsOnDay.length} show{eventsOnDay.length > 1 ? 's' : ''}</span>}
+                    </button>;
+                  })}
+                </div>
+                {selectedCalendarDate && <button onClick={() => setSelectedCalendarDate('')} className="mt-3 text-xs text-indigo-300 hover:text-white">Limpar seleção</button>}
+              </div>
               <div className="space-y-4">
                 {/* Calendário mostra apenas os Confirmados/Reservados */}
-                {visibleEvents.filter(e => e.status === 'Confirmado' || e.status === 'Reservado').sort((a,b) => new Date(a.date) - new Date(b.date)).map(ev => {
+                {calendarEvents.sort((a,b) => new Date(a.date) - new Date(b.date)).map(ev => {
                   const comp = companies.find(c => c.id === ev.companyId);
                   const agent = users.find(u => u.id === ev.agentId);
                   
@@ -1165,7 +1225,7 @@ export default function App() {
                     </div>
                   )
                 })}
-                {visibleEvents.filter(e => e.status === 'Confirmado' || e.status === 'Reservado').length === 0 && <p className="text-slate-500 italic">Nenhum evento confirmado no calendário.</p>}
+                {calendarEvents.length === 0 && <p className="text-slate-500 italic">Nenhum evento confirmado{selectedCalendarDate ? ' nesta data' : ' no calendário'}.</p>}
               </div>
             </div>
           </div>
