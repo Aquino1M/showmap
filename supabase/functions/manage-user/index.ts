@@ -81,8 +81,9 @@ Deno.serve(async (request) => {
       }
       if (body.role !== 'superadmin' && !targetCompanyId) throw new Error('Selecione um escritório para este usuário.')
 
+      const email = body.email.trim().toLowerCase()
       const { data: created, error: createError } = await admin.auth.admin.createUser({
-        email: body.email.trim().toLowerCase(),
+        email,
         password: body.password,
         email_confirm: true,
         user_metadata: {
@@ -91,17 +92,35 @@ Deno.serve(async (request) => {
           company_id: targetCompanyId,
         },
       })
-      if (createError || !created.user) throw createError ?? new Error('Não foi possível criar o usuário.')
+      // Se a conta já existir (situação comum após um cadastro anterior que
+      // não gravou o perfil), recupera e vincula o perfil ao escritório atual.
+      let user = created.user
+      if (createError || !user) {
+        const { data: userPage, error: listError } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 })
+        if (listError) throw listError
+        user = userPage.users.find((item) => item.email?.trim().toLowerCase() === email)
+        if (!user) throw createError ?? new Error('Não foi possível criar o usuário.')
+
+        const { data: existingProfile } = await admin.from('profiles')
+          .select('role, company_id').eq('id', user.id).maybeSingle()
+        if (!isMaster && existingProfile?.company_id && existingProfile.company_id !== targetCompanyId) {
+          throw new Error('Este e-mail já está vinculado a outro escritório.')
+        }
+        if (body.password) {
+          const { error: passwordError } = await admin.auth.admin.updateUserById(user.id, { password: body.password })
+          if (passwordError) throw passwordError
+        }
+      }
 
       const { error: profileError } = await admin.from('profiles').upsert({
-        id: created.user.id,
+        id: user.id,
         name: body.name.trim(),
-        email: body.email.trim().toLowerCase(),
+        email,
         role: body.role,
         company_id: targetCompanyId,
       }, { onConflict: 'id' })
       if (profileError) throw profileError
-      return Response.json({ id: created.user.id }, { headers: corsHeaders })
+      return Response.json({ id: user.id }, { headers: corsHeaders })
     }
 
     if (!body.id) throw new Error('Usuário não informado.')

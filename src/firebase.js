@@ -64,6 +64,17 @@ const throwIfError = (error) => {
   if (error) throw new Error(error.message || 'Não foi possível concluir a operação no Supabase.');
 };
 
+const throwFunctionError = async (error, fallback) => {
+  if (!error) return;
+  try {
+    const body = await error.context?.json?.();
+    if (body?.error) throw new Error(body.error);
+  } catch (detailsError) {
+    if (detailsError instanceof Error && detailsError.message !== 'Unexpected end of JSON input') throw detailsError;
+  }
+  throw new Error(error.message || fallback);
+};
+
 const fetchCollection = async (collectionName) => {
   const table = TABLES[collectionName];
   if (!table) throw new Error(`Coleção inválida: ${collectionName}`);
@@ -97,7 +108,7 @@ export const ensureCurrentProfile = async () => {
   const { data, error } = await supabase.functions.invoke('manage-user', {
     body: { action: 'bootstrap' },
   });
-  throwIfError(error);
+  await throwFunctionError(error, 'Não foi possível preparar o perfil.');
   if (data?.error) throw new Error(data.error);
   return data?.profile || null;
 };
@@ -139,7 +150,7 @@ export const saveDocument = async (collectionName, data) => {
         companyId: data.companyId || null,
       },
     });
-    throwIfError(error);
+    await throwFunctionError(error, 'Não foi possível salvar o usuário.');
     if (result?.error) throw new Error(result.error);
     return result?.id || data.id;
   }
@@ -159,7 +170,7 @@ export const deleteDocument = async (collectionName, docId) => {
     const { data, error } = await supabase.functions.invoke('manage-user', {
       body: { action: 'delete', id: docId },
     });
-    throwIfError(error);
+    await throwFunctionError(error, 'Não foi possível excluir o usuário.');
     if (data?.error) throw new Error(data.error);
     return;
   }
