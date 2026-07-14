@@ -156,6 +156,8 @@ Deno.serve(async (request) => {
         contractor_name: typeof event.contractor_name === 'string' ? event.contractor_name.trim() || null : null,
         contractor_email: typeof event.contractor_email === 'string' ? event.contractor_email.trim().toLowerCase() || null : null,
         contractor_phone: typeof event.contractor_phone === 'string' ? event.contractor_phone.trim() || null : null,
+        contractor_instagram: typeof event.contractor_instagram === 'string' ? event.contractor_instagram.trim() || null : null,
+        event_name: typeof event.event_name === 'string' ? event.event_name.trim() || null : null,
       }
       if (!safeEvent.state_id || !safeEvent.city || !safeEvent.date || !safeEvent.type) throw new Error('Preencha os dados obrigatórios da agenda.')
       const eventCompanyId = safeEvent.company_id

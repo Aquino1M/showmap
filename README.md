@@ -23,7 +23,7 @@ npx supabase login
 npx supabase functions deploy manage-user --project-ref veszdgbonolvmcpablol
 ```
 
-Para instalações já existentes, execute `supabase/migration-profile-link.sql` uma única vez. `migration-clean-start.sql` apaga dados e não deve ser usado em produção.
+Para instalações já existentes, execute uma única vez `supabase/migration-profile-link.sql` e `supabase/migration-event-details.sql`. `migration-clean-start.sql` apaga dados e não deve ser usado em produção.
 
 ## Perfis
 

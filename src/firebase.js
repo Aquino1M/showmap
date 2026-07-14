@@ -35,6 +35,8 @@ const toEvent = (row) => ({
   contractorName: row.contractor_name || '',
   contractorEmail: row.contractor_email || '',
   contractorPhone: row.contractor_phone || '',
+  contractorInstagram: row.contractor_instagram || '',
+  eventName: row.event_name || '',
 });
 
 const fromCompany = (data) => ({
@@ -58,6 +60,8 @@ const fromEvent = (data) => ({
   contractor_name: data.contractorName?.trim() || null,
   contractor_email: data.contractorEmail?.trim() || null,
   contractor_phone: data.contractorPhone?.trim() || null,
+  contractor_instagram: data.contractorInstagram?.trim() || null,
+  event_name: data.eventName?.trim() || null,
 });
 
 const throwIfError = (error) => {

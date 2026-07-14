@@ -272,7 +272,7 @@ export default function App() {
   
   // Estados para Modais & Formulários
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
-  const [formData, setFormData] = useState({ id: null, date: '', time: '', city: '', stateId: 'GO', type: 'cache' });
+  const [formData, setFormData] = useState({ id: null, date: '', time: '', city: '', stateId: 'GO', type: 'cache', contractorName: '', contractorEmail: '', contractorPhone: '', contractorInstagram: '', eventName: '' });
   const [authForm, setAuthForm] = useState({ email: '', password: '' });
   
   const [agentForm, setAgentForm] = useState({ id: null, name: '', email: '', password: '', companyId: '' });
@@ -285,7 +285,7 @@ export default function App() {
   const [isSavingCompany, setIsSavingCompany] = useState(false);
   const companySaveInFlight = useRef(false);
 
-  const [contractorForm, setContractorForm] = useState({ contractorName: '', email: '', phone: '', date: '', time: '', city: '', stateId: 'GO', type: 'cache' });
+  const [contractorForm, setContractorForm] = useState({ contractorName: '', email: '', phone: '', instagram: '', eventName: '', date: '', time: '', city: '', stateId: 'GO', type: 'cache' });
   const [isContractorModalOpen, setIsContractorModalOpen] = useState(false);
 
   const [toast, setToast] = useState(null);
@@ -509,6 +509,8 @@ export default function App() {
       contractorName: contractorForm.contractorName,
       contractorEmail: contractorForm.email,
       contractorPhone: contractorForm.phone,
+      contractorInstagram: contractorForm.instagram,
+      eventName: contractorForm.eventName,
       status: 'Proposta',
       companyId: authUser.companyId,
       agentId: authUser.id,
@@ -525,8 +527,8 @@ export default function App() {
 
   // --- CRUD Shows / Eventos Livres (Escritório) ---
   const openEventModal = (ev = null) => {
-    if (ev) setFormData({ id: ev.id, date: ev.date, time: ev.time || '', city: ev.city, stateId: ev.stateId, type: ev.type });
-    else setFormData({ id: null, date: '', time: '', city: '', stateId: 'GO', type: 'cache' });
+    if (ev) setFormData({ id: ev.id, date: ev.date, time: ev.time || '', city: ev.city, stateId: ev.stateId, type: ev.type, contractorName: ev.contractorName || '', contractorEmail: ev.contractorEmail || '', contractorPhone: ev.contractorPhone || '', contractorInstagram: ev.contractorInstagram || '', eventName: ev.eventName || '' });
+    else setFormData({ id: null, date: '', time: '', city: '', stateId: 'GO', type: 'cache', contractorName: '', contractorEmail: '', contractorPhone: '', contractorInstagram: '', eventName: '' });
     setIsEventModalOpen(true);
   };
 
@@ -540,12 +542,14 @@ export default function App() {
       city: formData.city,
       stateId: formData.stateId,
       type: formData.type,
-      status: existing ? existing.status : 'Disponível',
+      status: existing ? existing.status : (formData.contractorName ? 'Proposta' : 'Disponível'),
       companyId: authUser.companyId,
       agentId: existing ? existing.agentId : null,
-      contractorName: existing ? existing.contractorName : '',
-      contractorEmail: existing ? existing.contractorEmail : '',
-      contractorPhone: existing ? existing.contractorPhone : ''
+      contractorName: formData.contractorName,
+      contractorEmail: formData.contractorEmail,
+      contractorPhone: formData.contractorPhone,
+      contractorInstagram: formData.contractorInstagram,
+      eventName: formData.eventName
     };
     try {
       await saveDocument('events', eventToSave);
@@ -639,7 +643,7 @@ export default function App() {
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-cyan-600/10 blur-[120px] rounded-full pointer-events-none"></div>
         
         {/* Navbar */}
-        <header className="w-full bg-transparent p-6 relative z-50">
+        <header className="w-full bg-transparent p-4 sm:p-6 relative z-50">
           <div className="max-w-7xl mx-auto flex justify-between items-center">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/25">
@@ -647,7 +651,7 @@ export default function App() {
               </div>
               <div className="leading-none">
                 <h1 className="font-extrabold text-white text-2xl tracking-tight">ShowMap</h1>
-                <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-indigo-300">Solução logística de espetáculos</p>
+                <p className="mt-1 text-[8px] sm:text-[10px] font-semibold uppercase tracking-[0.1em] sm:tracking-[0.14em] text-indigo-300">Solução logística de espetáculos</p>
               </div>
             </div>
             <div className="hidden sm:flex gap-4">
@@ -658,15 +662,15 @@ export default function App() {
         </header>
 
         {/* Hero Section & Mapa Político Oficial */}
-        <main className="flex-1 w-full max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-center p-6 sm:p-8 gap-12 lg:gap-16 relative z-10">
+        <main className="flex-1 w-full max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-center p-5 sm:p-8 gap-8 sm:gap-12 lg:gap-16 relative z-10">
           
           {/* Coluna Esquerda */}
           <div className="flex-1 w-full flex flex-col gap-8 mt-6 lg:mt-0 text-center lg:text-left z-20">
-            <div className="inline-flex items-center justify-center lg:justify-start gap-2 px-4 py-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-bold uppercase tracking-widest mx-auto lg:mx-0 w-max">
+            <div className="inline-flex max-w-full items-center justify-center lg:justify-start gap-2 px-3 sm:px-4 py-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] sm:text-xs font-bold uppercase tracking-[0.1em] sm:tracking-widest mx-auto lg:mx-0 text-center">
                <Globe2 size={14} /> Solução Logística de Espetáculos
             </div>
             
-            <h2 className="text-5xl sm:text-6xl lg:text-7xl font-extrabold text-white tracking-tight leading-[1.1]">
+            <h2 className="text-4xl sm:text-6xl lg:text-7xl font-extrabold text-white tracking-tight leading-[1.1]">
               A inteligência por trás das maiores <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">Turnés do País.</span>
             </h2>
             
@@ -686,7 +690,7 @@ export default function App() {
           </div>
 
           {/* Coluna Direita: Mapa Político Exato e Contíguo (Totalmente Plano, Sem 3D, Sem Nomes Escritos) */}
-          <div className="flex-1 w-full max-w-[500px] lg:max-w-none h-[450px] sm:h-[600px] lg:h-[700px] relative flex items-center justify-center">
+          <div className="flex-1 w-full max-w-[500px] lg:max-w-none h-[260px] sm:h-[600px] lg:h-[700px] relative flex items-center justify-center">
             
             {/* Tooltip Dinâmico ao passar o Rato */}
             <div className={`absolute top-0 right-0 z-20 w-48 sm:w-64 bg-[#0B0F19]/95 backdrop-blur-xl border border-slate-700/80 p-4 rounded-2xl shadow-2xl transition-all duration-200 ease-out ${hoveredState ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'}`}>
@@ -1049,8 +1053,10 @@ export default function App() {
                         <>
                           <p className="text-[10px] text-slate-500 uppercase font-bold mb-1">Contratante</p>
                           <p className="text-sm text-white font-medium truncate">{ev.contractorName}</p>
+                          {ev.eventName && <p className="text-xs text-indigo-300 mt-1">Evento: {ev.eventName}</p>}
                           <p className="text-xs text-slate-400 mt-1">WhatsApp: {ev.contractorPhone}</p>
                           <p className="text-xs text-slate-400 truncate">Email: {ev.contractorEmail}</p>
+                          {ev.contractorInstagram && <p className="text-xs text-slate-400 truncate">Instagram: {ev.contractorInstagram}</p>}
                         </>
                       ) : (
                         <p className="text-sm text-slate-500 italic mt-2 text-center">Data Livre</p>
@@ -1277,6 +1283,17 @@ export default function App() {
                 </div>
               </div>
 
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-2">Instagram</label>
+                  <input type="text" value={contractorForm.instagram} onChange={e => setContractorForm({...contractorForm, instagram: e.target.value})} placeholder="@perfil" className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-2">Nome do Evento</label>
+                  <input type="text" required value={contractorForm.eventName} onChange={e => setContractorForm({...contractorForm, eventName: e.target.value})} className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" />
+                </div>
+              </div>
+
               <div className="border-t border-slate-800 pt-5 mt-5">
                 <h4 className="text-white text-sm font-bold mb-4">Dados do Evento</h4>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
@@ -1333,6 +1350,18 @@ export default function App() {
               <button onClick={() => setIsEventModalOpen(false)} className="text-slate-400 hover:text-white"><X size={20} /></button>
             </div>
             <form onSubmit={handleSaveEvent} className="p-4 sm:p-6 space-y-4 overflow-y-auto">
+              <div className="border-b border-slate-800 pb-4 space-y-4">
+                <p className="text-sm font-bold text-white">Dados do contratante e evento</p>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div><label className="block text-[10px] font-bold text-slate-500 uppercase mb-2">Nome do Contratante</label><input type="text" value={formData.contractorName} onChange={e => setFormData({...formData, contractorName: e.target.value})} className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" /></div>
+                  <div><label className="block text-[10px] font-bold text-slate-500 uppercase mb-2">Nome do Evento</label><input type="text" value={formData.eventName} onChange={e => setFormData({...formData, eventName: e.target.value})} className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" /></div>
+                </div>
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div><label className="block text-[10px] font-bold text-slate-500 uppercase mb-2">E-mail</label><input type="email" value={formData.contractorEmail} onChange={e => setFormData({...formData, contractorEmail: e.target.value})} className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" /></div>
+                  <div><label className="block text-[10px] font-bold text-slate-500 uppercase mb-2">Telefone / WhatsApp</label><input type="text" value={formData.contractorPhone} onChange={e => setFormData({...formData, contractorPhone: e.target.value})} className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" /></div>
+                </div>
+                <div><label className="block text-[10px] font-bold text-slate-500 uppercase mb-2">Instagram</label><input type="text" value={formData.contractorInstagram} onChange={e => setFormData({...formData, contractorInstagram: e.target.value})} placeholder="@perfil" className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" /></div>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-bold text-slate-500 uppercase mb-2">Data</label>
