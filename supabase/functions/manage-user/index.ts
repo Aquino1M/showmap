@@ -8,7 +8,7 @@ const corsHeaders = {
 type Role = 'superadmin' | 'company_admin' | 'agent'
 
 type RequestBody = {
-  action: 'bootstrap' | 'create' | 'update' | 'delete' | 'save_event' | 'delete_event' | 'list_events' | 'list_users'
+  action: 'bootstrap' | 'create' | 'update' | 'delete' | 'save_event' | 'delete_event' | 'list_events' | 'list_users' | 'list_companies' | 'save_company' | 'delete_company'
   id?: string
   name?: string
   email?: string
@@ -16,6 +16,7 @@ type RequestBody = {
   role?: Role
   companyId?: string | null
   event?: Record<string, unknown>
+  company?: Record<string, unknown>
 }
 
 Deno.serve(async (request) => {
@@ -90,6 +91,31 @@ Deno.serve(async (request) => {
       const { data: users, error } = await query
       if (error) throw error
       return Response.json({ users }, { headers: corsHeaders })
+    }
+
+    if (body.action === 'list_companies') {
+      let query = admin.from('companies').select('*').order('name', { ascending: true })
+      if (!isMaster) query = query.eq('id', caller.company_id)
+      const { data: companies, error } = await query
+      if (error) throw error
+      return Response.json({ companies }, { headers: corsHeaders })
+    }
+
+    if (body.action === 'save_company') {
+      if (!isMaster || !body.company || typeof body.company.name !== 'string') {
+        throw new Error('Somente o Administrador Master pode salvar escritórios.')
+      }
+      const { data: company, error } = await admin.from('companies')
+        .upsert(body.company).select('id').single()
+      if (error) throw error
+      return Response.json({ id: company.id }, { headers: corsHeaders })
+    }
+
+    if (body.action === 'delete_company') {
+      if (!isMaster || !body.id) throw new Error('Somente o Administrador Master pode excluir escritórios.')
+      const { error } = await admin.from('companies').delete().eq('id', body.id)
+      if (error) throw error
+      return Response.json({ id: body.id }, { headers: corsHeaders })
     }
 
     if (body.action === 'save_event') {

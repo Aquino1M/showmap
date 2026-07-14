@@ -617,9 +617,10 @@ export default function App() {
       total: contextEvents.length,
       confirmed: contextEvents.filter(e => e.status === 'Confirmado' || e.status === 'Reservado').length,
       proposals: contextEvents.filter(e => e.status === 'Proposta').length,
-      available: contextEvents?.filter(e => e.status === 'Disponível').length || 0
+      available: contextEvents?.filter(e => e.status === 'Disponível').length || 0,
+      agents: users.filter((user) => user.role === 'agent' && user.companyId === authUser?.companyId).length
     };
-  }, [visibleEvents]);
+  }, [visibleEvents, users, authUser]);
 
   // ================= VIEW: HOME (Landing Page) =================
   if (currentView === 'home') {
@@ -885,6 +886,12 @@ export default function App() {
                  <p className="text-[10px] sm:text-xs text-slate-400 font-bold uppercase mb-2">Datas Livres</p>
                  <p className="text-3xl sm:text-4xl font-black text-blue-400">{authUser.role === 'superadmin' ? globalStats.available : myStats.available}</p>
                </div>
+               {authUser.role === 'company_admin' && (
+                 <div className="bg-[#111827] border border-slate-800 p-4 sm:p-5 rounded-2xl">
+                   <p className="text-[10px] sm:text-xs text-slate-400 font-bold uppercase mb-2">Agentes Cadastrados</p>
+                   <p className="text-3xl sm:text-4xl font-black text-indigo-400">{myStats.agents}</p>
+                 </div>
+               )}
             </div>
           </div>
         )}

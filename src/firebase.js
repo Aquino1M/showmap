@@ -97,6 +97,15 @@ const fetchCollection = async (collectionName) => {
     return (data?.users || []).map(toUser);
   }
 
+  if (collectionName === 'companies') {
+    const { data, error } = await supabase.functions.invoke('manage-user', {
+      body: { action: 'list_companies' },
+    });
+    await throwFunctionError(error, 'Não foi possível carregar os escritórios.');
+    if (data?.error) throw new Error(data.error);
+    return (data?.companies || []).map(toCompany);
+  }
+
   const { data, error } = await supabase.from(table).select('*');
   throwIfError(error);
   if (collectionName === 'companies') return data.map(toCompany);
@@ -174,6 +183,15 @@ export const saveDocument = async (collectionName, data) => {
   }
 
   const row = collectionName === 'companies' ? fromCompany(data) : fromEvent(data);
+  if (collectionName === 'companies') {
+    const { data: result, error } = await supabase.functions.invoke('manage-user', {
+      body: { action: 'save_company', company: row },
+    });
+    await throwFunctionError(error, 'Não foi possível salvar o escritório.');
+    if (result?.error) throw new Error(result.error);
+    return result?.id;
+  }
+
   if (collectionName === 'events') {
     const { data: result, error } = await supabase.functions.invoke('manage-user', {
       body: { action: 'save_event', event: row },
@@ -206,6 +224,15 @@ export const deleteDocument = async (collectionName, docId) => {
       body: { action: 'delete_event', id: docId },
     });
     await throwFunctionError(error, 'Não foi possível excluir a agenda.');
+    if (data?.error) throw new Error(data.error);
+    return;
+  }
+
+  if (collectionName === 'companies') {
+    const { data, error } = await supabase.functions.invoke('manage-user', {
+      body: { action: 'delete_company', id: docId },
+    });
+    await throwFunctionError(error, 'Não foi possível excluir o escritório.');
     if (data?.error) throw new Error(data.error);
     return;
   }
