@@ -79,6 +79,15 @@ const fetchCollection = async (collectionName) => {
   const table = TABLES[collectionName];
   if (!table) throw new Error(`Coleção inválida: ${collectionName}`);
 
+  if (collectionName === 'events') {
+    const { data, error } = await supabase.functions.invoke('manage-user', {
+      body: { action: 'list_events' },
+    });
+    await throwFunctionError(error, 'Não foi possível carregar a agenda.');
+    if (data?.error) throw new Error(data.error);
+    return (data?.events || []).map(toEvent);
+  }
+
   const { data, error } = await supabase.from(table).select('*');
   throwIfError(error);
   if (collectionName === 'companies') return data.map(toCompany);

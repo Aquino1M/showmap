@@ -8,7 +8,7 @@ const corsHeaders = {
 type Role = 'superadmin' | 'company_admin' | 'agent'
 
 type RequestBody = {
-  action: 'bootstrap' | 'create' | 'update' | 'delete' | 'save_event' | 'delete_event'
+  action: 'bootstrap' | 'create' | 'update' | 'delete' | 'save_event' | 'delete_event' | 'list_events'
   id?: string
   name?: string
   email?: string
@@ -75,6 +75,14 @@ Deno.serve(async (request) => {
 
     const canManage = (role: Role, companyId: string | null) =>
       isMaster || (isCompanyAdmin && role === 'agent' && companyId === caller.company_id)
+
+    if (body.action === 'list_events') {
+      let query = admin.from('events').select('*').order('date', { ascending: true })
+      if (!isMaster) query = query.eq('company_id', caller.company_id)
+      const { data: events, error } = await query
+      if (error) throw error
+      return Response.json({ events }, { headers: corsHeaders })
+    }
 
     if (body.action === 'save_event') {
       const event = body.event
