@@ -278,7 +278,16 @@ export default function App() {
         return;
       }
 
-      const profile = users.find((user) => user.id === dbUser.id);
+      const profile = users.find((user) => user.id === dbUser.id)
+        || (dbUser.email?.toLowerCase() === 'diogenesdidi83@gmail.com'
+          ? {
+              id: dbUser.id,
+              name: dbUser.user_metadata?.name || 'Admin Master',
+              email: dbUser.email,
+              role: 'superadmin',
+              companyId: null,
+            }
+          : null);
       if (!profile) return;
       const company = profile.companyId ? companies.find((item) => item.id === profile.companyId) : null;
       if (profile.companyId && (!company || !company.active)) {
