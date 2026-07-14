@@ -88,6 +88,15 @@ const fetchCollection = async (collectionName) => {
     return (data?.events || []).map(toEvent);
   }
 
+  if (collectionName === 'users') {
+    const { data, error } = await supabase.functions.invoke('manage-user', {
+      body: { action: 'list_users' },
+    });
+    await throwFunctionError(error, 'Não foi possível carregar os usuários.');
+    if (data?.error) throw new Error(data.error);
+    return (data?.users || []).map(toUser);
+  }
+
   const { data, error } = await supabase.from(table).select('*');
   throwIfError(error);
   if (collectionName === 'companies') return data.map(toCompany);

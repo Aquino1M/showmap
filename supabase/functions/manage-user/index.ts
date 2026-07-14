@@ -8,7 +8,7 @@ const corsHeaders = {
 type Role = 'superadmin' | 'company_admin' | 'agent'
 
 type RequestBody = {
-  action: 'bootstrap' | 'create' | 'update' | 'delete' | 'save_event' | 'delete_event' | 'list_events'
+  action: 'bootstrap' | 'create' | 'update' | 'delete' | 'save_event' | 'delete_event' | 'list_events' | 'list_users'
   id?: string
   name?: string
   email?: string
@@ -82,6 +82,14 @@ Deno.serve(async (request) => {
       const { data: events, error } = await query
       if (error) throw error
       return Response.json({ events }, { headers: corsHeaders })
+    }
+
+    if (body.action === 'list_users') {
+      let query = admin.from('profiles').select('id, name, email, role, company_id').order('name', { ascending: true })
+      if (!isMaster) query = query.eq('company_id', caller.company_id)
+      const { data: users, error } = await query
+      if (error) throw error
+      return Response.json({ users }, { headers: corsHeaders })
     }
 
     if (body.action === 'save_event') {
