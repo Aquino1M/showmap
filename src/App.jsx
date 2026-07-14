@@ -242,7 +242,6 @@ export default function App() {
         const message = error instanceof Error ? error.message : 'Não foi possível preparar o acesso.';
         setProfileError(message);
         setCurrentView('login');
-        signOut().catch(() => undefined);
       });
   }, [dbUser]);
 
@@ -329,18 +328,18 @@ export default function App() {
       if (profile.companyId && !companiesLoaded) return;
       if (profile.companyId && (!company || !company.active)) {
         showToast('O escritório deste usuário está inativo ou não existe.', 'error');
-        signOut();
+        setCurrentView('login');
         return;
       }
 
       if (loginType === 'office' && profile.role === 'agent') {
         showToast('Acesso negado. Use o Portal do Agente.', 'error');
-        signOut();
+        setCurrentView('login');
         return;
       }
       if (loginType === 'agent' && profile.role !== 'agent') {
         showToast('Acesso negado. Use a Área do Escritório.', 'error');
-        signOut();
+        setCurrentView('login');
         return;
       }
 
