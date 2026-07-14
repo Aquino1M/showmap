@@ -8,7 +8,7 @@ const corsHeaders = {
 type Role = 'superadmin' | 'company_admin' | 'agent'
 
 type RequestBody = {
-  action: 'create' | 'update' | 'delete'
+  action: 'bootstrap' | 'create' | 'update' | 'delete'
   id?: string
   name?: string
   email?: string
@@ -33,14 +33,44 @@ Deno.serve(async (request) => {
     const { data: authData, error: authError } = await admin.auth.getUser(token)
     if (authError || !authData.user) throw new Error('Sessão inválida.')
 
+    const body = await request.json() as RequestBody
     const { data: caller, error: callerError } = await admin
       .from('profiles')
-      .select('id, role, company_id')
+      .select('id, name, email, role, company_id')
       .eq('id', authData.user.id)
       .single()
+
+    if (body.action === 'bootstrap') {
+      if (caller) return Response.json({ profile: {
+        id: caller.id, name: caller.name, email: caller.email,
+        role: caller.role, companyId: caller.company_id,
+      } }, { headers: corsHeaders })
+
+      const email = authData.user.email?.trim().toLowerCase()
+      if (!email) throw new Error('E-mail do usuário não encontrado.')
+      const { data: matchingCompany } = await admin.from('companies')
+        .select('id').ilike('email', email).maybeSingle()
+      const role: Role = email === 'diogenesdidi83@gmail.com'
+        ? 'superadmin' : matchingCompany ? 'company_admin' : 'agent'
+      const companyId = role === 'superadmin' ? null : matchingCompany?.id ?? null
+      if (role === 'agent' && !companyId) throw new Error('Perfil do agente não possui escritório vinculado.')
+      const profile = {
+        id: authData.user.id,
+        name: authData.user.user_metadata?.name || email.split('@')[0],
+        email,
+        role,
+        company_id: companyId,
+      }
+      const { error: bootstrapError } = await admin.from('profiles').upsert(profile, { onConflict: 'id' })
+      if (bootstrapError) throw bootstrapError
+      return Response.json({ profile: {
+        id: profile.id, name: profile.name, email: profile.email,
+        role: profile.role, companyId: profile.company_id,
+      } }, { headers: corsHeaders })
+    }
+
     if (callerError || !caller) throw new Error('Perfil do solicitante não encontrado.')
 
-    const body = await request.json() as RequestBody
     const isMaster = caller.role === 'superadmin'
     const isCompanyAdmin = caller.role === 'company_admin'
     const targetCompanyId = body.companyId ?? null

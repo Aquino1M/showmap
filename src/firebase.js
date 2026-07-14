@@ -93,6 +93,15 @@ export const signOut = async () => {
   throwIfError(error);
 };
 
+export const ensureCurrentProfile = async () => {
+  const { data, error } = await supabase.functions.invoke('manage-user', {
+    body: { action: 'bootstrap' },
+  });
+  throwIfError(error);
+  if (data?.error) throw new Error(data.error);
+  return data?.profile || null;
+};
+
 export const subscribeCollection = (collectionName, callback) => {
   let active = true;
   const refresh = async () => {

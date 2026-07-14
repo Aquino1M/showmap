@@ -6,6 +6,7 @@ import {
   deleteDocument,
   signIn,
   signOut,
+  ensureCurrentProfile,
   exportDatabase
 } from './firebase';
 import { 
@@ -216,6 +217,7 @@ export default function App() {
   const [users, setUsers] = useState([]);
   const [events, setEvents] = useState([]);
   const [dbUser, setDbUser] = useState(null);
+  const [resolvedProfile, setResolvedProfile] = useState(null);
 
   useEffect(() => {
     const unsubscribeAuth = initAuth((usr) => {
@@ -223,6 +225,16 @@ export default function App() {
     });
     return () => unsubscribeAuth();
   }, []);
+
+  useEffect(() => {
+    if (!dbUser) {
+      const timer = setTimeout(() => setResolvedProfile(null), 0);
+      return () => clearTimeout(timer);
+    }
+    ensureCurrentProfile()
+      .then(setResolvedProfile)
+      .catch((error) => console.error('Erro ao preparar perfil:', error));
+  }, [dbUser]);
 
   useEffect(() => {
     if (!dbUser) return;
@@ -281,6 +293,7 @@ export default function App() {
       }
 
       const profile = users.find((user) => user.id === dbUser.id)
+        || resolvedProfile
         || (dbUser.email?.toLowerCase() === 'diogenesdidi83@gmail.com'
           ? {
               id: dbUser.id,
@@ -314,7 +327,7 @@ export default function App() {
       setCurrentView('dashboard');
     }, 0);
     return () => clearTimeout(timer);
-  }, [companies, dbUser, loginType, users]);
+  }, [companies, dbUser, loginType, resolvedProfile, users]);
 
   // --- Fluxo de Autenticação ---
   const handleLoginClick = (type) => {
@@ -717,11 +730,6 @@ export default function App() {
               Aceder ao Painel <ChevronRight size={18}/>
             </button>
             
-            <div className="text-[10px] text-slate-500 mt-4 text-center leading-relaxed">
-              Use o e-mail e a senha cadastrados no Supabase.<br/>
-              {loginType === 'office' && <span>O Administrador Master entra pela Área do Escritório.</span>}
-              {loginType === 'agent' && <span>Seu administrador cria seu acesso no sistema.</span>}
-            </div>
           </form>
         </div>
       </div>
