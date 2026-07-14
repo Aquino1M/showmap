@@ -1,15 +1,7 @@
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
-import { 
-  getFirestore, 
-  collection, 
-  doc, 
-  setDoc, 
-  deleteDoc, 
-  onSnapshot 
-} from 'firebase/firestore';
+// Banco de dados local do ShowMap.
+// Os dados ficam neste navegador, em localStorage, e podem ser salvos/restaurados
+// pela aba Backup do Administrador Master.
 
-// Initial Mock Data
 const INITIAL_COMPANIES = [
   { id: 'comp1', name: 'Top Shows Produções', email: 'contato@topshows.com', phone: '(11) 9999-9999', active: true },
   { id: 'comp2', name: 'Sertanejo VIP', email: 'vendas@sertanejovip.com', phone: '(62) 8888-8888', active: true },
@@ -29,156 +21,126 @@ const INITIAL_EVENTS = [
   { id: '3', stateId: 'MG', city: 'Uberlândia', date: '2026-10-20', time: '21:00', status: 'Proposta', companyId: 'comp1', agentId: 'agente1', type: 'emenda', contractorName: 'Festa da Uva', contractorEmail: 'festa@uva.com', contractorPhone: '(34) 9999-8888' },
 ];
 
-// Read configuration from variables
-const env = import.meta.env || {};
-const apiKey = env.VITE_FIREBASE_API_KEY || env.REACT_APP_FIREBASE_API_KEY;
-const authDomain = env.VITE_FIREBASE_AUTH_DOMAIN || env.REACT_APP_FIREBASE_AUTH_DOMAIN;
-const projectId = env.VITE_FIREBASE_PROJECT_ID || env.REACT_APP_FIREBASE_PROJECT_ID;
-
-let firebaseConfig = null;
-if (typeof window !== 'undefined' && window.__firebase_config) {
-  firebaseConfig = window.__firebase_config;
-} else if (apiKey && authDomain && projectId) {
-  firebaseConfig = {
-    apiKey,
-    authDomain,
-    projectId,
-  };
-}
-
-const appId = (typeof window !== 'undefined' && window.__app_id) || env.VITE_APP_ID || 'showmap-enterprise-prod';
-
-let isFirebaseActive = false;
-let db = null;
-let auth = null;
-
-if (firebaseConfig) {
-  try {
-    const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-    auth = getAuth(app);
-    db = getFirestore(app);
-    isFirebaseActive = true;
-    console.log('Firebase initialized successfully with appId:', appId);
-  } catch (error) {
-    console.error('Firebase initialization failed. Falling back to local storage:', error);
-  }
-} else {
-  console.log('No Firebase config found. Running in Local Mode (localStorage).');
-}
-
-// Secure Authentication Hook (Rule 3)
-export const initAuth = (onUserLoaded) => {
-  if (!isFirebaseActive) {
-    // Local mode simulation: instantly triggers authentication loaded state
-    onUserLoaded({ uid: 'local-user', isAnonymous: true });
-    return () => {};
-  }
-
-  const authenticate = async () => {
-    try {
-      if (typeof window !== 'undefined' && window.__initial_auth_token) {
-        await signInWithCustomToken(auth, window.__initial_auth_token);
-      } else {
-        await signInAnonymously(auth);
-      }
-    } catch (err) {
-      console.error("Firebase auth failed:", err);
-    }
-  };
-
-  authenticate();
-  return onAuthStateChanged(auth, (usr) => {
-    if (usr) onUserLoaded(usr);
-  });
+const COLLECTIONS = ['companies', 'users', 'events'];
+const STORAGE_PREFIX = 'showmap:';
+const INITIAL_DATA = {
+  companies: INITIAL_COMPANIES,
+  users: INITIAL_USERS,
+  events: INITIAL_EVENTS,
 };
 
-// Database Interfaces
-// -----------------------------
-// LOCAL STORAGE DB simulation helpers
-const getLocalData = (key, initialData) => {
-  const data = localStorage.getItem(key);
-  if (!data) {
-    localStorage.setItem(key, JSON.stringify(initialData));
-    return initialData;
-  }
-  return JSON.parse(data);
-};
-
-const setLocalData = (key, data) => {
-  localStorage.setItem(key, JSON.stringify(data));
-};
-
-const localListeners = {
+const listeners = {
   companies: [],
   users: [],
-  events: []
+  events: [],
 };
 
-const triggerLocalListeners = (collectionName) => {
-  const data = getLocalData(collectionName, 
-    collectionName === 'companies' ? INITIAL_COMPANIES :
-    collectionName === 'users' ? INITIAL_USERS : INITIAL_EVENTS
-  );
-  localListeners[collectionName].forEach(cb => cb(data));
+const clone = (data) => JSON.parse(JSON.stringify(data));
+const storageKey = (collectionName) => `${STORAGE_PREFIX}${collectionName}`;
+
+const assertCollection = (collectionName) => {
+  if (!COLLECTIONS.includes(collectionName)) {
+    throw new Error(`Coleção inválida: ${collectionName}`);
+  }
 };
 
-// Real-time listener function (Rule 1 & Rule 2)
+const getLocalData = (collectionName) => {
+  assertCollection(collectionName);
+  const saved = localStorage.getItem(storageKey(collectionName));
+  if (!saved) {
+    const initialData = clone(INITIAL_DATA[collectionName]);
+    localStorage.setItem(storageKey(collectionName), JSON.stringify(initialData));
+    return initialData;
+  }
+
+  try {
+    const data = JSON.parse(saved);
+    if (!Array.isArray(data)) throw new Error('Formato inválido');
+    return data;
+  } catch {
+    const initialData = clone(INITIAL_DATA[collectionName]);
+    localStorage.setItem(storageKey(collectionName), JSON.stringify(initialData));
+    return initialData;
+  }
+};
+
+const setLocalData = (collectionName, data) => {
+  assertCollection(collectionName);
+  localStorage.setItem(storageKey(collectionName), JSON.stringify(data));
+};
+
+const notify = (collectionName) => {
+  const data = getLocalData(collectionName);
+  listeners[collectionName].forEach((callback) => callback(clone(data)));
+};
+
+export const initAuth = (onUserLoaded) => {
+  onUserLoaded({ uid: 'local-user', isAnonymous: true });
+  return () => {};
+};
+
 export const subscribeCollection = (collectionName, callback) => {
-  if (!isFirebaseActive) {
-    localListeners[collectionName].push(callback);
-    // Initial trigger
-    triggerLocalListeners(collectionName);
-    return () => {
-      localListeners[collectionName] = localListeners[collectionName].filter(cb => cb !== callback);
-    };
-  }
+  assertCollection(collectionName);
+  listeners[collectionName].push(callback);
+  callback(clone(getLocalData(collectionName)));
 
-  // Firebase path (Rule 1)
-  const colRef = collection(db, 'artifacts', appId, 'public', 'data', collectionName);
-  return onSnapshot(colRef, (snapshot) => {
-    const list = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    callback(list);
-  }, (error) => {
-    console.error(`Error subscribing to ${collectionName}:`, error);
-  });
+  return () => {
+    listeners[collectionName] = listeners[collectionName].filter((listener) => listener !== callback);
+  };
 };
 
-// Mutation functions
 export const saveDocument = async (collectionName, data) => {
-  const docId = data.id ? String(data.id) : `${collectionName.slice(0, 4)}_${Date.now()}`;
+  assertCollection(collectionName);
+  const docId = data.id ? String(data.id) : `${collectionName.slice(0, 4)}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const documentToSave = { ...data, id: docId };
+  const currentList = getLocalData(collectionName);
+  const updatedList = currentList.some((item) => String(item.id) === docId)
+    ? currentList.map((item) => String(item.id) === docId ? documentToSave : item)
+    : [...currentList, documentToSave];
 
-  if (!isFirebaseActive) {
-    const currentList = getLocalData(collectionName, 
-      collectionName === 'companies' ? INITIAL_COMPANIES :
-      collectionName === 'users' ? INITIAL_USERS : INITIAL_EVENTS
-    );
-    const updatedList = currentList.some(item => String(item.id) === docId)
-      ? currentList.map(item => String(item.id) === docId ? documentToSave : item)
-      : [...currentList, documentToSave];
-    setLocalData(collectionName, updatedList);
-    triggerLocalListeners(collectionName);
-    return docId;
-  }
-
-  const docRef = doc(db, 'artifacts', appId, 'public', 'data', collectionName, docId);
-  await setDoc(docRef, documentToSave);
+  setLocalData(collectionName, updatedList);
+  notify(collectionName);
   return docId;
 };
 
 export const deleteDocument = async (collectionName, docId) => {
-  const idStr = String(docId);
-  if (!isFirebaseActive) {
-    const currentList = getLocalData(collectionName, 
-      collectionName === 'companies' ? INITIAL_COMPANIES :
-      collectionName === 'users' ? INITIAL_USERS : INITIAL_EVENTS
-    );
-    const updatedList = currentList.filter(item => String(item.id) !== idStr);
-    setLocalData(collectionName, updatedList);
-    triggerLocalListeners(collectionName);
-    return;
+  assertCollection(collectionName);
+  const id = String(docId);
+  setLocalData(collectionName, getLocalData(collectionName).filter((item) => String(item.id) !== id));
+  notify(collectionName);
+};
+
+export const exportLocalDatabase = () => ({
+  version: 1,
+  exportedAt: new Date().toISOString(),
+  database: Object.fromEntries(COLLECTIONS.map((collectionName) => [collectionName, getLocalData(collectionName)])),
+});
+
+const validateBackup = (backup) => {
+  if (!backup || backup.version !== 1 || !backup.database || typeof backup.database !== 'object') {
+    throw new Error('Arquivo de backup inválido.');
   }
 
-  const docRef = doc(db, 'artifacts', appId, 'public', 'data', collectionName, idStr);
-  await deleteDoc(docRef);
+  COLLECTIONS.forEach((collectionName) => {
+    const records = backup.database[collectionName];
+    if (!Array.isArray(records)) throw new Error(`A coleção ${collectionName} está ausente ou inválida.`);
+
+    const ids = new Set();
+    records.forEach((record) => {
+      if (!record || typeof record !== 'object' || !record.id) {
+        throw new Error(`A coleção ${collectionName} contém um registro inválido.`);
+      }
+      const id = String(record.id);
+      if (ids.has(id)) throw new Error(`A coleção ${collectionName} contém IDs repetidos.`);
+      ids.add(id);
+    });
+  });
+};
+
+export const importLocalDatabase = async (backup) => {
+  validateBackup(backup);
+  COLLECTIONS.forEach((collectionName) => {
+    setLocalData(collectionName, clone(backup.database[collectionName]));
+  });
+  COLLECTIONS.forEach(notify);
 };

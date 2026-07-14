@@ -1,5 +1,12 @@
-import React, { useState, useMemo, useEffect } from 'react';
-import { initAuth, subscribeCollection, saveDocument, deleteDocument } from './firebase';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import {
+  initAuth,
+  subscribeCollection,
+  saveDocument,
+  deleteDocument,
+  exportLocalDatabase,
+  importLocalDatabase
+} from './firebase';
 import { 
   Map, CalendarDays, MapPin, Plus, ChevronRight, Users, 
   LayoutDashboard, X, Briefcase, FileText, Building, 
@@ -186,6 +193,17 @@ const getCityCoordinates = (stateId, cityName) => {
   return { cx: center[0] + ((Math.abs(hash) % 24) - 12), cy: center[1] + ((Math.abs(hash >> 3) % 24) - 12) };
 };
 
+function ToastNotification({ toast }) {
+  if (!toast) return null;
+  return (
+    <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] animate-bounce w-full max-w-xs sm:max-w-md px-4">
+      <div className={`px-6 py-3 rounded-xl shadow-2xl font-bold flex items-center justify-center gap-2 ${toast.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'} text-white text-sm text-center`}>
+        {toast.msg}
+      </div>
+    </div>
+  );
+}
+
 // Dados Iniciais Simulados (Mocks)
 
 
@@ -239,13 +257,14 @@ export default function App() {
   const [agentForm, setAgentForm] = useState({ id: null, name: '', email: '', password: '', companyId: '' });
   const [isAgentModalOpen, setIsAgentModalOpen] = useState(false);
   
-  const [companyForm, setCompanyForm] = useState({ id: null, name: '', email: '', phone: '', active: true });
+  const [companyForm, setCompanyForm] = useState({ id: null, name: '', email: '', phone: '', active: true, adminId: null, adminName: '', adminLogin: '', adminPassword: '' });
   const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
 
   const [contractorForm, setContractorForm] = useState({ contractorName: '', email: '', phone: '', date: '', time: '', city: '', stateId: 'GO', type: 'cache' });
   const [isContractorModalOpen, setIsContractorModalOpen] = useState(false);
 
   const [toast, setToast] = useState(null);
+  const importInputRef = useRef(null);
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
@@ -261,7 +280,7 @@ export default function App() {
 
   const handleLogin = (e) => {
     e.preventDefault();
-    const user = users.find(u => u.email === authForm.email && u.password === authForm.password);
+    const user = users.find(u => u.email === authForm.email.trim() && u.password === authForm.password);
     
     if (!user) {
       showToast('Credenciais incorretas.', 'error');
@@ -273,6 +292,14 @@ export default function App() {
     }
     if (loginType === 'agent' && user.role !== 'agent') {
       showToast('Acesso negado. Requer perfil de Agente.', 'error'); return;
+    }
+
+    if (user.companyId) {
+      const company = companies.find((item) => item.id === user.companyId);
+      if (!company || !company.active) {
+        showToast('O escritório deste usuário está inativo ou não existe.', 'error');
+        return;
+      }
     }
 
     setAuthUser(user);
@@ -288,19 +315,52 @@ export default function App() {
 
   // --- CRUD Escritórios (Apenas Super Admin) ---
   const openCompanyModal = (comp = null) => {
-    if (comp) setCompanyForm({ ...comp });
-    else setCompanyForm({ id: null, name: '', email: '', phone: '', active: true });
+    if (comp) {
+      const companyAdmin = users.find((user) => user.role === 'company_admin' && user.companyId === comp.id);
+      setCompanyForm({
+        ...comp,
+        adminId: companyAdmin?.id || null,
+        adminName: companyAdmin?.name || '',
+        adminLogin: companyAdmin?.email || '',
+        adminPassword: companyAdmin?.password || '',
+      });
+    } else {
+      setCompanyForm({ id: null, name: '', email: '', phone: '', active: true, adminId: null, adminName: '', adminLogin: '', adminPassword: '' });
+    }
     setIsCompanyModalOpen(true);
   };
 
   const handleSaveCompany = async (e) => {
     e.preventDefault();
-    await saveDocument('companies', companyForm);
+    const { adminId, adminName, adminLogin, adminPassword, ...companyToSave } = companyForm;
+    const login = adminLogin.trim();
+    const loginAlreadyUsed = users.some((user) => user.id !== adminId && user.email.toLowerCase() === login.toLowerCase());
+    if (loginAlreadyUsed) {
+      showToast('Este login já está em uso.', 'error');
+      return;
+    }
+
+    const companyId = await saveDocument('companies', companyToSave);
+    await saveDocument('users', {
+      id: adminId,
+      name: adminName.trim(),
+      email: login,
+      password: adminPassword,
+      role: 'company_admin',
+      companyId,
+    });
     showToast(companyForm.id ? 'Escritório atualizado com sucesso!' : 'Escritório criado com sucesso!');
     setIsCompanyModalOpen(false);
   };
 
   const handleDeleteCompany = async (id) => {
+    const hasLinkedUsers = users.some((user) => user.companyId === id);
+    const hasLinkedEvents = events.some((event) => event.companyId === id);
+    if (hasLinkedUsers || hasLinkedEvents) {
+      showToast('Não é possível excluir este escritório enquanto houver agentes ou eventos vinculados.', 'error');
+      return;
+    }
+    if (!window.confirm('Tem certeza que deseja excluir este escritório?')) return;
     await deleteDocument('companies', id);
     showToast('Escritório excluído com sucesso.', 'error');
   };
@@ -320,8 +380,12 @@ export default function App() {
     const targetCompanyId = authUser.role === 'superadmin' ? agentForm.companyId : authUser.companyId;
     if (!targetCompanyId) { showToast('Selecione um escritório.', 'error'); return; }
 
+    const loginAlreadyUsed = users.some((user) => user.id !== agentForm.id && user.email.toLowerCase() === agentForm.email.trim().toLowerCase());
+    if (loginAlreadyUsed) { showToast('Este login já está em uso.', 'error'); return; }
+
     const agentToSave = {
       ...agentForm,
+      email: agentForm.email.trim(),
       role: 'agent',
       companyId: targetCompanyId
     };
@@ -403,8 +467,42 @@ export default function App() {
   };
 
   const handleDeleteEvent = async (eventId) => {
+    if (!window.confirm('Tem certeza que deseja excluir este registro? Esta ação não pode ser desfeita.')) return;
     await deleteDocument('events', eventId);
     showToast('Registo apagado com sucesso.', 'error');
+  };
+
+  const handleExportDatabase = () => {
+    try {
+      const backup = exportLocalDatabase();
+      const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `showmap-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+      showToast('Backup exportado com sucesso.');
+    } catch {
+      showToast('Não foi possível exportar o backup.', 'error');
+    }
+  };
+
+  const handleImportDatabase = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!window.confirm('Importar um backup substituirá todos os dados locais atuais. Deseja continuar?')) return;
+
+    try {
+      const backup = JSON.parse(await file.text());
+      await importLocalDatabase(backup);
+      setAuthUser(null);
+      setCurrentView('home');
+      showToast('Backup importado com sucesso. Entre novamente para continuar.');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Não foi possível importar este backup.', 'error');
+    }
   };
 
   // --- Filtros de Visibilidade ---
@@ -414,12 +512,16 @@ export default function App() {
     return events.filter(e => e.companyId === authUser.companyId); 
   }, [events, authUser]);
 
-  const mapEvents = useMemo(() => events.filter(e => e.status !== 'Confirmado' && e.status !== 'Reservado'), [events]);
+  const mapEvents = useMemo(() => {
+    const eventSource = !authUser || authUser.role === 'superadmin' ? events : visibleEvents;
+    return eventSource.filter((event) => event.status !== 'Confirmado' && event.status !== 'Reservado');
+  }, [authUser, events, visibleEvents]);
 
   const globalStats = useMemo(() => ({
-    offices: companies.length,
+    offices: companies.filter((company) => company.active).length,
     proposals: events.filter(e => e.status === 'Proposta').length,
     confirmed: events.filter(e => e.status === 'Confirmado').length,
+    available: events.filter(e => e.status === 'Disponível').length,
   }), [companies, events]);
 
   const myStats = useMemo(() => {
@@ -432,22 +534,11 @@ export default function App() {
     };
   }, [visibleEvents]);
 
-  const ToastNotification = () => {
-    if (!toast) return null;
-    return (
-      <div className="fixed top-6 left-1/2 -translate-x-1/2 z-[100] animate-bounce w-full max-w-xs sm:max-w-md px-4">
-        <div className={`px-6 py-3 rounded-xl shadow-2xl font-bold flex items-center justify-center gap-2 ${toast.type === 'error' ? 'bg-red-500' : 'bg-emerald-500'} text-white text-sm text-center`}>
-          {toast.msg}
-        </div>
-      </div>
-    );
-  };
-
   // ================= VIEW: HOME (Landing Page) =================
   if (currentView === 'home') {
     return (
       <div className="min-h-screen bg-[#0B0F19] text-slate-200 relative flex flex-col font-sans overflow-x-hidden selection:bg-indigo-500/30">
-        <ToastNotification />
+        <ToastNotification toast={toast} />
         
         {/* Efeitos de Fundo Modernos */}
         <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-indigo-600/20 blur-[120px] rounded-full pointer-events-none"></div>
@@ -578,7 +669,7 @@ export default function App() {
   if (currentView === 'login') {
     return (
       <div className="min-h-screen bg-[#0B0F19] text-slate-200 flex flex-col items-center justify-center p-4 relative overflow-hidden">
-        <ToastNotification />
+        <ToastNotification toast={toast} />
         <button onClick={() => setCurrentView('home')} className="absolute top-4 sm:top-8 left-4 sm:left-8 flex items-center gap-2 text-slate-400 hover:text-white transition-colors font-bold bg-[#111827] px-4 py-2 rounded-xl border border-slate-800">
           <X size={18} /> Voltar
         </button>
@@ -615,9 +706,10 @@ export default function App() {
   if (authUser.role === 'superadmin') {
     TABS.push(
       { id: 'stats', label: 'Estatísticas', icon: LayoutDashboard },
-      { id: 'offices', label: 'Escritórios', icon: Building },
+      { id: 'offices', label: 'Escritórios e Acessos', icon: Building },
       { id: 'agents', label: 'Todos Agentes', icon: Users },
       { id: 'proposals', label: 'Todas Propostas', icon: FileText },
+      { id: 'backup', label: 'Backup', icon: Save },
       { id: 'calendar', label: 'Calendário', icon: CalendarDays }
     );
   } else if (authUser.role === 'company_admin') {
@@ -641,7 +733,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#0B0F19] text-slate-200 flex flex-col h-screen overflow-hidden">
-      <ToastNotification />
+      <ToastNotification toast={toast} />
       
       {/* Header Dashboard */}
       <header className="bg-[#111827] border-b border-slate-800 p-3 sm:p-4 shrink-0 z-30 flex justify-between items-center">
@@ -706,7 +798,7 @@ export default function App() {
                </div>
                <div className="bg-[#111827] border border-slate-800 p-4 sm:p-5 rounded-2xl">
                  <p className="text-[10px] sm:text-xs text-slate-400 font-bold uppercase mb-2">Datas Livres</p>
-                 <p className="text-3xl sm:text-4xl font-black text-blue-400">{authUser.role === 'superadmin' ? globalStats.proposals : myStats.available}</p>
+                 <p className="text-3xl sm:text-4xl font-black text-blue-400">{authUser.role === 'superadmin' ? globalStats.available : myStats.available}</p>
                </div>
             </div>
           </div>
@@ -716,7 +808,7 @@ export default function App() {
         {activeTab === 'offices' && authUser.role === 'superadmin' && (
           <div className="max-w-7xl mx-auto">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-              <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2"><Building className="text-indigo-400"/> Gestão de Escritórios</h2>
+              <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2"><Building className="text-indigo-400"/> Escritórios e Acessos</h2>
               <button onClick={() => openCompanyModal()} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg">
                 <Plus size={16}/> Novo Escritório
               </button>
@@ -817,7 +909,7 @@ export default function App() {
             </div>
             
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-              {visibleEvents.map(ev => {
+              {[...visibleEvents].sort((a, b) => new Date(`${a.date}T${a.time || '00:00'}`) - new Date(`${b.date}T${b.time || '00:00'}`)).map(ev => {
                 const agent = users.find(u => u.id === ev.agentId);
                 const company = companies.find(c => c.id === ev.companyId);
 
@@ -836,11 +928,19 @@ export default function App() {
                       </div>
                       
                       {/* Apenas o Escritório Responsável pode editar (Admin da Empresa) */}
-                      {authUser.role === 'company_admin' && ev.companyId === authUser.companyId && (
-                        <button onClick={() => openEventModal(ev)} className="text-slate-500 hover:text-indigo-400 bg-[#0B0F19] p-1.5 rounded-lg border border-slate-800" title="Editar Evento">
-                          <Edit size={16} />
-                        </button>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {authUser.role === 'company_admin' && ev.companyId === authUser.companyId && (
+                          <button onClick={() => openEventModal(ev)} className="text-slate-500 hover:text-indigo-400 bg-[#0B0F19] p-1.5 rounded-lg border border-slate-800" title="Editar Evento">
+                            <Edit size={16} />
+                          </button>
+                        )}
+
+                        {authUser.role === 'superadmin' && (
+                          <button onClick={() => handleDeleteEvent(ev.id)} className="text-slate-500 hover:text-red-400 bg-[#0B0F19] p-1.5 rounded-lg border border-slate-800" title="Excluir registro">
+                            <Trash2 size={16} />
+                          </button>
+                        )}
+                      </div>
                     </div>
                     
                     <div className="bg-[#0B0F19] p-3 rounded-xl border border-slate-800 mb-4 flex-1">
@@ -900,6 +1000,34 @@ export default function App() {
         )}
 
         {/* TAB: CALENDÁRIO */}
+        {activeTab === 'backup' && authUser.role === 'superadmin' && (
+          <div className="max-w-3xl mx-auto">
+            <div className="mb-6">
+              <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2"><Save className="text-indigo-400"/> Backup do Banco Local</h2>
+              <p className="text-sm text-slate-400 mt-2">Salve uma cópia do banco deste navegador ou restaure um backup anterior.</p>
+            </div>
+
+            <div className="bg-[#111827] border border-slate-800 rounded-2xl p-5 sm:p-6 space-y-6">
+              <div className="rounded-xl border border-slate-800 bg-[#0B0F19] p-4">
+                <h3 className="font-bold text-white">Exportar backup</h3>
+                <p className="text-sm text-slate-400 mt-1">Baixa um arquivo JSON com empresas, usuários e eventos.</p>
+                <button onClick={handleExportDatabase} className="mt-4 bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2">
+                  <Save size={16}/> Exportar banco de dados
+                </button>
+              </div>
+
+              <div className="rounded-xl border border-red-900/50 bg-red-950/10 p-4">
+                <h3 className="font-bold text-white">Importar backup</h3>
+                <p className="text-sm text-slate-400 mt-1">Substitui todos os dados locais atuais pelo conteúdo do arquivo selecionado.</p>
+                <input ref={importInputRef} type="file" accept="application/json,.json" onChange={handleImportDatabase} className="hidden" />
+                <button onClick={() => importInputRef.current?.click()} className="mt-4 bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2">
+                  <FileText size={16}/> Importar arquivo JSON
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {activeTab === 'calendar' && (
           <div className="max-w-7xl mx-auto">
             <h2 className="text-xl sm:text-2xl font-bold text-white mb-6 flex items-center gap-2"><CalendarDays className="text-indigo-400"/> Calendário {authUser.role === 'superadmin' ? 'Global' : 'do Escritório'}</h2>
@@ -1152,7 +1280,7 @@ export default function App() {
       {/* Modal - Agent CRUD */}
       {isAgentModalOpen && (
         <div className="fixed inset-0 bg-[#0B0F19]/90 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
-          <div className="bg-[#111827] rounded-3xl border border-slate-800 w-full max-w-sm shadow-2xl overflow-hidden">
+          <div className="bg-[#111827] rounded-3xl border border-slate-800 w-full max-w-lg shadow-2xl overflow-hidden">
             <div className="p-4 sm:p-5 border-b border-slate-800 flex justify-between items-center bg-[#0B0F19]">
               <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2"><UserPlus className="text-indigo-400"/> {agentForm.id ? 'Editar Agente' : 'Novo Agente'}</h3>
               <button onClick={() => setIsAgentModalOpen(false)} className="text-slate-400 hover:text-white"><X size={20}/></button>
@@ -1209,6 +1337,24 @@ export default function App() {
               <div>
                 <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Telefone</label>
                 <input type="text" value={companyForm.phone} onChange={e=>setCompanyForm({...companyForm, phone: e.target.value})} className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" />
+              </div>
+              <div className="border-t border-slate-800 pt-4 space-y-4">
+                <div>
+                  <h4 className="text-sm font-bold text-white">Acesso do administrador do escritório</h4>
+                  <p className="text-xs text-slate-400 mt-1">Essas credenciais dão acesso à Área do Escritório.</p>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Nome do administrador</label>
+                  <input required type="text" value={companyForm.adminName} onChange={e=>setCompanyForm({...companyForm, adminName: e.target.value})} className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Login de acesso</label>
+                  <input required type="text" value={companyForm.adminLogin} onChange={e=>setCompanyForm({...companyForm, adminLogin: e.target.value})} className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Senha</label>
+                  <input required type="password" value={companyForm.adminPassword} onChange={e=>setCompanyForm({...companyForm, adminPassword: e.target.value})} className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" />
+                </div>
               </div>
               <div className="flex items-center gap-2 mt-4">
                 <input type="checkbox" id="activeCompany" checked={companyForm.active} onChange={e=>setCompanyForm({...companyForm, active: e.target.checked})} className="w-4 h-4 rounded text-indigo-600 bg-gray-700 border-gray-600 focus:ring-indigo-600 focus:ring-2" />
