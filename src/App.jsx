@@ -857,10 +857,8 @@ export default function App() {
               ))}
             </div>
           </div>
-        </section>
 
-        <section id="mapa" className="hidden relative z-10 w-full px-4 py-16 sm:px-6 sm:py-24">
-          <div className="mx-auto grid max-w-7xl items-center gap-10 lg:grid-cols-2">
+          <div className="mx-auto mt-16 grid max-w-7xl items-center gap-10 border-t border-slate-800 pt-14 lg:grid-cols-2">
             <div>
               <p className="text-sm font-bold uppercase tracking-widest text-cyan-300">Visão nacional</p>
               <h2 className="mt-3 text-3xl font-black text-white sm:text-5xl">A turnê inteira visível no mapa do Brasil.</h2>
