@@ -283,6 +283,7 @@ export default function App() {
 
   const [authUser, setAuthUser] = useState(null);
   const [activeTab, setActiveTab] = useState('map');
+  const dashboardUserIdRef = useRef(null);
   const [currentDate] = useState(() => new Date());
   const [calendarCursor, setCalendarCursor] = useState(() => new Date());
   const [selectedCalendarDate, setSelectedCalendarDate] = useState('');
@@ -317,6 +318,7 @@ export default function App() {
     const timer = setTimeout(() => {
       if (!dbUser) {
         setAuthUser(null);
+        dashboardUserIdRef.current = null;
         return;
       }
 
@@ -358,8 +360,12 @@ export default function App() {
         return;
       }
 
+      const isNewDashboardSession = dashboardUserIdRef.current !== profile.id;
       setAuthUser(profile);
-      setActiveTab(profile.role === 'superadmin' ? 'stats' : 'map');
+      if (isNewDashboardSession) {
+        setActiveTab(profile.role === 'superadmin' ? 'stats' : 'map');
+        dashboardUserIdRef.current = profile.id;
+      }
       setCurrentView('dashboard');
     }, 0);
     return () => clearTimeout(timer);
@@ -1186,8 +1192,8 @@ export default function App() {
               {Object.entries(PLAN_DETAILS).map(([key, plan]) => <div key={key} className="bg-[#111827] border border-slate-800 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase font-bold">Plano {plan.label}</p><p className="text-3xl font-black text-white mt-2">{financialStats[key] || 0}</p><p className="text-xs text-indigo-300 mt-2">R$ {plan.price}/mês · até {plan.agents} agentes</p></div>)}
             </div>
             <div className="bg-[#111827] border border-slate-800 rounded-2xl overflow-x-auto">
-              <table className="w-full min-w-[760px] text-left"><thead><tr className="border-b border-slate-800 text-xs text-slate-500 uppercase"><th className="p-4">Escritório</th><th className="p-4">Plano</th><th className="p-4">Agentes</th><th className="p-4">Vencimento</th><th className="p-4 text-right">Ação</th></tr></thead>
-                <tbody>{companies.map((company) => { const plan = PLAN_DETAILS[company.plan || 'lite']; const agentCount = users.filter((user) => user.role === 'agent' && user.companyId === company.id).length; const expired = !company.planExpiresAt || new Date(`${company.planExpiresAt}T23:59:59`) < new Date(); return <tr key={company.id} className="border-b border-slate-800/60"><td className="p-4 text-sm font-bold text-white">{company.name}</td><td className="p-4 text-sm text-indigo-300">{plan.label} · R$ {plan.price}</td><td className="p-4 text-sm text-slate-300">{agentCount}/{plan.agents}</td><td className={`p-4 text-sm ${expired ? 'text-red-400' : 'text-emerald-400'}`}>{company.planExpiresAt ? new Date(`${company.planExpiresAt}T12:00:00`).toLocaleDateString('pt-BR') : 'Não definido'}</td><td className="p-4 text-right"><button onClick={() => handleRenewCompanyPlan(company)} className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg text-xs font-bold">Renovar +1 mês</button></td></tr>; })}</tbody>
+              <table className="w-full min-w-[880px] text-left"><thead><tr className="border-b border-slate-800 text-xs text-slate-500 uppercase"><th className="p-4">Escritório</th><th className="p-4">Plano</th><th className="p-4">Agentes</th><th className="p-4">Vencimento</th><th className="p-4">Dias restantes</th><th className="p-4 text-right">Ação</th></tr></thead>
+                <tbody>{companies.map((company) => { const plan = PLAN_DETAILS[company.plan || 'lite']; const agentCount = users.filter((user) => user.role === 'agent' && user.companyId === company.id).length; const expiration = company.planExpiresAt ? new Date(`${company.planExpiresAt}T23:59:59`) : null; const daysRemaining = expiration ? Math.max(0, Math.ceil((expiration.getTime() - currentDate.getTime()) / 86400000)) : 0; const expired = !expiration || expiration < currentDate; return <tr key={company.id} className="border-b border-slate-800/60"><td className="p-4 text-sm font-bold text-white">{company.name}</td><td className="p-4 text-sm text-indigo-300">{plan.label} · R$ {plan.price}</td><td className="p-4 text-sm text-slate-300">{agentCount}/{plan.agents}</td><td className={`p-4 text-sm ${expired ? 'text-red-400' : 'text-emerald-400'}`}>{company.planExpiresAt ? new Date(`${company.planExpiresAt}T12:00:00`).toLocaleDateString('pt-BR') : 'Não definido'}</td><td className={`p-4 text-sm font-bold ${expired ? 'text-red-400' : daysRemaining <= 5 ? 'text-amber-400' : 'text-emerald-400'}`}>{expired ? 'Vencido' : `${daysRemaining} dia${daysRemaining === 1 ? '' : 's'}`}</td><td className="p-4 text-right"><button onClick={() => handleRenewCompanyPlan(company)} className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg text-xs font-bold">Renovar +1 mês</button></td></tr>; })}</tbody>
               </table>
             </div>
           </div>
