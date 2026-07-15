@@ -203,7 +203,7 @@ const SHOWCASE_EVENTS = [
   { city: 'Salvador', date: '02 AGO', color: '#34d399', x: 690, y: 438 },
 ];
 
-const SHOWCASE_TOUR = 'Turnê Demonstrativa — Artista Exemplo';
+const SHOWCASE_TOUR = 'Turnê Demonstrativa';
 
 function ToastNotification({ toast }) {
   if (!toast) return null;
@@ -873,7 +873,7 @@ export default function App() {
               <p className="mt-5 max-w-xl text-slate-300 sm:text-lg">Enquanto você dorme, seus agentes vendem.<br />Não perca mais nenhuma oportunidade.</p>
               <button onClick={() => handleLoginClick('office')} className="mt-7 inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-6 py-3 font-bold text-slate-950 hover:bg-cyan-400"><Building size={18} /> Conhecer o ShowMap</button>
             </div>
-            <div className="relative rounded-3xl border border-slate-700 bg-[#111827] p-6 shadow-2xl">
+            <div className="rounded-3xl border border-slate-700 bg-[#111827] p-5 shadow-2xl">
               <svg viewBox="0 0 1000 912" className="mx-auto w-full max-w-lg">
                 {Object.entries(BRAZIL_STATES).map(([uf, data]) => <path key={uf} d={data.path} fill={data.color} stroke="rgba(255,255,255,0.75)" strokeWidth="2" strokeLinejoin="round" />)}
                 {SHOWCASE_EVENTS.map((event, index) => {
@@ -885,9 +885,9 @@ export default function App() {
                   </g>;
                 })}
               </svg>
-              <div className="absolute bottom-4 left-4 hidden rounded-xl border border-cyan-400/30 bg-[#0B0F19]/95 p-3 shadow-xl backdrop-blur sm:block">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-cyan-300">{SHOWCASE_TOUR}</p>
-                <div className="mt-2 space-y-1.5">{SHOWCASE_EVENTS.map((event) => <p key={event.city} className="text-xs font-semibold text-white"><span className="mr-2 inline-block h-2 w-2 rounded-full" style={{ backgroundColor: event.color }} />{event.city} · {event.date}</p>)}</div>
+              <div className="mx-auto mt-2 w-fit rounded-lg border border-cyan-400/30 bg-[#0B0F19]/95 px-3 py-2 shadow-lg sm:mt-3">
+                <p className="text-[9px] font-bold uppercase tracking-wider text-cyan-300">{SHOWCASE_TOUR}</p>
+                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">{SHOWCASE_EVENTS.map((event) => <p key={event.city} className="text-[10px] font-semibold text-white"><span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: event.color }} />{event.city} · {event.date}</p>)}</div>
               </div>
             </div>
           </div>
