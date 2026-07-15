@@ -1541,19 +1541,14 @@ export default function App() {
 
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-2">Instagram</label>
-                  <input type="text" value={contractorForm.instagram} onChange={e => setContractorForm({...contractorForm, instagram: e.target.value})} placeholder="@perfil" className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" />
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-2">Artista / Cantor</label>
+                  <input type="text" required value={contractorForm.artistName} onChange={e => setContractorForm({...contractorForm, artistName: e.target.value})} placeholder="Nome do artista" className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" />
                 </div>
                 <div>
                   <label className="block text-[10px] font-bold text-slate-500 uppercase mb-2">Nome do Evento</label>
                   <input type="text" required value={contractorForm.eventName} onChange={e => setContractorForm({...contractorForm, eventName: e.target.value})} className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" />
                 </div>
               </div>
-              <div>
-                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-2">Artista / Cantor</label>
-                <input type="text" required value={contractorForm.artistName} onChange={e => setContractorForm({...contractorForm, artistName: e.target.value})} placeholder="Nome do artista desta apresentação" className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" />
-              </div>
-
               <div className="border-t border-slate-800 pt-5 mt-5">
                 <h4 className="text-white text-sm font-bold mb-4">Dados do Evento</h4>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
@@ -1590,6 +1585,10 @@ export default function App() {
                       </label>
                     ))}
                   </div>
+                </div>
+                <div className="mt-4">
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-2">Instagram do contratante (opcional)</label>
+                  <input type="text" value={contractorForm.instagram} onChange={e => setContractorForm({...contractorForm, instagram: e.target.value})} placeholder="@perfil" className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" />
                 </div>
               </div>
 
