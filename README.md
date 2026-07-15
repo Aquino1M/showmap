@@ -1,8 +1,8 @@
 # ShowMap
 
-Painel de agenda, propostas, escritórios, agentes e planos. O Supabase armazena os dados e a função `manage-user` aplica as permissões no servidor.
+Gestão de turnês, agendas, propostas, escritórios, agentes e planos com Supabase.
 
-## Executar localmente
+## Rodar localmente
 
 ```bash
 npm install
@@ -10,24 +10,20 @@ copy .env.example .env.local
 npm run dev
 ```
 
-Em `.env.local`, informe somente a URL e a chave **publishable** do Supabase. Nunca use chave secreta no navegador ou no Git.
+Use apenas as variáveis públicas do Supabase. Nunca publique chaves secretas.
 
-## Instalar ou atualizar o banco
+## Banco e segurança
 
-1. Projeto novo: execute `supabase/setup.sql` no SQL Editor.
-2. Projeto existente: execute, uma única vez e nesta ordem, `migration-profile-link.sql`, `migration-event-details.sql`, `migration-plans.sql` e `migration-auth-hardening.sql`.
-3. Crie o Administrador Master em **Authentication > Users** com o e-mail definido no SQL.
-4. Publique a função segura:
+1. Projeto novo: execute `supabase/setup.sql`.
+2. Projeto existente: execute, uma vez, `migration-profile-link.sql`, `migration-event-details.sql`, `migration-plans.sql` e `migration-auth-hardening.sql`, nessa ordem.
+3. Em **Authentication > Sign In / Providers**, desative **Allow new users to sign up**.
+4. Crie o Administrador Master em **Authentication > Users** e publique:
 
 ```bash
-npx supabase functions deploy manage-user --project-ref veszdgbonolvmcpablol
+npx supabase functions deploy manage-user --project-ref <seu-project-ref>
 ```
 
-`migration-clean-start.sql` apaga dados e serve apenas para ambiente de teste.
-
-## Segurança
-
-Em **Supabase > Authentication**, desative o cadastro público. Escritórios e agentes devem ser criados somente pelo Administrador Master.
+`migration-clean-start.sql` apaga dados e é exclusiva para teste.
 
 ## Validar
 

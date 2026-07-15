@@ -258,7 +258,9 @@ export default function App() {
   }, [dbUser]);
 
   useEffect(() => {
-    if (!dbUser) {
+    // Aguarda o bootstrap do perfil antes de abrir três consultas/realtime.
+    // Isso evita chamadas duplicadas e falhas transitórias ao recarregar após o login.
+    if (!dbUser || !resolvedProfile) {
       const timer = setTimeout(() => setCompaniesLoaded(false), 0);
       return () => clearTimeout(timer);
     }
@@ -284,7 +286,7 @@ export default function App() {
       unsubUsers();
       unsubEvents();
     };
-  }, [dbUser]);
+  }, [dbUser, resolvedProfile]);
 
   const [authUser, setAuthUser] = useState(null);
   const [activeTab, setActiveTab] = useState('map');
@@ -707,7 +709,7 @@ export default function App() {
   // ================= VIEW: HOME (Landing Page) =================
   if (currentView === 'home') {
     return (
-      <div className="min-h-0 bg-[#0B0F19] text-slate-200 relative flex flex-col overflow-x-hidden font-sans selection:bg-indigo-500/30 lg:h-[100dvh] lg:overflow-hidden">
+      <div className={`${homeSection === 'home' ? 'h-[100dvh] overflow-hidden' : 'min-h-[100dvh] overflow-y-auto'} bg-[#0B0F19] text-slate-200 relative flex flex-col overflow-x-hidden font-sans selection:bg-indigo-500/30`}>
         <ToastNotification toast={toast} />
         
         {/* Efeitos de Fundo Modernos */}
@@ -715,7 +717,7 @@ export default function App() {
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-cyan-600/10 blur-[120px] rounded-full pointer-events-none"></div>
         
         {/* Navbar */}
-        <header className="w-full bg-transparent p-4 sm:p-6 relative z-50">
+        <header className="w-full shrink-0 bg-transparent p-3 md:p-6 relative z-50">
           <div className="max-w-7xl mx-auto flex justify-between items-center">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-cyan-500 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/25">
@@ -743,28 +745,28 @@ export default function App() {
         </header>
 
         {/* Hero Section & Mapa Político Oficial */}
-        <main className={`${homeSection === 'home' ? 'flex' : 'hidden'} w-full max-w-7xl mx-auto flex-col lg:min-h-[calc(100dvh-88px)] lg:flex-1 lg:flex-row items-center justify-center p-4 sm:p-6 gap-6 lg:gap-12 relative z-10`}>
+        <main className={`${homeSection === 'home' ? 'flex' : 'hidden'} min-h-0 flex-1 w-full max-w-7xl mx-auto flex-col lg:flex-row items-center justify-center p-3 md:p-6 gap-4 md:gap-6 lg:gap-12 relative z-10`}>
           
           {/* Coluna Esquerda */}
-          <div className="flex-1 w-full flex flex-col gap-5 sm:gap-7 mt-2 lg:mt-0 text-center lg:text-left z-20">
-            <div className="inline-flex max-w-full items-center justify-center lg:justify-start gap-2 px-3 sm:px-4 py-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[10px] sm:text-xs font-bold uppercase tracking-[0.1em] sm:tracking-widest mx-auto lg:mx-0 text-center">
+          <div className="flex-1 w-full flex flex-col gap-3 md:gap-7 mt-1 lg:mt-0 text-center lg:text-left z-20">
+            <div className="inline-flex max-w-full items-center justify-center lg:justify-start gap-2 px-3 md:px-4 py-1.5 md:py-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[8px] md:text-xs font-bold uppercase tracking-[0.08em] md:tracking-widest mx-auto lg:mx-0 text-center">
                <Globe2 size={14} /> Solução Logística de Espetáculos
             </div>
             
-            <h2 className="text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-extrabold text-white tracking-tight leading-[1.1]">
+            <h2 className="text-3xl md:text-5xl lg:text-6xl xl:text-7xl font-extrabold text-white tracking-tight leading-[1.1]">
               A inteligência por trás das maiores <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">Turnés do País.</span>
             </h2>
             
-            <p className="text-slate-400 text-lg sm:text-xl max-w-2xl mx-auto lg:mx-0 leading-relaxed font-light">
+            <p className="text-slate-400 text-sm md:text-xl max-w-2xl mx-auto lg:mx-0 leading-relaxed font-light">
               Mapeie rotas, otimize a logística dos seus artistas e controle sua agenda nacional de forma totalmente visual. O poder do mapa realista na palma da sua mão.
             </p>
 
             {/* Ações */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start mt-4">
-              <button onClick={() => handleLoginClick('office')} className="bg-indigo-600 hover:bg-indigo-500 text-white px-8 py-4 rounded-xl font-bold transition-all shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 group text-lg text-center">
+            <div className="flex flex-col md:flex-row gap-2 md:gap-4 justify-center lg:justify-start mt-2 md:mt-4">
+              <button onClick={() => handleLoginClick('office')} className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 md:px-8 py-3 md:py-4 rounded-xl font-bold transition-all shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 group text-base md:text-lg text-center">
                 <Building size={20}/> Sou Escritório <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform"/>
               </button>
-              <button onClick={() => handleLoginClick('agent')} className="bg-[#1F2937]/80 hover:bg-[#374151] border border-slate-700/50 text-white px-8 py-4 rounded-xl font-bold transition-all shadow-md flex items-center justify-center gap-2 text-lg">
+              <button onClick={() => handleLoginClick('agent')} className="bg-[#1F2937]/80 hover:bg-[#374151] border border-slate-700/50 text-white px-5 md:px-8 py-3 md:py-4 rounded-xl font-bold transition-all shadow-md flex items-center justify-center gap-2 text-base md:text-lg">
                 <Briefcase size={20}/> Sou Agente
               </button>
             </div>
