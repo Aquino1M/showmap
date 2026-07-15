@@ -15,7 +15,7 @@ import {
   Map, CalendarDays, MapPin, Plus, ChevronLeft, ChevronRight, Users,
   LayoutDashboard, X, Briefcase, FileText, Building, 
   UserPlus, Trash2, Edit, Save, HandMetal, Hand, LogOut, Clock,
-  Globe2, ArrowRight
+  Globe2, ArrowRight, Menu
 } from 'lucide-react';
 
 // Mapa do Brasil Geograficamente Preciso, Contíguo (sem frestas/gaps) em escala 2048x2048
@@ -214,6 +214,7 @@ function ToastNotification({ toast }) {
 export default function App() {
   const [currentView, setCurrentView] = useState('home'); 
   const [loginType, setLoginType] = useState(''); 
+  const [isHomeMenuOpen, setIsHomeMenuOpen] = useState(false);
   
   const [companies, setCompanies] = useState([]);
   const [companiesLoaded, setCompaniesLoaded] = useState(false);
@@ -716,13 +717,20 @@ export default function App() {
                 <p className="mt-1 text-[8px] sm:text-[10px] font-semibold uppercase tracking-[0.1em] sm:tracking-[0.14em] text-indigo-300">Solução logística de espetáculos</p>
               </div>
             </div>
-            <nav className="flex items-center gap-1 sm:gap-2 text-[10px] sm:text-sm font-semibold">
+            <nav className="hidden lg:flex items-center gap-2 text-sm font-semibold">
               <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="text-slate-300 hover:text-white px-1.5 sm:px-3 py-2">Início</button>
               <button onClick={() => handleLoginClick('office')} className="text-slate-300 hover:text-white px-1.5 sm:px-3 py-2">Escritório</button>
               <button onClick={() => handleLoginClick('agent')} className="text-slate-300 hover:text-white px-1.5 sm:px-3 py-2">Agente</button>
               <button onClick={() => document.getElementById('planos')?.scrollIntoView({ behavior: 'smooth' })} className="rounded-lg bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/25 px-2 sm:px-3 py-2">Planos</button>
             </nav>
+            <button onClick={() => setIsHomeMenuOpen((open) => !open)} className="lg:hidden rounded-xl border border-slate-700 bg-[#111827]/80 p-3 text-indigo-300 hover:text-white" aria-label="Abrir menu" aria-expanded={isHomeMenuOpen}><Menu size={20} /></button>
           </div>
+          {isHomeMenuOpen && <nav className="lg:hidden absolute right-4 top-[calc(100%+0.25rem)] w-52 rounded-2xl border border-slate-700 bg-[#111827]/95 p-2 shadow-2xl backdrop-blur">
+            <button onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); setIsHomeMenuOpen(false); }} className="w-full rounded-xl px-4 py-3 text-left text-sm font-bold text-slate-200 hover:bg-slate-800">Página inicial</button>
+            <button onClick={() => { setIsHomeMenuOpen(false); handleLoginClick('office'); }} className="w-full rounded-xl px-4 py-3 text-left text-sm font-bold text-slate-200 hover:bg-slate-800">Sou Escritório</button>
+            <button onClick={() => { setIsHomeMenuOpen(false); handleLoginClick('agent'); }} className="w-full rounded-xl px-4 py-3 text-left text-sm font-bold text-slate-200 hover:bg-slate-800">Sou Agente</button>
+            <button onClick={() => { document.getElementById('planos')?.scrollIntoView({ behavior: 'smooth' }); setIsHomeMenuOpen(false); }} className="w-full rounded-xl px-4 py-3 text-left text-sm font-bold text-indigo-300 hover:bg-indigo-500/10">Preços dos planos</button>
+          </nav>}
         </header>
 
         {/* Hero Section & Mapa Político Oficial */}
