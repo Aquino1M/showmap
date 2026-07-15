@@ -707,7 +707,7 @@ export default function App() {
   // ================= VIEW: HOME (Landing Page) =================
   if (currentView === 'home') {
     return (
-      <div className="h-[100dvh] bg-[#0B0F19] text-slate-200 relative flex flex-col overflow-hidden font-sans selection:bg-indigo-500/30">
+      <div className="min-h-0 bg-[#0B0F19] text-slate-200 relative flex flex-col overflow-x-hidden font-sans selection:bg-indigo-500/30 lg:h-[100dvh] lg:overflow-hidden">
         <ToastNotification toast={toast} />
         
         {/* Efeitos de Fundo Modernos */}
@@ -743,7 +743,7 @@ export default function App() {
         </header>
 
         {/* Hero Section & Mapa Político Oficial */}
-        <main className={`${homeSection === 'home' ? 'flex' : 'hidden'} min-h-[calc(100dvh-88px)] w-full max-w-7xl mx-auto flex-col lg:flex-row items-center justify-center p-4 sm:p-6 gap-6 lg:gap-12 relative z-10`}>
+        <main className={`${homeSection === 'home' ? 'flex' : 'hidden'} w-full max-w-7xl mx-auto flex-col lg:min-h-[calc(100dvh-88px)] lg:flex-1 lg:flex-row items-center justify-center p-4 sm:p-6 gap-6 lg:gap-12 relative z-10`}>
           
           {/* Coluna Esquerda */}
           <div className="flex-1 w-full flex flex-col gap-5 sm:gap-7 mt-2 lg:mt-0 text-center lg:text-left z-20">
