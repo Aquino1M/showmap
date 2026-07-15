@@ -43,6 +43,7 @@ create table if not exists public.events (
   contractor_phone text,
   contractor_instagram text,
   event_name text,
+  artist_name text,
   created_at timestamptz not null default now()
 );
 

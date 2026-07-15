@@ -295,10 +295,11 @@ export default function App() {
   const [selectedCalendarDate, setSelectedCalendarDate] = useState('');
   const [hoveredState, setHoveredState] = useState(null);
   const [mapMode, setMapMode] = useState('available');
+  const [selectedTourArtist, setSelectedTourArtist] = useState('');
   
   // Estados para Modais & Formulários
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
-  const [formData, setFormData] = useState({ id: null, date: '', time: '', city: '', stateId: 'GO', type: 'cache', contractorName: '', contractorEmail: '', contractorPhone: '', contractorInstagram: '', eventName: '' });
+  const [formData, setFormData] = useState({ id: null, date: '', time: '', city: '', stateId: 'GO', type: 'cache', contractorName: '', contractorEmail: '', contractorPhone: '', contractorInstagram: '', eventName: '', artistName: '' });
   const [authForm, setAuthForm] = useState({ email: '', password: '' });
   
   const [agentForm, setAgentForm] = useState({ id: null, name: '', email: '', password: '', companyId: '' });
@@ -311,7 +312,7 @@ export default function App() {
   const [isSavingCompany, setIsSavingCompany] = useState(false);
   const companySaveInFlight = useRef(false);
 
-  const [contractorForm, setContractorForm] = useState({ contractorName: '', email: '', phone: '', instagram: '', eventName: '', date: '', time: '', city: '', stateId: 'GO', type: 'cache' });
+  const [contractorForm, setContractorForm] = useState({ contractorName: '', email: '', phone: '', instagram: '', eventName: '', artistName: '', date: '', time: '', city: '', stateId: 'GO', type: 'cache' });
   const [isContractorModalOpen, setIsContractorModalOpen] = useState(false);
 
   const [toast, setToast] = useState(null);
@@ -553,6 +554,7 @@ export default function App() {
       contractorPhone: contractorForm.phone,
       contractorInstagram: contractorForm.instagram,
       eventName: contractorForm.eventName,
+      artistName: contractorForm.artistName,
       status: 'Proposta',
       companyId: authUser.companyId,
       agentId: authUser.id,
@@ -569,8 +571,8 @@ export default function App() {
 
   // --- CRUD Shows / Eventos Livres (Escritório) ---
   const openEventModal = (ev = null) => {
-    if (ev) setFormData({ id: ev.id, date: ev.date, time: ev.time || '', city: ev.city, stateId: ev.stateId, type: ev.type, contractorName: ev.contractorName || '', contractorEmail: ev.contractorEmail || '', contractorPhone: ev.contractorPhone || '', contractorInstagram: ev.contractorInstagram || '', eventName: ev.eventName || '' });
-    else setFormData({ id: null, date: '', time: '', city: '', stateId: 'GO', type: 'cache', contractorName: '', contractorEmail: '', contractorPhone: '', contractorInstagram: '', eventName: '' });
+    if (ev) setFormData({ id: ev.id, date: ev.date, time: ev.time || '', city: ev.city, stateId: ev.stateId, type: ev.type, contractorName: ev.contractorName || '', contractorEmail: ev.contractorEmail || '', contractorPhone: ev.contractorPhone || '', contractorInstagram: ev.contractorInstagram || '', eventName: ev.eventName || '', artistName: ev.artistName || '' });
+    else setFormData({ id: null, date: '', time: '', city: '', stateId: 'GO', type: 'cache', contractorName: '', contractorEmail: '', contractorPhone: '', contractorInstagram: '', eventName: '', artistName: '' });
     setIsEventModalOpen(true);
   };
 
@@ -591,7 +593,8 @@ export default function App() {
       contractorEmail: formData.contractorEmail,
       contractorPhone: formData.contractorPhone,
       contractorInstagram: formData.contractorInstagram,
-      eventName: formData.eventName
+      eventName: formData.eventName,
+      artistName: formData.artistName
     };
     try {
       await saveDocument('events', eventToSave);
@@ -667,11 +670,20 @@ export default function App() {
     if (mapMode === 'tour') {
       return eventSource.filter((event) =>
         (event.status === 'Confirmado' || event.status === 'Reservado') &&
-        (authUser?.role !== 'agent' || event.agentId === authUser.id)
+        (authUser?.role !== 'agent' || event.agentId === authUser.id) &&
+        (!selectedTourArtist || event.artistName === selectedTourArtist)
       );
     }
     return eventSource.filter((event) => event.status !== 'Confirmado' && event.status !== 'Reservado');
-  }, [authUser, events, mapMode, visibleEvents]);
+  }, [authUser, events, mapMode, selectedTourArtist, visibleEvents]);
+
+  const tourArtists = useMemo(() => {
+    const eventSource = !authUser || authUser.role === 'superadmin' ? events : visibleEvents;
+    return [...new Set(eventSource
+      .filter((event) => (event.status === 'Confirmado' || event.status === 'Reservado') && (authUser?.role !== 'agent' || event.agentId === authUser.id))
+      .map((event) => event.artistName)
+      .filter(Boolean))].sort((first, second) => first.localeCompare(second, 'pt-BR'));
+  }, [authUser, events, visibleEvents]);
 
   const globalStats = useMemo(() => ({
     offices: companies.filter((company) => company.active).length,
@@ -755,7 +767,7 @@ export default function App() {
         <main className={`${homeSection === 'home' ? 'flex' : 'hidden'} min-h-0 flex-1 w-full max-w-7xl mx-auto flex-col lg:flex-row items-center justify-center p-3 md:p-6 gap-4 md:gap-6 lg:gap-12 relative z-10`}>
           
           {/* Coluna Esquerda */}
-          <div className="h-full flex-1 w-full flex flex-col justify-between gap-3 md:gap-7 mt-1 lg:mt-0 text-center lg:text-left z-20">
+          <div className="h-full flex-1 w-full flex flex-col justify-between gap-3 md:gap-7 mt-1 pb-5 md:pb-8 lg:mt-0 text-center lg:text-left z-20">
             <div className="inline-flex max-w-full items-center justify-center lg:justify-start gap-2 px-3 md:px-4 py-1.5 md:py-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[8px] md:text-xs font-bold uppercase tracking-[0.08em] md:tracking-widest mx-auto lg:mx-0 text-center">
                <Globe2 size={14} /> Solução Logística de Espetáculos
             </div>
@@ -769,7 +781,7 @@ export default function App() {
             </p>
 
             {/* Ações */}
-            <div className="flex flex-col md:flex-row gap-2 md:gap-4 justify-center lg:justify-start mt-2 md:mt-4">
+            <div className="flex flex-col md:flex-row gap-3 md:gap-4 justify-center lg:justify-start mt-2 md:mt-4">
               <button onClick={() => handleLoginClick('office')} className="bg-indigo-600 hover:bg-indigo-500 text-white px-5 md:px-8 py-3 md:py-4 rounded-xl font-bold transition-all shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2 group text-base md:text-lg text-center">
                 <Building size={20}/> Sou Escritório <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform"/>
               </button>
@@ -1211,6 +1223,7 @@ export default function App() {
                           <p className="text-[10px] text-slate-500 uppercase font-bold mb-1">Contratante</p>
                           <p className="text-sm text-white font-medium truncate">{ev.contractorName}</p>
                           {ev.eventName && <p className="text-xs text-indigo-300 mt-1">Evento: {ev.eventName}</p>}
+                          {ev.artistName && <p className="text-xs text-cyan-300 mt-1">Artista: {ev.artistName}</p>}
                           <p className="text-xs text-slate-400 mt-1">WhatsApp: {ev.contractorPhone}</p>
                           <p className="text-xs text-slate-400 truncate">Email: {ev.contractorEmail}</p>
                           {ev.contractorInstagram && <p className="text-xs text-slate-400 truncate">Instagram: {ev.contractorInstagram}</p>}
@@ -1405,6 +1418,10 @@ export default function App() {
                   {authUser.role !== 'superadmin' && <button onClick={() => setMapMode((mode) => mode === 'tour' ? 'available' : 'tour')} aria-pressed={mapMode === 'tour'} className={`min-h-14 rounded-xl border px-3 text-xs font-bold shadow-lg backdrop-blur transition-colors ${mapMode === 'tour' ? 'border-cyan-400 bg-cyan-500 text-slate-950' : 'border-slate-700 bg-[#0B0F19]/90 text-indigo-300 hover:bg-indigo-600 hover:text-white'}`}>
                     <CalendarDays size={17} className="mx-auto mb-1" />{mapMode === 'tour' ? 'Datas abertas' : 'Minha turnê'}
                   </button>}
+                  {authUser.role !== 'superadmin' && mapMode === 'tour' && <select value={selectedTourArtist} onChange={(event) => setSelectedTourArtist(event.target.value)} className="min-h-14 max-w-40 rounded-xl border border-cyan-400/50 bg-[#0B0F19]/95 px-3 text-xs font-bold text-white shadow-lg outline-none">
+                    <option value="">Todos os artistas</option>
+                    {tourArtists.map((artist) => <option key={artist} value={artist}>{artist}</option>)}
+                  </select>}
                 </div>
 
                 {/* No celular e tablet, três atalhos ficam no alto e dois embaixo. */}
@@ -1532,6 +1549,10 @@ export default function App() {
                   <input type="text" required value={contractorForm.eventName} onChange={e => setContractorForm({...contractorForm, eventName: e.target.value})} className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" />
                 </div>
               </div>
+              <div>
+                <label className="block text-[10px] font-bold text-slate-500 uppercase mb-2">Artista / Cantor</label>
+                <input type="text" required value={contractorForm.artistName} onChange={e => setContractorForm({...contractorForm, artistName: e.target.value})} placeholder="Nome do artista desta apresentação" className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" />
+              </div>
 
               <div className="border-t border-slate-800 pt-5 mt-5">
                 <h4 className="text-white text-sm font-bold mb-4">Dados do Evento</h4>
@@ -1595,6 +1616,7 @@ export default function App() {
                   <div><label className="block text-[10px] font-bold text-slate-500 uppercase mb-2">Nome do Contratante</label><input type="text" value={formData.contractorName} onChange={e => setFormData({...formData, contractorName: e.target.value})} className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" /></div>
                   <div><label className="block text-[10px] font-bold text-slate-500 uppercase mb-2">Nome do Evento</label><input type="text" value={formData.eventName} onChange={e => setFormData({...formData, eventName: e.target.value})} className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" /></div>
                 </div>
+                <div><label className="block text-[10px] font-bold text-slate-500 uppercase mb-2">Artista / Cantor</label><input type="text" value={formData.artistName} onChange={e => setFormData({...formData, artistName: e.target.value})} placeholder="Nome do artista desta apresentação" className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" /></div>
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div><label className="block text-[10px] font-bold text-slate-500 uppercase mb-2">E-mail</label><input type="email" value={formData.contractorEmail} onChange={e => setFormData({...formData, contractorEmail: e.target.value})} className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" /></div>
                   <div><label className="block text-[10px] font-bold text-slate-500 uppercase mb-2">Telefone / WhatsApp</label><input type="text" value={formData.contractorPhone} onChange={e => setFormData({...formData, contractorPhone: e.target.value})} className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" /></div>
