@@ -905,7 +905,7 @@ export default function App() {
       
       {/* Header Dashboard */}
       <header className="bg-[#111827] border-b border-slate-800 p-3 sm:p-4 shrink-0 z-30 flex justify-between items-center">
-        <div className="flex items-center gap-3 sm:gap-4">
+        <button onClick={() => setActiveTab('map')} className="flex items-center gap-3 sm:gap-4 text-left cursor-pointer sm:pointer-events-none">
           <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-indigo-500 to-cyan-500 rounded-xl flex items-center justify-center">
             <Map size={20} className="text-white" />
           </div>
@@ -915,7 +915,7 @@ export default function App() {
               {authUser.role === 'superadmin' ? 'Admin Geral' : authUser.role === 'company_admin' ? `Escritório: ${userCompanyName}` : `Agente: ${userCompanyName}`}
             </span>
           </div>
-        </div>
+        </button>
 
         <div className="flex items-center gap-3 sm:gap-4">
           <div className="text-right hidden sm:block">
@@ -929,7 +929,7 @@ export default function App() {
 
       <div className="flex flex-1 min-h-0 flex-col lg:flex-row">
       {/* Navegação: horizontal no celular e lateral no computador */}
-      <aside className="bg-[#111827]/50 border-b border-slate-800 shrink-0 lg:w-60 lg:border-b-0 lg:border-r">
+      <aside className="hidden sm:block bg-[#111827]/50 border-b border-slate-800 shrink-0 lg:w-60 lg:border-b-0 lg:border-r">
         <div className="flex gap-2 p-2 sm:p-3 overflow-x-auto custom-scrollbar whitespace-nowrap lg:flex-col lg:overflow-y-auto lg:overflow-x-hidden lg:p-4">
           {TABS.map(tab => {
             const Icon = tab.icon;
@@ -1306,7 +1306,7 @@ export default function App() {
         
         {/* TAB: MAPA (Visualização do Dashboard Logado em 2D Realista) */}
         {activeTab === 'map' && (
-          <div className="max-w-7xl mx-auto flex flex-col h-[calc(100dvh-180px)]">
+          <div className="max-w-7xl mx-auto flex flex-col h-[calc(100dvh-96px)] sm:h-[calc(100dvh-180px)]">
              <div className="flex justify-between items-center mb-6">
                 <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2"><Map className="text-indigo-400"/> Mapa Logístico</h2>
              </div>
@@ -1316,6 +1316,18 @@ export default function App() {
                 <div className="absolute top-4 left-4 z-20 bg-[#0B0F19]/90 backdrop-blur border border-slate-800 p-3 rounded-xl shadow-lg">
                   <h4 className="text-[10px] font-bold text-slate-400 uppercase mb-2">Disponibilidade</h4>
                   <div className="flex items-center gap-2 mb-1.5"><span className="w-2.5 h-2.5 rounded-full bg-white"></span><span className="text-xs text-white">Datas Abertas</span></div>
+                </div>
+
+                {/* No celular, os atalhos ficam dentro do mapa para liberar espaço no topo. */}
+                <div className="sm:hidden absolute top-4 right-4 z-30 grid grid-cols-2 gap-2">
+                  {TABS.filter((tab) => tab.id !== 'map').map((tab) => {
+                    const Icon = tab.icon;
+                    return (
+                      <button key={tab.id} onClick={() => setActiveTab(tab.id)} title={tab.label} aria-label={tab.label} className="w-12 h-12 rounded-xl border border-slate-700 bg-[#0B0F19]/95 backdrop-blur text-indigo-300 hover:bg-indigo-600 hover:text-white flex items-center justify-center shadow-lg transition-colors">
+                        <Icon size={20} />
+                      </button>
+                    );
+                  })}
                 </div>
 
                 <div className={`absolute top-4 right-4 z-20 w-48 sm:w-64 bg-[#0B0F19]/95 backdrop-blur-xl border border-slate-700/80 p-4 rounded-2xl shadow-2xl transition-all duration-200 ${hoveredState ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'}`}>
