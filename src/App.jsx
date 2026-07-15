@@ -925,22 +925,23 @@ export default function App() {
         </div>
       </header>
 
-      {/* Sub-Nav Scrollable */}
-      <div className="bg-[#111827]/50 border-b border-slate-800 shrink-0">
-        <div className="flex gap-2 p-2 sm:p-3 overflow-x-auto custom-scrollbar whitespace-nowrap">
+      <div className="flex flex-1 min-h-0 flex-col lg:flex-row">
+      {/* Navegação: horizontal no celular e lateral no computador */}
+      <aside className="bg-[#111827]/50 border-b border-slate-800 shrink-0 lg:w-60 lg:border-b-0 lg:border-r">
+        <div className="flex gap-2 p-2 sm:p-3 overflow-x-auto custom-scrollbar whitespace-nowrap lg:flex-col lg:overflow-y-auto lg:overflow-x-hidden lg:p-4">
           {TABS.map(tab => {
             const Icon = tab.icon;
             return (
-              <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`shrink-0 flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold transition-colors ${activeTab === tab.id ? 'bg-indigo-600 text-white' : 'bg-[#0B0F19] text-slate-400 border border-slate-800 hover:text-white'}`}>
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)} className={`shrink-0 flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold transition-colors lg:w-full lg:px-4 lg:py-3 ${activeTab === tab.id ? 'bg-indigo-600 text-white' : 'bg-[#0B0F19] text-slate-400 border border-slate-800 hover:text-white'}`}>
                 <Icon size={16} /> {tab.label}
               </button>
             )
           })}
         </div>
-      </div>
+      </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto overflow-x-hidden relative p-4 sm:p-6 custom-scrollbar">
+      <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden relative p-4 sm:p-6 custom-scrollbar">
         
         {/* TAB: ESTATÍSTICAS */}
         {activeTab === 'stats' && (
@@ -1354,6 +1355,7 @@ export default function App() {
         )}
 
       </main>
+      </div>
 
       {/* ================= MODAIS ================= */}
       
