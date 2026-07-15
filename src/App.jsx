@@ -716,7 +716,7 @@ export default function App() {
   // ================= VIEW: HOME (Landing Page) =================
   if (currentView === 'home') {
     return (
-      <div className={`${homeSection === 'home' ? 'min-h-0' : 'min-h-[100dvh] overflow-y-auto'} bg-[#0B0F19] text-slate-200 relative flex flex-col overflow-x-hidden font-sans selection:bg-indigo-500/30`}>
+      <div className={`${homeSection === 'home' ? 'h-[100dvh] overflow-hidden' : 'min-h-[100dvh] overflow-y-auto'} bg-[#0B0F19] text-slate-200 relative flex flex-col overflow-x-hidden font-sans selection:bg-indigo-500/30`}>
         <ToastNotification toast={toast} />
         
         {/* Efeitos de Fundo Modernos */}
@@ -755,7 +755,7 @@ export default function App() {
         <main className={`${homeSection === 'home' ? 'flex' : 'hidden'} min-h-0 flex-1 w-full max-w-7xl mx-auto flex-col lg:flex-row items-center justify-center p-3 md:p-6 gap-4 md:gap-6 lg:gap-12 relative z-10`}>
           
           {/* Coluna Esquerda */}
-          <div className="flex-1 w-full flex flex-col justify-center gap-3 md:gap-7 mt-1 lg:mt-0 text-center lg:text-left z-20">
+          <div className="h-full flex-1 w-full flex flex-col justify-between gap-3 md:gap-7 mt-1 lg:mt-0 text-center lg:text-left z-20">
             <div className="inline-flex max-w-full items-center justify-center lg:justify-start gap-2 px-3 md:px-4 py-1.5 md:py-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[8px] md:text-xs font-bold uppercase tracking-[0.08em] md:tracking-widest mx-auto lg:mx-0 text-center">
                <Globe2 size={14} /> Solução Logística de Espetáculos
             </div>
