@@ -875,8 +875,8 @@ export default function App() {
       { id: 'agents', label: 'Todos Agentes', icon: Users },
       { id: 'proposals', label: 'Todas Propostas', icon: FileText },
       { id: 'finance', label: 'Financeiro', icon: Briefcase },
-      { id: 'backup', label: 'Backup', icon: Save },
-      { id: 'calendar', label: 'Calendário', icon: CalendarDays }
+      { id: 'calendar', label: 'Calendário', icon: CalendarDays },
+      { id: 'backup', label: 'Backup', icon: Save }
     );
   } else if (authUser.role === 'company_admin') {
     TABS.push(
