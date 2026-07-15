@@ -867,8 +867,8 @@ export default function App() {
           <div className="mx-auto mt-16 grid max-w-7xl items-center gap-10 border-t border-slate-800 pt-14 lg:grid-cols-2">
             <div>
               <p className="text-sm font-bold uppercase tracking-widest text-cyan-300">Visão nacional</p>
-              <h2 className="mt-3 text-3xl font-black text-white sm:text-5xl">A turnê inteira visível no mapa do Brasil.</h2>
-              <p className="mt-5 max-w-xl text-slate-400 sm:text-lg">Encontre oportunidades, acompanhe datas e conecte escritórios, agentes e artistas com uma operação clara e profissional.</p>
+              <h2 className="mt-3 text-3xl font-black text-white sm:text-5xl">A turnê inteira visível na palma da sua mão.</h2>
+              <p className="mt-5 max-w-xl text-slate-300 sm:text-lg">Enquanto você dorme, seus agentes vendem.<br />Não perca mais nenhuma oportunidade.</p>
               <button onClick={() => handleLoginClick('office')} className="mt-7 inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-6 py-3 font-bold text-slate-950 hover:bg-cyan-400"><Building size={18} /> Conhecer o ShowMap</button>
             </div>
             <div className="relative rounded-3xl border border-slate-700 bg-[#111827] p-6 shadow-2xl">
