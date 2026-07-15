@@ -296,6 +296,7 @@ export default function App() {
   const [hoveredState, setHoveredState] = useState(null);
   const [mapMode, setMapMode] = useState('available');
   const [selectedTourArtist, setSelectedTourArtist] = useState('');
+  const [isArtistMenuOpen, setIsArtistMenuOpen] = useState(false);
   
   // Estados para Modais & Formulários
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
@@ -1418,10 +1419,15 @@ export default function App() {
                   {authUser.role !== 'superadmin' && <button onClick={() => setMapMode((mode) => mode === 'tour' ? 'available' : 'tour')} aria-pressed={mapMode === 'tour'} className={`min-h-14 rounded-xl border px-3 text-xs font-bold shadow-lg backdrop-blur transition-colors ${mapMode === 'tour' ? 'border-cyan-400 bg-cyan-500 text-slate-950' : 'border-slate-700 bg-[#0B0F19]/90 text-indigo-300 hover:bg-indigo-600 hover:text-white'}`}>
                     <CalendarDays size={17} className="mx-auto mb-1" />{mapMode === 'tour' ? 'Datas abertas' : 'Minha turnê'}
                   </button>}
-                  {authUser.role !== 'superadmin' && <select value={selectedTourArtist} onChange={(event) => { setSelectedTourArtist(event.target.value); if (event.target.value) setMapMode('tour'); }} disabled={tourArtists.length === 0} aria-label="Escolher artista da turnê" className="min-h-14 max-w-44 rounded-xl border border-cyan-400/50 bg-[#0B0F19]/95 px-3 text-xs font-bold text-white shadow-lg outline-none disabled:cursor-not-allowed disabled:opacity-50">
-                    <option value="">{tourArtists.length ? 'Escolher artista' : 'Sem artistas confirmados'}</option>
-                    {tourArtists.map((artist) => <option key={artist} value={artist}>{artist}</option>)}
-                  </select>}
+                  {authUser.role !== 'superadmin' && <div className="relative">
+                    <button onClick={() => setIsArtistMenuOpen((open) => !open)} aria-expanded={isArtistMenuOpen} className={`min-h-14 rounded-xl border px-3 text-xs font-bold shadow-lg backdrop-blur transition-colors ${selectedTourArtist ? 'border-cyan-400 bg-cyan-500 text-slate-950' : 'border-slate-700 bg-[#0B0F19]/90 text-indigo-300 hover:bg-indigo-600 hover:text-white'}`}>
+                      <Users size={17} className="mx-auto mb-1" />Artista
+                    </button>
+                    {isArtistMenuOpen && <div className="absolute left-0 top-[calc(100%+0.5rem)] z-40 w-52 rounded-xl border border-slate-700 bg-[#0B0F19] p-2 shadow-2xl">
+                      <button onClick={() => { setSelectedTourArtist(''); setIsArtistMenuOpen(false); }} className="w-full rounded-lg px-3 py-2 text-left text-xs font-bold text-slate-300 hover:bg-slate-800">Todos os artistas</button>
+                      {tourArtists.length ? tourArtists.map((artist) => <button key={artist} onClick={() => { setSelectedTourArtist(artist); setMapMode('tour'); setIsArtistMenuOpen(false); }} className="w-full rounded-lg px-3 py-2 text-left text-xs font-bold text-white hover:bg-indigo-600">{artist}</button>) : <p className="px-3 py-2 text-xs text-slate-400">Nenhum artista confirmado.</p>}
+                    </div>}
+                  </div>}
                 </div>
 
                 {/* No celular e tablet, três atalhos ficam no alto e dois embaixo. */}
