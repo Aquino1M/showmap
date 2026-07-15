@@ -884,7 +884,8 @@ export default function App() {
       { id: 'stats', label: 'Resumo', icon: LayoutDashboard },
       { id: 'proposals', label: 'Agenda & Propostas', icon: FileText },
       { id: 'calendar', label: 'Calendário', icon: CalendarDays },
-      { id: 'agents', label: 'Agentes', icon: Users }
+      { id: 'agents', label: 'Agentes', icon: Users },
+      { id: 'finance', label: 'Financeiro', icon: Briefcase }
     );
   } else if (authUser.role === 'agent') {
     TABS.push(
@@ -1190,6 +1191,31 @@ export default function App() {
             </div>
           </div>
         )}
+
+        {activeTab === 'finance' && authUser.role === 'company_admin' && (() => {
+          const company = companies.find((item) => item.id === authUser.companyId);
+          const planKey = company?.plan || 'lite';
+          const plan = PLAN_DETAILS[planKey];
+          const agentCount = users.filter((user) => user.role === 'agent' && user.companyId === authUser.companyId).length;
+          const expiration = company?.planExpiresAt ? new Date(`${company.planExpiresAt}T23:59:59`) : null;
+          const daysRemaining = expiration ? Math.max(0, Math.ceil((expiration.getTime() - Date.now()) / 86400000)) : 0;
+          const upgrades = Object.entries(PLAN_DETAILS).filter(([key]) => key !== planKey);
+          return (
+            <div className="max-w-6xl mx-auto">
+              <div className="mb-6"><h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2"><Briefcase className="text-indigo-400"/> Financeiro do Escritório</h2><p className="text-sm text-slate-400 mt-2">Acompanhe seu plano e solicite renovação ou upgrade ao Administrador Master.</p></div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div className="bg-[#111827] border border-indigo-500/40 rounded-2xl p-5"><p className="text-xs uppercase font-bold text-slate-400">Plano atual</p><p className="text-3xl font-black text-indigo-300 mt-2">{plan.label}</p><p className="text-xs text-slate-400 mt-2">R$ {plan.price}/mês</p></div>
+                <div className="bg-[#111827] border border-slate-800 rounded-2xl p-5"><p className="text-xs uppercase font-bold text-slate-400">Agentes</p><p className="text-3xl font-black text-white mt-2">{agentCount}/{plan.agents}</p><p className="text-xs text-slate-400 mt-2">Limite do plano</p></div>
+                <div className="bg-[#111827] border border-slate-800 rounded-2xl p-5"><p className="text-xs uppercase font-bold text-slate-400">Vencimento</p><p className="text-xl font-black text-white mt-3">{expiration ? expiration.toLocaleDateString('pt-BR') : 'Não definido'}</p><p className="text-xs text-slate-400 mt-2">Renovação mensal</p></div>
+                <div className={`border rounded-2xl p-5 ${daysRemaining <= 5 ? 'bg-red-500/10 border-red-500/40' : 'bg-[#111827] border-slate-800'}`}><p className="text-xs uppercase font-bold text-slate-400">Dias restantes</p><p className={`text-3xl font-black mt-2 ${daysRemaining <= 5 ? 'text-red-400' : 'text-emerald-400'}`}>{daysRemaining}</p><p className="text-xs text-slate-400 mt-2">Após o vencimento, o acesso é bloqueado.</p></div>
+              </div>
+              <div className="grid lg:grid-cols-2 gap-6">
+                <div className="bg-[#111827] border border-slate-800 rounded-2xl p-5"><h3 className="font-bold text-white">Renovação do plano</h3><p className="text-sm text-slate-400 mt-2">Após realizar o pagamento, fale com o Administrador Master. Ele renovará seu acesso por mais um mês.</p><div className="mt-4 rounded-xl bg-[#0B0F19] border border-slate-800 p-4 text-sm text-indigo-300">Plano {plan.label}: R$ {plan.price}/mês</div></div>
+                <div className="bg-[#111827] border border-slate-800 rounded-2xl p-5"><h3 className="font-bold text-white">Upgrades disponíveis</h3><div className="mt-3 space-y-3">{upgrades.map(([key, item]) => <div key={key} className="rounded-xl bg-[#0B0F19] border border-slate-800 p-3 flex justify-between items-center gap-3"><div><p className="font-bold text-white">{item.label}</p><p className="text-xs text-slate-400">Até {item.agents} agentes · R$ {item.price}/mês</p></div><span className="text-xs text-indigo-300 font-bold">Solicite ao admin</span></div>)}</div></div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* TAB: CALENDÁRIO */}
         {activeTab === 'backup' && authUser.role === 'superadmin' && (
