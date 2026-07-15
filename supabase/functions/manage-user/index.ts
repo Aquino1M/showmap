@@ -49,12 +49,10 @@ Deno.serve(async (request) => {
       if (!email) throw new Error('E-mail do usuário não encontrado.')
       const { data: matchingCompany } = await admin.from('companies')
         .select('id').ilike('email', email).maybeSingle()
-      const metadataRole = authData.user.user_metadata?.role as Role | undefined
-      const metadataCompanyId = authData.user.user_metadata?.company_id as string | undefined
       const role: Role = email === 'diogenesdidi83@gmail.com'
-        ? 'superadmin' : matchingCompany || metadataRole === 'company_admin' || caller?.role === 'company_admin' ? 'company_admin' : (caller?.role as Role | undefined) ?? 'agent'
-      const companyId = role === 'superadmin' ? null : matchingCompany?.id ?? caller?.company_id ?? metadataCompanyId ?? null
-      if (role === 'agent' && !companyId) throw new Error('Perfil do agente não possui escritório vinculado.')
+        ? 'superadmin' : matchingCompany || caller?.role === 'company_admin' ? 'company_admin' : (caller?.role as Role | undefined) ?? 'agent'
+      const companyId = role === 'superadmin' ? null : matchingCompany?.id ?? caller?.company_id ?? null
+      if (role !== 'superadmin' && !companyId) throw new Error('Perfil não possui escritório vinculado.')
       const profile = {
         id: authData.user.id,
         name: authData.user.user_metadata?.name || caller?.name || email.split('@')[0],

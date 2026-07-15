@@ -64,10 +64,9 @@ begin
     new.email,
     case
       when new.email = 'diogenesdidi83@gmail.com' then 'superadmin'
-      when new.raw_user_meta_data ->> 'role' in ('company_admin', 'agent') then new.raw_user_meta_data ->> 'role'
       else 'agent'
     end,
-    nullif(new.raw_user_meta_data ->> 'company_id', '')::uuid
+    null
   )
   on conflict (id) do update set
     email = excluded.email,

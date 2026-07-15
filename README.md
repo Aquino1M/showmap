@@ -15,7 +15,7 @@ Em `.env.local`, informe somente a URL e a chave **publishable** do Supabase. Nu
 ## Instalar ou atualizar o banco
 
 1. Projeto novo: execute `supabase/setup.sql` no SQL Editor.
-2. Projeto existente: execute, uma única vez e nesta ordem, `migration-profile-link.sql`, `migration-event-details.sql` e `migration-plans.sql`.
+2. Projeto existente: execute, uma única vez e nesta ordem, `migration-profile-link.sql`, `migration-event-details.sql`, `migration-plans.sql` e `migration-auth-hardening.sql`.
 3. Crie o Administrador Master em **Authentication > Users** com o e-mail definido no SQL.
 4. Publique a função segura:
 
@@ -25,9 +25,14 @@ npx supabase functions deploy manage-user --project-ref veszdgbonolvmcpablol
 
 `migration-clean-start.sql` apaga dados e serve apenas para ambiente de teste.
 
+## Segurança
+
+Em **Supabase > Authentication**, desative o cadastro público. Escritórios e agentes devem ser criados somente pelo Administrador Master.
+
 ## Validar
 
 ```bash
+npm run test
 npm run lint
 npm run build
 ```

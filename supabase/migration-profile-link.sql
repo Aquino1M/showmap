@@ -16,10 +16,9 @@ begin
     new.email,
     case
       when new.email = 'diogenesdidi83@gmail.com' then 'superadmin'
-      when new.raw_user_meta_data ->> 'role' in ('company_admin', 'agent') then new.raw_user_meta_data ->> 'role'
       else 'agent'
     end,
-    nullif(new.raw_user_meta_data ->> 'company_id', '')::uuid
+    null
   )
   on conflict (id) do update set
     email = excluded.email,
@@ -30,15 +29,10 @@ begin
 end;
 $$;
 
--- Repara contas existentes que possuem o vínculo nos metadados do Auth.
+-- Atualiza apenas nome e e-mail das contas existentes. Papéis e vínculos são
+-- definidos pela função segura, e não por metadados enviados pelo navegador.
 update public.profiles p
 set name = coalesce(nullif(u.raw_user_meta_data ->> 'name', ''), p.name),
-    email = u.email,
-    role = case
-      when u.email = 'diogenesdidi83@gmail.com' then 'superadmin'
-      when u.raw_user_meta_data ->> 'role' in ('company_admin', 'agent') then u.raw_user_meta_data ->> 'role'
-      else p.role
-    end,
-    company_id = coalesce(nullif(u.raw_user_meta_data ->> 'company_id', '')::uuid, p.company_id)
+    email = u.email
 from auth.users u
 where p.id = u.id;

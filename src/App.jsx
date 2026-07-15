@@ -10,18 +10,13 @@ import {
   exportDatabase,
   renewCompanyPlan
 } from './firebase';
+import { PLAN_DETAILS, getPlanDaysRemaining, isPlanExpired } from './lib/plans';
 import { 
   Map, CalendarDays, MapPin, Plus, ChevronLeft, ChevronRight, Users,
   LayoutDashboard, X, Briefcase, FileText, Building, 
   UserPlus, Trash2, Edit, Save, HandMetal, Hand, LogOut, Clock,
   Globe2, ArrowRight
 } from 'lucide-react';
-
-const PLAN_DETAILS = {
-  lite: { label: 'Lite', price: 99, agents: 5 },
-  pro: { label: 'Pro', price: 199, agents: 10 },
-  ultra: { label: 'Ultra', price: 299, agents: 15 },
-};
 
 // Mapa do Brasil Geograficamente Preciso, Contíguo (sem frestas/gaps) em escala 2048x2048
 // Totalmente plano (2D), sem perspectiva, sem textos ou símbolos sobrepostos.
@@ -284,7 +279,6 @@ export default function App() {
   const [authUser, setAuthUser] = useState(null);
   const [activeTab, setActiveTab] = useState('map');
   const dashboardUserIdRef = useRef(null);
-  const [currentDate] = useState(() => new Date());
   const [calendarCursor, setCalendarCursor] = useState(() => new Date());
   const [selectedCalendarDate, setSelectedCalendarDate] = useState('');
   const [hoveredState, setHoveredState] = useState(null);
@@ -341,7 +335,7 @@ export default function App() {
         setCurrentView('login');
         return;
       }
-      if (profile.companyId && company?.planExpiresAt && new Date(`${company.planExpiresAt}T23:59:59`) < new Date()) {
+      if (profile.companyId && company?.planExpiresAt && isPlanExpired(company.planExpiresAt)) {
         const message = 'Plano vencido. Fale com o administrador para renovar seu plano.';
         setProfileError(message);
         setAuthUser(null);
@@ -1193,7 +1187,7 @@ export default function App() {
             </div>
             <div className="bg-[#111827] border border-slate-800 rounded-2xl overflow-x-auto">
               <table className="w-full min-w-[880px] text-left"><thead><tr className="border-b border-slate-800 text-xs text-slate-500 uppercase"><th className="p-4">Escritório</th><th className="p-4">Plano</th><th className="p-4">Agentes</th><th className="p-4">Vencimento</th><th className="p-4">Dias restantes</th><th className="p-4 text-right">Ação</th></tr></thead>
-                <tbody>{companies.map((company) => { const plan = PLAN_DETAILS[company.plan || 'lite']; const agentCount = users.filter((user) => user.role === 'agent' && user.companyId === company.id).length; const expiration = company.planExpiresAt ? new Date(`${company.planExpiresAt}T23:59:59`) : null; const daysRemaining = expiration ? Math.max(0, Math.ceil((expiration.getTime() - currentDate.getTime()) / 86400000)) : 0; const expired = !expiration || expiration < currentDate; return <tr key={company.id} className="border-b border-slate-800/60"><td className="p-4 text-sm font-bold text-white">{company.name}</td><td className="p-4 text-sm text-indigo-300">{plan.label} · R$ {plan.price}</td><td className="p-4 text-sm text-slate-300">{agentCount}/{plan.agents}</td><td className={`p-4 text-sm ${expired ? 'text-red-400' : 'text-emerald-400'}`}>{company.planExpiresAt ? new Date(`${company.planExpiresAt}T12:00:00`).toLocaleDateString('pt-BR') : 'Não definido'}</td><td className={`p-4 text-sm font-bold ${expired ? 'text-red-400' : daysRemaining <= 5 ? 'text-amber-400' : 'text-emerald-400'}`}>{expired ? 'Vencido' : `${daysRemaining} dia${daysRemaining === 1 ? '' : 's'}`}</td><td className="p-4 text-right"><button onClick={() => handleRenewCompanyPlan(company)} className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg text-xs font-bold">Renovar +1 mês</button></td></tr>; })}</tbody>
+                <tbody>{companies.map((company) => { const plan = PLAN_DETAILS[company.plan || 'lite']; const agentCount = users.filter((user) => user.role === 'agent' && user.companyId === company.id).length; const daysRemaining = getPlanDaysRemaining(company.planExpiresAt); const expired = isPlanExpired(company.planExpiresAt); return <tr key={company.id} className="border-b border-slate-800/60"><td className="p-4 text-sm font-bold text-white">{company.name}</td><td className="p-4 text-sm text-indigo-300">{plan.label} · R$ {plan.price}</td><td className="p-4 text-sm text-slate-300">{agentCount}/{plan.agents}</td><td className={`p-4 text-sm ${expired ? 'text-red-400' : 'text-emerald-400'}`}>{company.planExpiresAt ? new Date(`${company.planExpiresAt}T12:00:00`).toLocaleDateString('pt-BR') : 'Não definido'}</td><td className={`p-4 text-sm font-bold ${expired ? 'text-red-400' : daysRemaining <= 5 ? 'text-amber-400' : 'text-emerald-400'}`}>{expired ? 'Vencido' : `${daysRemaining} dia${daysRemaining === 1 ? '' : 's'}`}</td><td className="p-4 text-right"><button onClick={() => handleRenewCompanyPlan(company)} className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg text-xs font-bold">Renovar +1 mês</button></td></tr>; })}</tbody>
               </table>
             </div>
           </div>
@@ -1204,8 +1198,7 @@ export default function App() {
           const planKey = company?.plan || 'lite';
           const plan = PLAN_DETAILS[planKey];
           const agentCount = users.filter((user) => user.role === 'agent' && user.companyId === authUser.companyId).length;
-          const expiration = company?.planExpiresAt ? new Date(`${company.planExpiresAt}T23:59:59`) : null;
-          const daysRemaining = expiration ? Math.max(0, Math.ceil((expiration.getTime() - currentDate.getTime()) / 86400000)) : 0;
+          const daysRemaining = getPlanDaysRemaining(company?.planExpiresAt);
           const upgrades = Object.entries(PLAN_DETAILS).filter(([key]) => key !== planKey);
           return (
             <div className="max-w-6xl mx-auto">
@@ -1213,7 +1206,7 @@ export default function App() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 <div className="bg-[#111827] border border-indigo-500/40 rounded-2xl p-5"><p className="text-xs uppercase font-bold text-slate-400">Plano atual</p><p className="text-3xl font-black text-indigo-300 mt-2">{plan.label}</p><p className="text-xs text-slate-400 mt-2">R$ {plan.price}/mês</p></div>
                 <div className="bg-[#111827] border border-slate-800 rounded-2xl p-5"><p className="text-xs uppercase font-bold text-slate-400">Agentes</p><p className="text-3xl font-black text-white mt-2">{agentCount}/{plan.agents}</p><p className="text-xs text-slate-400 mt-2">Limite do plano</p></div>
-                <div className="bg-[#111827] border border-slate-800 rounded-2xl p-5"><p className="text-xs uppercase font-bold text-slate-400">Vencimento</p><p className="text-xl font-black text-white mt-3">{expiration ? expiration.toLocaleDateString('pt-BR') : 'Não definido'}</p><p className="text-xs text-slate-400 mt-2">Renovação mensal</p></div>
+                <div className="bg-[#111827] border border-slate-800 rounded-2xl p-5"><p className="text-xs uppercase font-bold text-slate-400">Vencimento</p><p className="text-xl font-black text-white mt-3">{company?.planExpiresAt ? new Date(`${company.planExpiresAt}T12:00:00`).toLocaleDateString('pt-BR') : 'Não definido'}</p><p className="text-xs text-slate-400 mt-2">Renovação mensal</p></div>
                 <div className={`border rounded-2xl p-5 ${daysRemaining <= 5 ? 'bg-red-500/10 border-red-500/40' : 'bg-[#111827] border-slate-800'}`}><p className="text-xs uppercase font-bold text-slate-400">Dias restantes</p><p className={`text-3xl font-black mt-2 ${daysRemaining <= 5 ? 'text-red-400' : 'text-emerald-400'}`}>{daysRemaining}</p><p className="text-xs text-slate-400 mt-2">Após o vencimento, o acesso é bloqueado.</p></div>
               </div>
               <div className="grid lg:grid-cols-2 gap-6">

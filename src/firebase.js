@@ -6,6 +6,11 @@ const TABLES = {
   events: 'events',
 };
 
+const DATA_CHANGED_EVENT = 'showmap:data-changed';
+const notifyCollectionChanged = (collectionName) => {
+  globalThis.dispatchEvent?.(new CustomEvent(DATA_CHANGED_EVENT, { detail: collectionName }));
+};
+
 const toCompany = (row) => ({
   id: row.id,
   name: row.name,
@@ -159,10 +164,15 @@ export const subscribeCollection = (collectionName, callback) => {
     }
   };
 
+  const onLocalChange = (event) => {
+    if (event.detail === collectionName) refresh();
+  };
+
   refresh();
-  // A gravação é feita pela função segura; esta atualização periódica mantém
-  // outra sessão aberta sincronizada mesmo quando o Realtime não recebe o evento.
-  const refreshInterval = setInterval(refresh, 20000);
+  globalThis.addEventListener?.(DATA_CHANGED_EVENT, onLocalChange);
+  // Realtime e atualizações locais mantêm o painel atual. A consulta periódica
+  // é apenas uma reserva para ambientes em que o Realtime esteja indisponível.
+  const refreshInterval = setInterval(refresh, 60000);
   const channel = supabase
     .channel(`showmap-${collectionName}-${crypto.randomUUID()}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: TABLES[collectionName] }, refresh)
@@ -171,6 +181,7 @@ export const subscribeCollection = (collectionName, callback) => {
   return () => {
     active = false;
     clearInterval(refreshInterval);
+    globalThis.removeEventListener?.(DATA_CHANGED_EVENT, onLocalChange);
     supabase.removeChannel(channel);
   };
 };
@@ -191,6 +202,7 @@ export const saveDocument = async (collectionName, data) => {
     });
     await throwFunctionError(error, 'Não foi possível salvar o usuário.');
     if (result?.error) throw new Error(result.error);
+    notifyCollectionChanged('users');
     return result?.id || data.id;
   }
 
@@ -201,6 +213,7 @@ export const saveDocument = async (collectionName, data) => {
     });
     await throwFunctionError(error, 'Não foi possível salvar o escritório.');
     if (result?.error) throw new Error(result.error);
+    notifyCollectionChanged('companies');
     return result?.id;
   }
 
@@ -210,6 +223,7 @@ export const saveDocument = async (collectionName, data) => {
     });
     await throwFunctionError(error, 'Não foi possível salvar a agenda.');
     if (result?.error) throw new Error(result.error);
+    notifyCollectionChanged('events');
     return result?.id;
   }
   const { data: result, error } = await supabase
@@ -218,6 +232,7 @@ export const saveDocument = async (collectionName, data) => {
     .select('id')
     .single();
   throwIfError(error);
+  notifyCollectionChanged(collectionName);
   return result.id;
 };
 
@@ -228,6 +243,7 @@ export const deleteDocument = async (collectionName, docId) => {
     });
     await throwFunctionError(error, 'Não foi possível excluir o usuário.');
     if (data?.error) throw new Error(data.error);
+    notifyCollectionChanged('users');
     return;
   }
 
@@ -237,6 +253,7 @@ export const deleteDocument = async (collectionName, docId) => {
     });
     await throwFunctionError(error, 'Não foi possível excluir a agenda.');
     if (data?.error) throw new Error(data.error);
+    notifyCollectionChanged('events');
     return;
   }
 
@@ -246,11 +263,13 @@ export const deleteDocument = async (collectionName, docId) => {
     });
     await throwFunctionError(error, 'Não foi possível excluir o escritório.');
     if (data?.error) throw new Error(data.error);
+    notifyCollectionChanged('companies');
     return;
   }
 
   const { error } = await supabase.from(TABLES[collectionName]).delete().eq('id', docId);
   throwIfError(error);
+  notifyCollectionChanged(collectionName);
 };
 
 export const renewCompanyPlan = async (companyId) => {
@@ -259,6 +278,7 @@ export const renewCompanyPlan = async (companyId) => {
   });
   await throwFunctionError(error, 'Não foi possível renovar o plano.');
   if (data?.error) throw new Error(data.error);
+  notifyCollectionChanged('companies');
   return data;
 };
 
