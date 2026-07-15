@@ -944,6 +944,13 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden relative p-4 sm:p-6 custom-scrollbar">
+        {authUser.role !== 'superadmin' && activeTab !== 'map' && (
+          <div className="lg:hidden flex justify-end mb-4">
+            <button onClick={() => setActiveTab('map')} className="flex items-center gap-2 rounded-xl border border-indigo-500/50 bg-indigo-500/10 px-3 py-2 text-xs font-bold text-indigo-200 hover:bg-indigo-600 hover:text-white transition-colors">
+              <Map size={16} /> Voltar ao mapa
+            </button>
+          </div>
+        )}
         
         {/* TAB: ESTATÍSTICAS */}
         {activeTab === 'stats' && (
@@ -1319,7 +1326,7 @@ export default function App() {
                 </div>
 
                 {/* No celular, os atalhos ficam dentro do mapa para liberar espaço no topo. */}
-                {authUser.role !== 'superadmin' && <div className="lg:hidden absolute top-4 right-4 z-30 grid grid-cols-2 gap-2">
+                {authUser.role !== 'superadmin' && <div className="lg:hidden absolute bottom-4 right-4 z-30 grid grid-cols-2 gap-2">
                   {TABS.filter((tab) => tab.id !== 'map').map((tab) => {
                     const Icon = tab.icon;
                     return (
