@@ -198,10 +198,12 @@ const getCityCoordinates = (stateId, cityName) => {
 };
 
 const SHOWCASE_EVENTS = [
-  { stateId: 'SP', city: 'São Paulo', date: '18 JUL', color: '#22d3ee' },
-  { stateId: 'GO', city: 'Goiânia', date: '24 JUL', color: '#a78bfa' },
-  { stateId: 'BA', city: 'Salvador', date: '02 AGO', color: '#34d399' },
+  { city: 'São Paulo', date: '18 JUL', color: '#22d3ee', x: 561, y: 660 },
+  { city: 'Goiânia', date: '24 JUL', color: '#a78bfa', x: 535, y: 520 },
+  { city: 'Salvador', date: '02 AGO', color: '#34d399', x: 690, y: 438 },
 ];
+
+const SHOWCASE_TOUR = 'Turnê Demonstrativa — Artista Exemplo';
 
 function ToastNotification({ toast }) {
   if (!toast) return null;
@@ -875,7 +877,7 @@ export default function App() {
               <svg viewBox="0 0 1000 912" className="mx-auto w-full max-w-lg">
                 {Object.entries(BRAZIL_STATES).map(([uf, data]) => <path key={uf} d={data.path} fill={data.color} stroke="rgba(255,255,255,0.75)" strokeWidth="2" strokeLinejoin="round" />)}
                 {SHOWCASE_EVENTS.map((event, index) => {
-                  const point = getCityCoordinates(event.stateId, event.city);
+                  const point = { cx: event.x, cy: event.y };
                   return <g key={event.city}>
                     <circle cx={point.cx} cy={point.cy} r="28" fill={event.color} opacity="0.35" className="animate-ping" style={{ animationDuration: `${2.5 + index * 0.4}s` }} />
                     <circle cx={point.cx} cy={point.cy} r="12" fill="#111827" stroke="white" strokeWidth="5" />
@@ -884,7 +886,7 @@ export default function App() {
                 })}
               </svg>
               <div className="absolute bottom-4 left-4 hidden rounded-xl border border-cyan-400/30 bg-[#0B0F19]/95 p-3 shadow-xl backdrop-blur sm:block">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-cyan-300">Agenda demonstrativa</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-cyan-300">{SHOWCASE_TOUR}</p>
                 <div className="mt-2 space-y-1.5">{SHOWCASE_EVENTS.map((event) => <p key={event.city} className="text-xs font-semibold text-white"><span className="mr-2 inline-block h-2 w-2 rounded-full" style={{ backgroundColor: event.color }} />{event.city} · {event.date}</p>)}</div>
               </div>
             </div>
