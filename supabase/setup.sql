@@ -10,6 +10,8 @@ create table if not exists public.companies (
   email text,
   phone text,
   active boolean not null default true,
+  plan text not null default 'lite' check (plan in ('lite', 'pro', 'ultra')),
+  plan_expires_at date not null default (current_date + interval '1 month')::date,
   created_at timestamptz not null default now()
 );
 

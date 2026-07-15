@@ -12,6 +12,8 @@ const toCompany = (row) => ({
   email: row.email || '',
   phone: row.phone || '',
   active: row.active,
+  plan: row.plan || 'lite',
+  planExpiresAt: row.plan_expires_at || '',
 });
 
 const toUser = (row) => ({
@@ -45,6 +47,8 @@ const fromCompany = (data) => ({
   email: data.email?.trim() || null,
   phone: data.phone?.trim() || null,
   active: Boolean(data.active),
+  plan: data.plan || 'lite',
+  plan_expires_at: data.planExpiresAt || null,
 });
 
 const fromEvent = (data) => ({
@@ -247,6 +251,15 @@ export const deleteDocument = async (collectionName, docId) => {
 
   const { error } = await supabase.from(TABLES[collectionName]).delete().eq('id', docId);
   throwIfError(error);
+};
+
+export const renewCompanyPlan = async (companyId) => {
+  const { data, error } = await supabase.functions.invoke('manage-user', {
+    body: { action: 'renew_company_plan', id: companyId },
+  });
+  await throwFunctionError(error, 'Não foi possível renovar o plano.');
+  if (data?.error) throw new Error(data.error);
+  return data;
 };
 
 export const exportDatabase = async () => ({

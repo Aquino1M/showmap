@@ -7,7 +7,8 @@ import {
   signIn,
   signOut,
   ensureCurrentProfile,
-  exportDatabase
+  exportDatabase,
+  renewCompanyPlan
 } from './firebase';
 import { 
   Map, CalendarDays, MapPin, Plus, ChevronLeft, ChevronRight, Users,
@@ -15,6 +16,12 @@ import {
   UserPlus, Trash2, Edit, Save, HandMetal, Hand, LogOut, Clock,
   Globe2, ArrowRight
 } from 'lucide-react';
+
+const PLAN_DETAILS = {
+  lite: { label: 'Lite', price: 99, agents: 5 },
+  pro: { label: 'Pro', price: 199, agents: 10 },
+  ultra: { label: 'Ultra', price: 299, agents: 15 },
+};
 
 // Mapa do Brasil Geograficamente Preciso, Contíguo (sem frestas/gaps) em escala 2048x2048
 // Totalmente plano (2D), sem perspectiva, sem textos ou símbolos sobrepostos.
@@ -290,7 +297,7 @@ export default function App() {
   const [isSavingAgent, setIsSavingAgent] = useState(false);
   const agentSaveInFlight = useRef(false);
   
-  const [companyForm, setCompanyForm] = useState({ id: null, name: '', email: '', phone: '', active: true, adminId: null, adminName: '', adminLogin: '', adminPassword: '' });
+  const [companyForm, setCompanyForm] = useState({ id: null, name: '', email: '', phone: '', active: true, plan: 'lite', planExpiresAt: '', adminId: null, adminName: '', adminLogin: '', adminPassword: '' });
   const [isCompanyModalOpen, setIsCompanyModalOpen] = useState(false);
   const [isSavingCompany, setIsSavingCompany] = useState(false);
   const companySaveInFlight = useRef(false);
@@ -328,6 +335,13 @@ export default function App() {
       if (profile.companyId && !companiesLoaded) return;
       if (profile.companyId && (!company || !company.active)) {
         showToast('O escritório deste usuário está inativo ou não existe.', 'error');
+        setCurrentView('login');
+        return;
+      }
+      if (profile.companyId && company?.planExpiresAt && new Date(`${company.planExpiresAt}T23:59:59`) < new Date()) {
+        const message = 'Plano vencido. Fale com o administrador para renovar seu plano.';
+        setProfileError(message);
+        setAuthUser(null);
         setCurrentView('login');
         return;
       }
@@ -384,13 +398,15 @@ export default function App() {
       const companyAdmin = users.find((user) => user.role === 'company_admin' && user.companyId === comp.id);
       setCompanyForm({
         ...comp,
+        plan: comp.plan || 'lite',
+        planExpiresAt: comp.planExpiresAt || '',
         adminId: companyAdmin?.id || null,
         adminName: companyAdmin?.name || '',
         adminLogin: companyAdmin?.email || '',
         adminPassword: '',
       });
     } else {
-      setCompanyForm({ id: null, name: '', email: '', phone: '', active: true, adminId: null, adminName: '', adminLogin: '', adminPassword: '' });
+      setCompanyForm({ id: null, name: '', email: '', phone: '', active: true, plan: 'lite', planExpiresAt: '', adminId: null, adminName: '', adminLogin: '', adminPassword: '' });
     }
     setIsCompanyModalOpen(true);
   };
@@ -614,6 +630,17 @@ export default function App() {
     }
   };
 
+  const handleRenewCompanyPlan = async (company) => {
+    if (!window.confirm(`Renovar o plano ${PLAN_DETAILS[company.plan || 'lite'].label} de ${company.name} por mais um mês?`)) return;
+    try {
+      const renewed = await renewCompanyPlan(company.id);
+      setCompanies((current) => current.map((item) => item.id === company.id ? { ...item, active: true, planExpiresAt: renewed.planExpiresAt } : item));
+      showToast(`Plano renovado até ${new Date(`${renewed.planExpiresAt}T12:00:00`).toLocaleDateString('pt-BR')}.`);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Não foi possível renovar o plano.', 'error');
+    }
+  };
+
   // --- Filtros de Visibilidade ---
   const visibleEvents = useMemo(() => {
     if (!authUser) return [];
@@ -632,6 +659,11 @@ export default function App() {
     confirmed: events.filter(e => e.status === 'Confirmado').length,
     available: events.filter(e => e.status === 'Disponível').length,
   }), [companies, events]);
+
+  const financialStats = useMemo(() => Object.keys(PLAN_DETAILS).reduce((stats, plan) => {
+    stats[plan] = companies.filter((company) => company.plan === plan).length;
+    return stats;
+  }, {}), [companies]);
 
   const myStats = useMemo(() => {
     const contextEvents = visibleEvents;
@@ -842,6 +874,7 @@ export default function App() {
       { id: 'offices', label: 'Escritórios e Acessos', icon: Building },
       { id: 'agents', label: 'Todos Agentes', icon: Users },
       { id: 'proposals', label: 'Todas Propostas', icon: FileText },
+      { id: 'finance', label: 'Financeiro', icon: Briefcase },
       { id: 'backup', label: 'Backup', icon: Save },
       { id: 'calendar', label: 'Calendário', icon: CalendarDays }
     );
@@ -1139,6 +1172,20 @@ export default function App() {
                 )
               })}
               {visibleEvents.length === 0 && <p className="text-slate-500 col-span-full">Nenhum registo encontrado.</p>}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'finance' && authUser.role === 'superadmin' && (
+          <div className="max-w-7xl mx-auto">
+            <div className="mb-6"><h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2"><Briefcase className="text-indigo-400"/> Financeiro e Planos</h2><p className="text-sm text-slate-400 mt-2">Controle de planos, vencimentos e renovações dos escritórios.</p></div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+              {Object.entries(PLAN_DETAILS).map(([key, plan]) => <div key={key} className="bg-[#111827] border border-slate-800 rounded-2xl p-5"><p className="text-xs text-slate-400 uppercase font-bold">Plano {plan.label}</p><p className="text-3xl font-black text-white mt-2">{financialStats[key] || 0}</p><p className="text-xs text-indigo-300 mt-2">R$ {plan.price}/mês · até {plan.agents} agentes</p></div>)}
+            </div>
+            <div className="bg-[#111827] border border-slate-800 rounded-2xl overflow-x-auto">
+              <table className="w-full min-w-[760px] text-left"><thead><tr className="border-b border-slate-800 text-xs text-slate-500 uppercase"><th className="p-4">Escritório</th><th className="p-4">Plano</th><th className="p-4">Agentes</th><th className="p-4">Vencimento</th><th className="p-4 text-right">Ação</th></tr></thead>
+                <tbody>{companies.map((company) => { const plan = PLAN_DETAILS[company.plan || 'lite']; const agentCount = users.filter((user) => user.role === 'agent' && user.companyId === company.id).length; const expired = !company.planExpiresAt || new Date(`${company.planExpiresAt}T23:59:59`) < new Date(); return <tr key={company.id} className="border-b border-slate-800/60"><td className="p-4 text-sm font-bold text-white">{company.name}</td><td className="p-4 text-sm text-indigo-300">{plan.label} · R$ {plan.price}</td><td className="p-4 text-sm text-slate-300">{agentCount}/{plan.agents}</td><td className={`p-4 text-sm ${expired ? 'text-red-400' : 'text-emerald-400'}`}>{company.planExpiresAt ? new Date(`${company.planExpiresAt}T12:00:00`).toLocaleDateString('pt-BR') : 'Não definido'}</td><td className="p-4 text-right"><button onClick={() => handleRenewCompanyPlan(company)} className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-lg text-xs font-bold">Renovar +1 mês</button></td></tr>; })}</tbody>
+              </table>
             </div>
           </div>
         )}
@@ -1519,6 +1566,18 @@ export default function App() {
               <div>
                 <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Telefone</label>
                 <input type="text" value={companyForm.phone} onChange={e=>setCompanyForm({...companyForm, phone: e.target.value})} className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" />
+              </div>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Plano</label>
+                  <select value={companyForm.plan} onChange={e=>setCompanyForm({...companyForm, plan: e.target.value})} className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none">
+                    {Object.entries(PLAN_DETAILS).map(([key, plan]) => <option key={key} value={key}>{plan.label} — R$ {plan.price}/mês ({plan.agents} agentes)</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-500 uppercase mb-1 block">Vencimento</label>
+                  <input type="date" value={companyForm.planExpiresAt} onChange={e=>setCompanyForm({...companyForm, planExpiresAt: e.target.value})} className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none [color-scheme:dark]" />
+                </div>
               </div>
               <div className="border-t border-slate-800 pt-4 space-y-4">
                 <div>

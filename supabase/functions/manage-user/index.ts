@@ -6,9 +6,11 @@ const corsHeaders = {
 }
 
 type Role = 'superadmin' | 'company_admin' | 'agent'
+type Plan = 'lite' | 'pro' | 'ultra'
+const planAgentLimits: Record<Plan, number> = { lite: 5, pro: 10, ultra: 15 }
 
 type RequestBody = {
-  action: 'bootstrap' | 'create' | 'update' | 'delete' | 'save_event' | 'delete_event' | 'list_events' | 'list_users' | 'list_companies' | 'save_company' | 'delete_company'
+  action: 'bootstrap' | 'create' | 'update' | 'delete' | 'save_event' | 'delete_event' | 'list_events' | 'list_users' | 'list_companies' | 'save_company' | 'delete_company' | 'renew_company_plan'
   id?: string
   name?: string
   email?: string
@@ -116,12 +118,32 @@ Deno.serve(async (request) => {
         email: typeof companyInput.email === 'string' ? companyInput.email.trim().toLowerCase() || null : null,
         phone: typeof companyInput.phone === 'string' ? companyInput.phone.trim() || null : null,
         active: companyInput.active !== false,
+        plan: (['lite', 'pro', 'ultra'].includes(String(companyInput.plan)) ? companyInput.plan : 'lite') as Plan,
+        plan_expires_at: typeof companyInput.plan_expires_at === 'string' ? companyInput.plan_expires_at : new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().slice(0, 10),
       }
       if (!safeCompany.name) throw new Error('Informe o nome do escritório.')
       const { data: company, error } = await admin.from('companies')
         .upsert(safeCompany).select('id').single()
       if (error) throw error
       return Response.json({ id: company.id }, { headers: corsHeaders })
+    }
+
+    if (body.action === 'renew_company_plan') {
+      if (!isMaster || !body.id) throw new Error('Somente o Administrador Master pode renovar planos.')
+      const { data: company, error: companyError } = await admin.from('companies')
+        .select('plan, plan_expires_at').eq('id', body.id).single()
+      if (companyError || !company) throw new Error('Escritório não encontrado.')
+      const currentPlan = (['lite', 'pro', 'ultra'].includes(company.plan) ? company.plan : 'lite') as Plan
+      const baseDate = company.plan_expires_at && new Date(`${company.plan_expires_at}T23:59:59`) > new Date()
+        ? new Date(`${company.plan_expires_at}T12:00:00`) : new Date()
+      baseDate.setMonth(baseDate.getMonth() + 1)
+      const { data: renewed, error } = await admin.from('companies').update({
+        plan: currentPlan,
+        plan_expires_at: baseDate.toISOString().slice(0, 10),
+        active: true,
+      }).eq('id', body.id).select('id, plan_expires_at').single()
+      if (error) throw error
+      return Response.json({ id: renewed.id, planExpiresAt: renewed.plan_expires_at }, { headers: corsHeaders })
     }
 
     if (body.action === 'delete_company') {
@@ -207,6 +229,18 @@ Deno.serve(async (request) => {
         throw new Error('Você não tem permissão ou faltam dados para criar este usuário.')
       }
       if (body.role !== 'superadmin' && !targetCompanyId) throw new Error('Selecione um escritório para este usuário.')
+
+      if (body.role === 'agent') {
+        const { data: company, error: companyError } = await admin.from('companies')
+          .select('plan, plan_expires_at').eq('id', targetCompanyId).single()
+        if (companyError || !company) throw new Error('Escritório não encontrado.')
+        if (new Date(`${company.plan_expires_at}T23:59:59`) < new Date()) throw new Error('O plano deste escritório está vencido. Renove o plano para cadastrar agentes.')
+        const plan = (['lite', 'pro', 'ultra'].includes(company.plan) ? company.plan : 'lite') as Plan
+        const { count, error: countError } = await admin.from('profiles')
+          .select('id', { count: 'exact', head: true }).eq('company_id', targetCompanyId).eq('role', 'agent')
+        if (countError) throw countError
+        if ((count || 0) >= planAgentLimits[plan]) throw new Error(`O plano ${plan.toUpperCase()} permite no máximo ${planAgentLimits[plan]} agentes.`)
+      }
 
       const email = body.email.trim().toLowerCase()
       const { data: created, error: createError } = await admin.auth.admin.createUser({
