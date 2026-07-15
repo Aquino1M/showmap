@@ -905,7 +905,7 @@ export default function App() {
       
       {/* Header Dashboard */}
       <header className="bg-[#111827] border-b border-slate-800 p-3 sm:p-4 shrink-0 z-30 flex justify-between items-center">
-        <button onClick={() => setActiveTab('map')} className="flex items-center gap-3 sm:gap-4 text-left cursor-pointer lg:pointer-events-none">
+        <button onClick={() => authUser.role !== 'superadmin' && setActiveTab('map')} className={`flex items-center gap-3 sm:gap-4 text-left ${authUser.role === 'superadmin' ? 'cursor-default' : 'cursor-pointer lg:pointer-events-none'}`}>
           <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-indigo-500 to-cyan-500 rounded-xl flex items-center justify-center">
             <Map size={20} className="text-white" />
           </div>
@@ -929,7 +929,7 @@ export default function App() {
 
       <div className="flex flex-1 min-h-0 flex-col lg:flex-row">
       {/* Navegação: horizontal no celular e lateral no computador */}
-      <aside className="hidden lg:block bg-[#111827]/50 border-b border-slate-800 shrink-0 lg:w-60 lg:border-b-0 lg:border-r">
+      <aside className={`${authUser.role === 'superadmin' ? 'block' : 'hidden lg:block'} bg-[#111827]/50 border-b border-slate-800 shrink-0 lg:w-60 lg:border-b-0 lg:border-r`}>
         <div className="flex gap-2 p-2 sm:p-3 overflow-x-auto custom-scrollbar whitespace-nowrap lg:flex-col lg:overflow-y-auto lg:overflow-x-hidden lg:p-4">
           {TABS.map(tab => {
             const Icon = tab.icon;
@@ -1319,7 +1319,7 @@ export default function App() {
                 </div>
 
                 {/* No celular, os atalhos ficam dentro do mapa para liberar espaço no topo. */}
-                <div className="lg:hidden absolute top-4 right-4 z-30 grid grid-cols-2 gap-2">
+                {authUser.role !== 'superadmin' && <div className="lg:hidden absolute top-4 right-4 z-30 grid grid-cols-2 gap-2">
                   {TABS.filter((tab) => tab.id !== 'map').map((tab) => {
                     const Icon = tab.icon;
                     return (
@@ -1328,7 +1328,7 @@ export default function App() {
                       </button>
                     );
                   })}
-                </div>
+                </div>}
 
                 <div className={`absolute top-4 right-4 z-20 w-48 sm:w-64 bg-[#0B0F19]/95 backdrop-blur-xl border border-slate-700/80 p-4 rounded-2xl shadow-2xl transition-all duration-200 ${hoveredState ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'}`}>
                   {hoveredState && (
