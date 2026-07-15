@@ -1418,8 +1418,8 @@ export default function App() {
                   {authUser.role !== 'superadmin' && <button onClick={() => setMapMode((mode) => mode === 'tour' ? 'available' : 'tour')} aria-pressed={mapMode === 'tour'} className={`min-h-14 rounded-xl border px-3 text-xs font-bold shadow-lg backdrop-blur transition-colors ${mapMode === 'tour' ? 'border-cyan-400 bg-cyan-500 text-slate-950' : 'border-slate-700 bg-[#0B0F19]/90 text-indigo-300 hover:bg-indigo-600 hover:text-white'}`}>
                     <CalendarDays size={17} className="mx-auto mb-1" />{mapMode === 'tour' ? 'Datas abertas' : 'Minha turnê'}
                   </button>}
-                  {authUser.role !== 'superadmin' && mapMode === 'tour' && <select value={selectedTourArtist} onChange={(event) => setSelectedTourArtist(event.target.value)} className="min-h-14 max-w-40 rounded-xl border border-cyan-400/50 bg-[#0B0F19]/95 px-3 text-xs font-bold text-white shadow-lg outline-none">
-                    <option value="">Todos os artistas</option>
+                  {authUser.role !== 'superadmin' && <select value={selectedTourArtist} onChange={(event) => { setSelectedTourArtist(event.target.value); if (event.target.value) setMapMode('tour'); }} disabled={tourArtists.length === 0} aria-label="Escolher artista da turnê" className="min-h-14 max-w-44 rounded-xl border border-cyan-400/50 bg-[#0B0F19]/95 px-3 text-xs font-bold text-white shadow-lg outline-none disabled:cursor-not-allowed disabled:opacity-50">
+                    <option value="">{tourArtists.length ? 'Escolher artista' : 'Sem artistas confirmados'}</option>
                     {tourArtists.map((artist) => <option key={artist} value={artist}>{artist}</option>)}
                   </select>}
                 </div>
