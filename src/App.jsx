@@ -11,6 +11,8 @@ import {
   renewCompanyPlan
 } from './firebase';
 import { PLAN_DETAILS, getPlanDaysRemaining, isPlanExpired } from './lib/plans';
+import { filterMapEvents, getTourArtists } from './lib/tour';
+import TourMapControls from './components/TourMapControls';
 import { 
   Map, CalendarDays, MapPin, Plus, ChevronLeft, ChevronRight, Users,
   LayoutDashboard, X, Briefcase, FileText, Building, 
@@ -296,7 +298,6 @@ export default function App() {
   const [hoveredState, setHoveredState] = useState(null);
   const [mapMode, setMapMode] = useState('available');
   const [selectedTourArtist, setSelectedTourArtist] = useState('');
-  const [isArtistMenuOpen, setIsArtistMenuOpen] = useState(false);
   
   // Estados para Modais & Formulários
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
@@ -668,22 +669,12 @@ export default function App() {
 
   const mapEvents = useMemo(() => {
     const eventSource = !authUser || authUser.role === 'superadmin' ? events : visibleEvents;
-    if (mapMode === 'tour') {
-      return eventSource.filter((event) =>
-        (event.status === 'Confirmado' || event.status === 'Reservado') &&
-        (authUser?.role !== 'agent' || event.agentId === authUser.id) &&
-        (!selectedTourArtist || event.artistName === selectedTourArtist)
-      );
-    }
-    return eventSource.filter((event) => event.status !== 'Confirmado' && event.status !== 'Reservado');
+    return filterMapEvents(eventSource, authUser, mapMode, selectedTourArtist);
   }, [authUser, events, mapMode, selectedTourArtist, visibleEvents]);
 
   const tourArtists = useMemo(() => {
     const eventSource = !authUser || authUser.role === 'superadmin' ? events : visibleEvents;
-    return [...new Set(eventSource
-      .filter((event) => (event.status === 'Confirmado' || event.status === 'Reservado') && (authUser?.role !== 'agent' || event.agentId === authUser.id))
-      .map((event) => event.artistName)
-      .filter(Boolean))].sort((first, second) => first.localeCompare(second, 'pt-BR'));
+    return getTourArtists(eventSource, authUser);
   }, [authUser, events, visibleEvents]);
 
   const globalStats = useMemo(() => ({
@@ -1410,25 +1401,7 @@ export default function App() {
              </div>
              
              <div className="bg-[#111827] border border-slate-800 rounded-2xl flex-1 relative overflow-hidden flex items-center justify-center p-4">
-                {/* Legenda Dashboard */}
-                <div className="absolute top-4 left-4 z-20 flex items-start gap-2">
-                  <div className="bg-[#0B0F19]/90 backdrop-blur border border-slate-800 p-3 rounded-xl shadow-lg">
-                    <h4 className="text-[10px] font-bold text-slate-400 uppercase mb-2">{mapMode === 'tour' ? 'Minha turnê' : 'Disponibilidade'}</h4>
-                    <div className="flex items-center gap-2"><span className={`w-2.5 h-2.5 rounded-full ${mapMode === 'tour' ? 'bg-cyan-400' : 'bg-white'}`}></span><span className="text-xs text-white">{mapMode === 'tour' ? 'Shows confirmados' : 'Datas abertas'}</span></div>
-                  </div>
-                  {authUser.role !== 'superadmin' && <button onClick={() => setMapMode((mode) => mode === 'tour' ? 'available' : 'tour')} aria-pressed={mapMode === 'tour'} className={`min-h-14 rounded-xl border px-3 text-xs font-bold shadow-lg backdrop-blur transition-colors ${mapMode === 'tour' ? 'border-cyan-400 bg-cyan-500 text-slate-950' : 'border-slate-700 bg-[#0B0F19]/90 text-indigo-300 hover:bg-indigo-600 hover:text-white'}`}>
-                    <CalendarDays size={17} className="mx-auto mb-1" />{mapMode === 'tour' ? 'Datas abertas' : 'Minha turnê'}
-                  </button>}
-                  {authUser.role !== 'superadmin' && <div className="relative">
-                    <button onClick={() => setIsArtistMenuOpen((open) => !open)} aria-expanded={isArtistMenuOpen} className={`min-h-14 rounded-xl border px-3 text-xs font-bold shadow-lg backdrop-blur transition-colors ${selectedTourArtist ? 'border-cyan-400 bg-cyan-500 text-slate-950' : 'border-slate-700 bg-[#0B0F19]/90 text-indigo-300 hover:bg-indigo-600 hover:text-white'}`}>
-                      <Users size={17} className="mx-auto mb-1" />Artista
-                    </button>
-                    {isArtistMenuOpen && <div className="absolute left-0 top-[calc(100%+0.5rem)] z-40 w-52 rounded-xl border border-slate-700 bg-[#0B0F19] p-2 shadow-2xl">
-                      <button onClick={() => { setSelectedTourArtist(''); setIsArtistMenuOpen(false); }} className="w-full rounded-lg px-3 py-2 text-left text-xs font-bold text-slate-300 hover:bg-slate-800">Todos os artistas</button>
-                      {tourArtists.length ? tourArtists.map((artist) => <button key={artist} onClick={() => { setSelectedTourArtist(artist); setMapMode('tour'); setIsArtistMenuOpen(false); }} className="w-full rounded-lg px-3 py-2 text-left text-xs font-bold text-white hover:bg-indigo-600">{artist}</button>) : <p className="px-3 py-2 text-xs text-slate-400">Nenhum artista confirmado.</p>}
-                    </div>}
-                  </div>}
-                </div>
+                {authUser.role !== 'superadmin' && <TourMapControls mapMode={mapMode} setMapMode={setMapMode} selectedArtist={selectedTourArtist} setSelectedArtist={setSelectedTourArtist} artists={tourArtists} />}
 
                 {/* No celular e tablet, três atalhos ficam no alto e dois embaixo. */}
                 {authUser.role !== 'superadmin' && <>

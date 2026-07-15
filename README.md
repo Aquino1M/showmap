@@ -23,6 +23,8 @@ Use apenas as variáveis públicas do Supabase. Nunca publique chaves secretas.
 npx supabase functions deploy manage-user --project-ref <seu-project-ref>
 ```
 
+Se usar outro domínio além de `showmap.vercel.app`, configure a variável da Edge Function `SHOWMAP_ALLOWED_ORIGINS` com os domínios permitidos, separados por vírgula.
+
 `migration-clean-start.sql` apaga dados e é exclusiva para teste.
 
 ## Validar

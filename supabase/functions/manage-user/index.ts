@@ -1,8 +1,21 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+const allowedOrigins = new Set([
+  'http://localhost:4173',
+  'http://127.0.0.1:4173',
+  'https://showmap.vercel.app',
+  ...(Deno.env.get('SHOWMAP_ALLOWED_ORIGINS') || '').split(',').map((origin) => origin.trim()).filter(Boolean),
+])
+
+const getCorsHeaders = (request: Request) => {
+  const origin = request.headers.get('origin')
+  if (origin && !allowedOrigins.has(origin)) return null
+  return {
+  ...(origin ? { 'Access-Control-Allow-Origin': origin } : {}),
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Vary': 'Origin',
+  }
 }
 
 type Role = 'superadmin' | 'company_admin' | 'agent'
@@ -22,6 +35,8 @@ type RequestBody = {
 }
 
 Deno.serve(async (request) => {
+  const corsHeaders = getCorsHeaders(request)
+  if (!corsHeaders) return Response.json({ error: 'Origem não autorizada.' }, { status: 403 })
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
