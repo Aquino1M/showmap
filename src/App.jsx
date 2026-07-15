@@ -716,7 +716,7 @@ export default function App() {
   // ================= VIEW: HOME (Landing Page) =================
   if (currentView === 'home') {
     return (
-      <div className={`${homeSection === 'home' ? 'h-[100dvh] overflow-hidden' : 'min-h-[100dvh] overflow-y-auto'} bg-[#0B0F19] text-slate-200 relative flex flex-col overflow-x-hidden font-sans selection:bg-indigo-500/30`}>
+      <div className={`${homeSection === 'home' ? 'min-h-0' : 'min-h-[100dvh] overflow-y-auto'} bg-[#0B0F19] text-slate-200 relative flex flex-col overflow-x-hidden font-sans selection:bg-indigo-500/30`}>
         <ToastNotification toast={toast} />
         
         {/* Efeitos de Fundo Modernos */}
