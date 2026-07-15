@@ -283,6 +283,7 @@ export default function App() {
 
   const [authUser, setAuthUser] = useState(null);
   const [activeTab, setActiveTab] = useState('map');
+  const [currentDate] = useState(() => new Date());
   const [calendarCursor, setCalendarCursor] = useState(() => new Date());
   const [selectedCalendarDate, setSelectedCalendarDate] = useState('');
   const [hoveredState, setHoveredState] = useState(null);
@@ -1198,7 +1199,7 @@ export default function App() {
           const plan = PLAN_DETAILS[planKey];
           const agentCount = users.filter((user) => user.role === 'agent' && user.companyId === authUser.companyId).length;
           const expiration = company?.planExpiresAt ? new Date(`${company.planExpiresAt}T23:59:59`) : null;
-          const daysRemaining = expiration ? Math.max(0, Math.ceil((expiration.getTime() - Date.now()) / 86400000)) : 0;
+          const daysRemaining = expiration ? Math.max(0, Math.ceil((expiration.getTime() - currentDate.getTime()) / 86400000)) : 0;
           const upgrades = Object.entries(PLAN_DETAILS).filter(([key]) => key !== planKey);
           return (
             <div className="max-w-6xl mx-auto">
