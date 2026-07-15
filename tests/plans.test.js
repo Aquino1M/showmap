@@ -17,6 +17,6 @@ test('identifica plano vencido e ativo', () => {
 test('respeita o limite de agentes de cada plano', () => {
   assert.equal(canAddAgent('lite', 4), true);
   assert.equal(canAddAgent('lite', 5), false);
-  assert.equal(canAddAgent('ultra', 14), true);
-  assert.equal(canAddAgent('ultra', 15), false);
+  assert.equal(canAddAgent('ultra', 19), true);
+  assert.equal(canAddAgent('ultra', 20), false);
 });

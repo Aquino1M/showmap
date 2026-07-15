@@ -7,7 +7,7 @@ const corsHeaders = {
 
 type Role = 'superadmin' | 'company_admin' | 'agent'
 type Plan = 'lite' | 'pro' | 'ultra'
-const planAgentLimits: Record<Plan, number> = { lite: 5, pro: 10, ultra: 15 }
+const planAgentLimits: Record<Plan, number> = { lite: 5, pro: 10, ultra: 20 }
 
 type RequestBody = {
   action: 'bootstrap' | 'create' | 'update' | 'delete' | 'save_event' | 'delete_event' | 'list_events' | 'list_users' | 'list_companies' | 'save_company' | 'delete_company' | 'renew_company_plan'
