@@ -197,6 +197,12 @@ const getCityCoordinates = (stateId, cityName) => {
   return { cx: center[0] + ((Math.abs(hash) % 24) - 12), cy: center[1] + ((Math.abs(hash >> 3) % 24) - 12) };
 };
 
+const SHOWCASE_EVENTS = [
+  { stateId: 'SP', city: 'São Paulo', date: '18 JUL', color: '#22d3ee' },
+  { stateId: 'GO', city: 'Goiânia', date: '24 JUL', color: '#a78bfa' },
+  { stateId: 'BA', city: 'Salvador', date: '02 AGO', color: '#34d399' },
+];
+
 function ToastNotification({ toast }) {
   if (!toast) return null;
   return (
@@ -865,10 +871,22 @@ export default function App() {
               <p className="mt-5 max-w-xl text-slate-400 sm:text-lg">Encontre oportunidades, acompanhe datas e conecte escritórios, agentes e artistas com uma operação clara e profissional.</p>
               <button onClick={() => handleLoginClick('office')} className="mt-7 inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-6 py-3 font-bold text-slate-950 hover:bg-cyan-400"><Building size={18} /> Conhecer o ShowMap</button>
             </div>
-            <div className="rounded-3xl border border-slate-700 bg-[#111827] p-6 shadow-2xl">
+            <div className="relative rounded-3xl border border-slate-700 bg-[#111827] p-6 shadow-2xl">
               <svg viewBox="0 0 1000 912" className="mx-auto w-full max-w-lg">
                 {Object.entries(BRAZIL_STATES).map(([uf, data]) => <path key={uf} d={data.path} fill={data.color} stroke="rgba(255,255,255,0.75)" strokeWidth="2" strokeLinejoin="round" />)}
+                {SHOWCASE_EVENTS.map((event, index) => {
+                  const point = getCityCoordinates(event.stateId, event.city);
+                  return <g key={event.city}>
+                    <circle cx={point.cx} cy={point.cy} r="28" fill={event.color} opacity="0.35" className="animate-ping" style={{ animationDuration: `${2.5 + index * 0.4}s` }} />
+                    <circle cx={point.cx} cy={point.cy} r="12" fill="#111827" stroke="white" strokeWidth="5" />
+                    <circle cx={point.cx} cy={point.cy} r="5" fill={event.color} className="animate-pulse" />
+                  </g>;
+                })}
               </svg>
+              <div className="absolute bottom-4 left-4 hidden rounded-xl border border-cyan-400/30 bg-[#0B0F19]/95 p-3 shadow-xl backdrop-blur sm:block">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-cyan-300">Agenda demonstrativa</p>
+                <div className="mt-2 space-y-1.5">{SHOWCASE_EVENTS.map((event) => <p key={event.city} className="text-xs font-semibold text-white"><span className="mr-2 inline-block h-2 w-2 rounded-full" style={{ backgroundColor: event.color }} />{event.city} · {event.date}</p>)}</div>
+              </div>
             </div>
           </div>
         </section>
