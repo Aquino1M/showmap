@@ -1,6 +1,6 @@
 # ShowMap
 
-Agenda, propostas, contratantes, escritórios e agentes. O Supabase armazena os dados; a função `manage-user` valida permissões no servidor.
+Painel de agenda, propostas, escritórios, agentes e planos. O Supabase armazena os dados e a função `manage-user` aplica as permissões no servidor.
 
 ## Executar localmente
 
@@ -10,26 +10,20 @@ copy .env.example .env.local
 npm run dev
 ```
 
-Preencha `.env.local` somente com a URL e a chave **publishable**. Nunca use uma chave secreta no navegador ou no Git.
+Em `.env.local`, informe somente a URL e a chave **publishable** do Supabase. Nunca use chave secreta no navegador ou no Git.
 
-## Configurar o Supabase
+## Instalar ou atualizar o banco
 
-1. Em um projeto novo, execute `supabase/setup.sql` no SQL Editor.
-2. Crie o Administrador Master em **Authentication > Users**, usando o e-mail definido no SQL.
-3. Publique a função:
+1. Projeto novo: execute `supabase/setup.sql` no SQL Editor.
+2. Projeto existente: execute, uma única vez e nesta ordem, `migration-profile-link.sql`, `migration-event-details.sql` e `migration-plans.sql`.
+3. Crie o Administrador Master em **Authentication > Users** com o e-mail definido no SQL.
+4. Publique a função segura:
 
 ```bash
-npx supabase login
 npx supabase functions deploy manage-user --project-ref veszdgbonolvmcpablol
 ```
 
-Para instalações já existentes, execute uma única vez `supabase/migration-profile-link.sql` e `supabase/migration-event-details.sql`. `migration-clean-start.sql` apaga dados e não deve ser usado em produção.
-
-## Perfis
-
-- Master: gerencia todos os dados.
-- Escritório: gerencia sua agenda e seus agentes.
-- Agente: registra e acompanha propostas do próprio escritório.
+`migration-clean-start.sql` apaga dados e serve apenas para ambiente de teste.
 
 ## Validar
 

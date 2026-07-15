@@ -18,10 +18,15 @@ create table if not exists public.companies (
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   name text not null default '',
+  email text,
   role text not null default 'agent' check (role in ('superadmin', 'company_admin', 'agent')),
   company_id uuid references public.companies(id) on delete restrict,
   created_at timestamptz not null default now()
 );
+
+-- Mantém instalações antigas compatíveis com o gatilho de perfis.
+alter table public.profiles add column if not exists email text;
+create unique index if not exists profiles_email_key on public.profiles (email) where email is not null;
 
 create table if not exists public.events (
   id uuid primary key default gen_random_uuid(),

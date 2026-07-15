@@ -1,5 +1,8 @@
 -- Execute no Supabase SQL Editor uma vez para corrigir o gatilho de perfis.
 -- Novos escritórios e agentes passarão a nascer vinculados à empresa correta.
+alter table public.profiles add column if not exists email text;
+create unique index if not exists profiles_email_key on public.profiles (email) where email is not null;
+
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
