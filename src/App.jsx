@@ -697,7 +697,7 @@ export default function App() {
   // ================= VIEW: HOME (Landing Page) =================
   if (currentView === 'home') {
     return (
-      <div className="h-[100dvh] bg-[#0B0F19] text-slate-200 relative flex flex-col overflow-hidden font-sans selection:bg-indigo-500/30">
+      <div className="min-h-[100dvh] bg-[#0B0F19] text-slate-200 relative flex flex-col overflow-x-hidden font-sans selection:bg-indigo-500/30">
         <ToastNotification toast={toast} />
         
         {/* Efeitos de Fundo Modernos */}
@@ -716,15 +716,17 @@ export default function App() {
                 <p className="mt-1 text-[8px] sm:text-[10px] font-semibold uppercase tracking-[0.1em] sm:tracking-[0.14em] text-indigo-300">Solução logística de espetáculos</p>
               </div>
             </div>
-            <div className="hidden sm:flex gap-4">
-              <button onClick={() => handleLoginClick('office')} className="text-slate-300 hover:text-white font-semibold transition-colors px-4 py-2">Área do Escritório</button>
-              <button onClick={() => handleLoginClick('agent')} className="text-slate-300 hover:text-white font-semibold transition-colors px-4 py-2">Portal do Agente</button>
-            </div>
+            <nav className="flex items-center gap-1 sm:gap-2 text-[10px] sm:text-sm font-semibold">
+              <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="text-slate-300 hover:text-white px-1.5 sm:px-3 py-2">Início</button>
+              <button onClick={() => handleLoginClick('office')} className="text-slate-300 hover:text-white px-1.5 sm:px-3 py-2">Escritório</button>
+              <button onClick={() => handleLoginClick('agent')} className="text-slate-300 hover:text-white px-1.5 sm:px-3 py-2">Agente</button>
+              <button onClick={() => document.getElementById('planos')?.scrollIntoView({ behavior: 'smooth' })} className="rounded-lg bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/25 px-2 sm:px-3 py-2">Planos</button>
+            </nav>
           </div>
         </header>
 
         {/* Hero Section & Mapa Político Oficial */}
-        <main className="min-h-0 flex-1 w-full max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-center p-4 sm:p-6 gap-6 lg:gap-12 relative z-10">
+        <main className="min-h-[calc(100dvh-88px)] w-full max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-center p-4 sm:p-6 gap-6 lg:gap-12 relative z-10">
           
           {/* Coluna Esquerda */}
           <div className="flex-1 w-full flex flex-col gap-5 sm:gap-7 mt-2 lg:mt-0 text-center lg:text-left z-20">
@@ -824,6 +826,45 @@ export default function App() {
             </div>
           </div>
         </main>
+
+        <section id="planos" className="relative z-10 w-full border-t border-slate-800/80 bg-[#0E1422]/80 px-4 py-16 sm:px-6 sm:py-24">
+          <div className="mx-auto max-w-7xl">
+            <div className="mx-auto max-w-3xl text-center">
+              <p className="inline-flex items-center gap-2 rounded-full border border-amber-400/40 bg-amber-400/10 px-4 py-2 text-xs font-bold uppercase tracking-wider text-amber-300"><Clock size={14} /> Acesso limitado para empresas selecionadas</p>
+              <h2 className="mt-5 text-3xl font-black text-white sm:text-5xl">Controle a operação dos seus artistas em um só lugar.</h2>
+              <p className="mt-4 text-slate-400 sm:text-lg">Organize propostas, agenda, agentes e disponibilidade nacional antes que as vagas de acesso sejam preenchidas.</p>
+            </div>
+
+            <div className="mt-10 grid gap-5 md:grid-cols-3">
+              {Object.entries(PLAN_DETAILS).map(([key, plan]) => (
+                <article key={key} className={`rounded-3xl border p-6 shadow-xl ${key === 'pro' ? 'border-indigo-400 bg-indigo-500/10' : 'border-slate-700 bg-[#111827]'}`}>
+                  {key === 'pro' && <p className="mb-3 text-xs font-bold uppercase tracking-wider text-cyan-300">Mais escolhido</p>}
+                  <h3 className="text-2xl font-black text-white">Plano {plan.label}</h3>
+                  <p className="mt-4 text-4xl font-black text-indigo-300">R$ {plan.price.toLocaleString('pt-BR')}</p>
+                  <p className="mt-1 text-sm text-slate-400">por mês</p>
+                  <p className="mt-6 rounded-xl bg-[#0B0F19]/70 px-4 py-3 text-sm font-bold text-white">Até {plan.agents} agentes cadastrados</p>
+                  <button onClick={() => handleLoginClick('office')} className="mt-6 w-full rounded-xl bg-indigo-600 px-4 py-3 font-bold text-white hover:bg-indigo-500">Quero este plano</button>
+                </article>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        <section id="mapa" className="relative z-10 w-full px-4 py-16 sm:px-6 sm:py-24">
+          <div className="mx-auto grid max-w-7xl items-center gap-10 lg:grid-cols-2">
+            <div>
+              <p className="text-sm font-bold uppercase tracking-widest text-cyan-300">Visão nacional</p>
+              <h2 className="mt-3 text-3xl font-black text-white sm:text-5xl">A turnê inteira visível no mapa do Brasil.</h2>
+              <p className="mt-5 max-w-xl text-slate-400 sm:text-lg">Encontre oportunidades, acompanhe datas e conecte escritórios, agentes e artistas com uma operação clara e profissional.</p>
+              <button onClick={() => handleLoginClick('office')} className="mt-7 inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-6 py-3 font-bold text-slate-950 hover:bg-cyan-400"><Building size={18} /> Conhecer o ShowMap</button>
+            </div>
+            <div className="rounded-3xl border border-slate-700 bg-[#111827] p-6 shadow-2xl">
+              <svg viewBox="0 0 1000 912" className="mx-auto w-full max-w-lg">
+                {Object.entries(BRAZIL_STATES).map(([uf, data]) => <path key={uf} d={data.path} fill={data.color} stroke="rgba(255,255,255,0.75)" strokeWidth="2" strokeLinejoin="round" />)}
+              </svg>
+            </div>
+          </div>
+        </section>
       </div>
     );
   }
