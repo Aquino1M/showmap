@@ -294,6 +294,7 @@ export default function App() {
   const [calendarCursor, setCalendarCursor] = useState(() => new Date());
   const [selectedCalendarDate, setSelectedCalendarDate] = useState('');
   const [hoveredState, setHoveredState] = useState(null);
+  const [mapMode, setMapMode] = useState('available');
   
   // Estados para Modais & Formulários
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
@@ -663,8 +664,14 @@ export default function App() {
 
   const mapEvents = useMemo(() => {
     const eventSource = !authUser || authUser.role === 'superadmin' ? events : visibleEvents;
+    if (mapMode === 'tour') {
+      return eventSource.filter((event) =>
+        (event.status === 'Confirmado' || event.status === 'Reservado') &&
+        (authUser?.role !== 'agent' || event.agentId === authUser.id)
+      );
+    }
     return eventSource.filter((event) => event.status !== 'Confirmado' && event.status !== 'Reservado');
-  }, [authUser, events, visibleEvents]);
+  }, [authUser, events, mapMode, visibleEvents]);
 
   const globalStats = useMemo(() => ({
     offices: companies.filter((company) => company.active).length,
@@ -1390,9 +1397,14 @@ export default function App() {
              
              <div className="bg-[#111827] border border-slate-800 rounded-2xl flex-1 relative overflow-hidden flex items-center justify-center p-4">
                 {/* Legenda Dashboard */}
-                <div className="absolute top-4 left-4 z-20 bg-[#0B0F19]/90 backdrop-blur border border-slate-800 p-3 rounded-xl shadow-lg">
-                  <h4 className="text-[10px] font-bold text-slate-400 uppercase mb-2">Disponibilidade</h4>
-                  <div className="flex items-center gap-2 mb-1.5"><span className="w-2.5 h-2.5 rounded-full bg-white"></span><span className="text-xs text-white">Datas Abertas</span></div>
+                <div className="absolute top-4 left-4 z-20 flex items-start gap-2">
+                  <div className="bg-[#0B0F19]/90 backdrop-blur border border-slate-800 p-3 rounded-xl shadow-lg">
+                    <h4 className="text-[10px] font-bold text-slate-400 uppercase mb-2">{mapMode === 'tour' ? 'Minha turnê' : 'Disponibilidade'}</h4>
+                    <div className="flex items-center gap-2"><span className={`w-2.5 h-2.5 rounded-full ${mapMode === 'tour' ? 'bg-cyan-400' : 'bg-white'}`}></span><span className="text-xs text-white">{mapMode === 'tour' ? 'Shows confirmados' : 'Datas abertas'}</span></div>
+                  </div>
+                  {authUser.role !== 'superadmin' && <button onClick={() => setMapMode((mode) => mode === 'tour' ? 'available' : 'tour')} aria-pressed={mapMode === 'tour'} className={`min-h-14 rounded-xl border px-3 text-xs font-bold shadow-lg backdrop-blur transition-colors ${mapMode === 'tour' ? 'border-cyan-400 bg-cyan-500 text-slate-950' : 'border-slate-700 bg-[#0B0F19]/90 text-indigo-300 hover:bg-indigo-600 hover:text-white'}`}>
+                    <CalendarDays size={17} className="mx-auto mb-1" />{mapMode === 'tour' ? 'Datas abertas' : 'Minha turnê'}
+                  </button>}
                 </div>
 
                 {/* No celular e tablet, três atalhos ficam no alto e dois embaixo. */}
@@ -1418,10 +1430,10 @@ export default function App() {
                         <MapPin className="text-cyan-400" size={16}/> {BRAZIL_STATES[hoveredState].name}
                       </h3>
                       <div className="space-y-2 max-h-[250px] overflow-y-auto custom-scrollbar pr-1">
-                        {mapEvents.filter(e => e.stateId === hoveredState && e.status === 'Disponível').length === 0 ? (
+                        {mapEvents.filter(e => e.stateId === hoveredState).length === 0 ? (
                           <p className="text-slate-400 text-xs">Nenhuma data livre.</p>
                         ) : (
-                          mapEvents.filter(e => e.stateId === hoveredState && e.status === 'Disponível').map(ev => {
+                          mapEvents.filter(e => e.stateId === hoveredState).map(ev => {
                             const comp = companies.find(c => c.id === ev.companyId);
                             return (
                               <div key={ev.id} className="bg-[#111827] p-2.5 rounded-lg border border-slate-800 flex flex-col">
@@ -1444,7 +1456,7 @@ export default function App() {
                   <svg viewBox="0 0 1000 912" className="w-full h-full">
                     {Object.entries(BRAZIL_STATES).map(([uf, data]) => {
                       const isHovered = hoveredState === uf;
-                      const stateEvents = mapEvents.filter(e => e.stateId === uf && e.status === 'Disponível');
+                      const stateEvents = mapEvents.filter(e => e.stateId === uf);
                       
                       // Paleta de Cores Reais no Dashboard
                       let fill = data.color;
@@ -1459,8 +1471,8 @@ export default function App() {
                             const coord = getCityCoordinates(uf, ev.city + i);
                             return (
                               <g key={ev.id}>
-                                <circle cx={coord.cx} cy={coord.cy} r={isHovered ? "12" : "8"} fill="#ffffff" opacity="0.4" className="animate-ping" style={{animationDuration: '3s'}}/>
-                                <circle cx={coord.cx} cy={coord.cy} r={isHovered ? "5" : "3"} fill="#111827" stroke="#ffffff" strokeWidth="1" />
+                                <circle cx={coord.cx} cy={coord.cy} r={isHovered ? "12" : "8"} fill={mapMode === 'tour' ? '#22d3ee' : '#ffffff'} opacity="0.4" className="animate-ping" style={{animationDuration: '3s'}}/>
+                                <circle cx={coord.cx} cy={coord.cy} r={isHovered ? "5" : "3"} fill="#111827" stroke={mapMode === 'tour' ? '#22d3ee' : '#ffffff'} strokeWidth="1" />
                               </g>
                             )
                           })}
