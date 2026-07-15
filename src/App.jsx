@@ -1325,17 +1325,21 @@ export default function App() {
                   <div className="flex items-center gap-2 mb-1.5"><span className="w-2.5 h-2.5 rounded-full bg-white"></span><span className="text-xs text-white">Datas Abertas</span></div>
                 </div>
 
-                {/* No celular, os atalhos ficam dentro do mapa para liberar espaço no topo. */}
-                {authUser.role !== 'superadmin' && <div className="lg:hidden absolute bottom-4 right-4 z-30 grid grid-cols-2 gap-2">
-                  {TABS.filter((tab) => tab.id !== 'map').map((tab) => {
-                    const Icon = tab.icon;
-                    return (
-                      <button key={tab.id} onClick={() => setActiveTab(tab.id)} title={tab.label} aria-label={tab.label} className="w-12 h-12 rounded-xl border border-slate-700 bg-[#0B0F19]/95 backdrop-blur text-indigo-300 hover:bg-indigo-600 hover:text-white flex items-center justify-center shadow-lg transition-colors">
-                        <Icon size={20} />
-                      </button>
-                    );
-                  })}
-                </div>}
+                {/* No celular e tablet, três atalhos ficam no alto e dois embaixo. */}
+                {authUser.role !== 'superadmin' && <>
+                  <div className="lg:hidden absolute top-4 right-4 z-30 flex flex-col gap-2">
+                    {TABS.filter((tab) => tab.id !== 'map').slice(0, 3).map((tab) => {
+                      const Icon = tab.icon;
+                      return <button key={tab.id} onClick={() => setActiveTab(tab.id)} title={tab.label} aria-label={tab.label} className="w-12 h-12 rounded-xl border border-slate-700 bg-[#0B0F19]/95 backdrop-blur text-indigo-300 hover:bg-indigo-600 hover:text-white flex items-center justify-center shadow-lg transition-colors"><Icon size={20} /></button>;
+                    })}
+                  </div>
+                  <div className="lg:hidden absolute bottom-4 right-4 z-30 flex flex-col gap-2">
+                    {TABS.filter((tab) => tab.id !== 'map').slice(3).map((tab) => {
+                      const Icon = tab.icon;
+                      return <button key={tab.id} onClick={() => setActiveTab(tab.id)} title={tab.label} aria-label={tab.label} className="w-12 h-12 rounded-xl border border-slate-700 bg-[#0B0F19]/95 backdrop-blur text-indigo-300 hover:bg-indigo-600 hover:text-white flex items-center justify-center shadow-lg transition-colors"><Icon size={20} /></button>;
+                    })}
+                  </div>
+                </>}
 
                 <div className={`absolute top-4 right-4 z-20 w-48 sm:w-64 bg-[#0B0F19]/95 backdrop-blur-xl border border-slate-700/80 p-4 rounded-2xl shadow-2xl transition-all duration-200 ${hoveredState ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'}`}>
                   {hoveredState && (
