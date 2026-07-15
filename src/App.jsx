@@ -215,6 +215,7 @@ export default function App() {
   const [currentView, setCurrentView] = useState('home'); 
   const [loginType, setLoginType] = useState(''); 
   const [isHomeMenuOpen, setIsHomeMenuOpen] = useState(false);
+  const [homeSection, setHomeSection] = useState('home');
   
   const [companies, setCompanies] = useState([]);
   const [companiesLoaded, setCompaniesLoaded] = useState(false);
@@ -698,7 +699,7 @@ export default function App() {
   // ================= VIEW: HOME (Landing Page) =================
   if (currentView === 'home') {
     return (
-      <div className="min-h-[100dvh] bg-[#0B0F19] text-slate-200 relative flex flex-col overflow-x-hidden font-sans selection:bg-indigo-500/30">
+      <div className="h-[100dvh] bg-[#0B0F19] text-slate-200 relative flex flex-col overflow-hidden font-sans selection:bg-indigo-500/30">
         <ToastNotification toast={toast} />
         
         {/* Efeitos de Fundo Modernos */}
@@ -718,23 +719,23 @@ export default function App() {
               </div>
             </div>
             <nav className="hidden lg:flex items-center gap-2 text-sm font-semibold">
-              <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="text-slate-300 hover:text-white px-1.5 sm:px-3 py-2">Início</button>
+              <button onClick={() => setHomeSection('home')} className="text-slate-300 hover:text-white px-1.5 sm:px-3 py-2">Início</button>
               <button onClick={() => handleLoginClick('office')} className="text-slate-300 hover:text-white px-1.5 sm:px-3 py-2">Escritório</button>
               <button onClick={() => handleLoginClick('agent')} className="text-slate-300 hover:text-white px-1.5 sm:px-3 py-2">Agente</button>
-              <button onClick={() => document.getElementById('planos')?.scrollIntoView({ behavior: 'smooth' })} className="rounded-lg bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/25 px-2 sm:px-3 py-2">Planos</button>
+              <button onClick={() => setHomeSection('plans')} className="rounded-lg bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/25 px-2 sm:px-3 py-2">Planos</button>
             </nav>
             <button onClick={() => setIsHomeMenuOpen((open) => !open)} className="lg:hidden rounded-xl border border-slate-700 bg-[#111827]/80 p-3 text-indigo-300 hover:text-white" aria-label="Abrir menu" aria-expanded={isHomeMenuOpen}><Menu size={20} /></button>
           </div>
           {isHomeMenuOpen && <nav className="lg:hidden absolute right-4 top-[calc(100%+0.25rem)] w-52 rounded-2xl border border-slate-700 bg-[#111827]/95 p-2 shadow-2xl backdrop-blur">
-            <button onClick={() => { window.scrollTo({ top: 0, behavior: 'smooth' }); setIsHomeMenuOpen(false); }} className="w-full rounded-xl px-4 py-3 text-left text-sm font-bold text-slate-200 hover:bg-slate-800">Página inicial</button>
+            <button onClick={() => { setHomeSection('home'); setIsHomeMenuOpen(false); }} className="w-full rounded-xl px-4 py-3 text-left text-sm font-bold text-slate-200 hover:bg-slate-800">Página inicial</button>
             <button onClick={() => { setIsHomeMenuOpen(false); handleLoginClick('office'); }} className="w-full rounded-xl px-4 py-3 text-left text-sm font-bold text-slate-200 hover:bg-slate-800">Sou Escritório</button>
             <button onClick={() => { setIsHomeMenuOpen(false); handleLoginClick('agent'); }} className="w-full rounded-xl px-4 py-3 text-left text-sm font-bold text-slate-200 hover:bg-slate-800">Sou Agente</button>
-            <button onClick={() => { document.getElementById('planos')?.scrollIntoView({ behavior: 'smooth' }); setIsHomeMenuOpen(false); }} className="w-full rounded-xl px-4 py-3 text-left text-sm font-bold text-indigo-300 hover:bg-indigo-500/10">Preços dos planos</button>
+            <button onClick={() => { setHomeSection('plans'); setIsHomeMenuOpen(false); }} className="w-full rounded-xl px-4 py-3 text-left text-sm font-bold text-indigo-300 hover:bg-indigo-500/10">Preços dos planos</button>
           </nav>}
         </header>
 
         {/* Hero Section & Mapa Político Oficial */}
-        <main className="min-h-[calc(100dvh-88px)] w-full max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-center p-4 sm:p-6 gap-6 lg:gap-12 relative z-10">
+        <main className={`${homeSection === 'home' ? 'flex' : 'hidden'} min-h-[calc(100dvh-88px)] w-full max-w-7xl mx-auto flex-col lg:flex-row items-center justify-center p-4 sm:p-6 gap-6 lg:gap-12 relative z-10`}>
           
           {/* Coluna Esquerda */}
           <div className="flex-1 w-full flex flex-col gap-5 sm:gap-7 mt-2 lg:mt-0 text-center lg:text-left z-20">
@@ -835,7 +836,7 @@ export default function App() {
           </div>
         </main>
 
-        <section id="planos" className="relative z-10 w-full border-t border-slate-800/80 bg-[#0E1422]/80 px-4 py-16 sm:px-6 sm:py-24">
+        <section id="planos" className={`${homeSection === 'plans' ? 'block' : 'hidden'} relative z-10 min-h-0 flex-1 overflow-y-auto w-full border-t border-slate-800/80 bg-[#0E1422]/80 px-4 py-12 sm:px-6 sm:py-16`}>
           <div className="mx-auto max-w-7xl">
             <div className="mx-auto max-w-3xl text-center">
               <p className="inline-flex items-center gap-2 rounded-full border border-amber-400/40 bg-amber-400/10 px-4 py-2 text-xs font-bold uppercase tracking-wider text-amber-300"><Clock size={14} /> Acesso limitado para empresas selecionadas</p>
@@ -858,7 +859,7 @@ export default function App() {
           </div>
         </section>
 
-        <section id="mapa" className="relative z-10 w-full px-4 py-16 sm:px-6 sm:py-24">
+        <section id="mapa" className="hidden relative z-10 w-full px-4 py-16 sm:px-6 sm:py-24">
           <div className="mx-auto grid max-w-7xl items-center gap-10 lg:grid-cols-2">
             <div>
               <p className="text-sm font-bold uppercase tracking-widest text-cyan-300">Visão nacional</p>
