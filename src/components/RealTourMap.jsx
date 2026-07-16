@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CircleMarker, MapContainer, Popup, TileLayer, useMap } from 'react-leaflet';
+import { CircleMarker, MapContainer, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { getCityCoordinateKey, getCityLatLng, resolveCityLatLng } from '../lib/map';
 import { getEventStatusLabel, getShowProximityColor } from '../lib/tour';
@@ -15,6 +15,23 @@ function ResetMap({ resetToken }) {
   return null;
 }
 
+function StateClickHandler({ onSelectState }) {
+  useMapEvents({
+    click: async ({ latlng }) => {
+      try {
+        const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=5&lat=${latlng.lat}&lon=${latlng.lng}`);
+        if (!response.ok) return;
+        const result = await response.json();
+        const stateCode = String(result?.address?.['ISO3166-2-lvl4'] || '').replace(/^BR-/, '').toUpperCase();
+        if (/^[A-Z]{2}$/.test(stateCode)) onSelectState(stateCode);
+      } catch {
+        // O mapa continua utilizável se a consulta de estado estiver indisponível.
+      }
+    },
+  });
+  return null;
+}
+
 function MapLegend() {
   return (
     <div className="pointer-events-none absolute bottom-4 right-4 z-[500] rounded-xl border border-slate-700 bg-[#0B0F19]/95 px-3 py-2.5 text-[10px] text-slate-200 shadow-xl backdrop-blur">
@@ -26,7 +43,7 @@ function MapLegend() {
   );
 }
 
-export default function RealTourMap({ events, mapMode, selectedState, selectedEventId, onSelectEvent, resetToken }) {
+export default function RealTourMap({ events, mapMode, selectedState, selectedEventId, onSelectEvent, onSelectState, resetToken }) {
   const [locations, setLocations] = useState({});
   const visibleEvents = useMemo(
     () => events.filter((event) => !selectedState || event.stateId === selectedState),
@@ -49,6 +66,7 @@ export default function RealTourMap({ events, mapMode, selectedState, selectedEv
       <MapContainer center={BRAZIL_CENTER} zoom={BRAZIL_ZOOM} minZoom={3} maxZoom={14} scrollWheelZoom className="h-full w-full bg-[#101827]" aria-label="Mapa geográfico dos eventos">
         <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         <ResetMap resetToken={resetToken} />
+        <StateClickHandler onSelectState={onSelectState} />
         {visibleEvents.map((event) => {
           const key = getCityCoordinateKey(event.stateId, event.city);
           const position = locations[key] || getCityLatLng(event.stateId, event.city);

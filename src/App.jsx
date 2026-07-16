@@ -1578,6 +1578,7 @@ export default function App() {
                     selectedState={selectedMapState}
                     selectedEventId={selectedMapEventId}
                     onSelectEvent={setSelectedMapEventId}
+                    onSelectState={(stateId) => { setSelectedMapState(stateId); setSelectedMapEventId(null); }}
                     resetToken={mapResetToken}
                   />
                 </div>
