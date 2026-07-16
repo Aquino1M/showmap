@@ -11,6 +11,7 @@ import {
   renewCompanyPlan
 } from './firebase';
 import { PLAN_DETAILS, getPlanDaysRemaining, isPlanExpired } from './lib/plans';
+import { getCityCoordinates } from './lib/map';
 import { filterMapEvents, getCalendarDayType, getEventStatusLabel, getShowProximityColor, getTourArtists, isCalendarEvent } from './lib/tour';
 import TourMapControls from './components/TourMapControls';
 import { 
@@ -188,17 +189,6 @@ const BRAZIL_STATES = {
   },
 };
 
-const getCityCoordinates = (stateId, cityName) => {
-  const state = BRAZIL_STATES[stateId];
-  if (!state || !state.center) {
-    return { cx: 289, cy: 237 }; // Fallback seguro (DF) para evitar falhas em tempo de execução
-  }
-  const center = state.center;
-  let hash = 0;
-  for (let i = 0; i < cityName.length; i++) hash = cityName.charCodeAt(i) + ((hash << 5) - hash);
-  return { cx: center[0] + ((Math.abs(hash) % 24) - 12), cy: center[1] + ((Math.abs(hash >> 3) % 24) - 12) };
-};
-
 const SHOWCASE_EVENTS = [
   { city: 'São Paulo', date: '18 JUL', color: '#22d3ee', x: 561, y: 660 },
   { city: 'Goiânia', date: '24 JUL', color: '#a78bfa', x: 535, y: 520 },
@@ -296,7 +286,7 @@ export default function App() {
   const [calendarCursor, setCalendarCursor] = useState(() => new Date());
   const [selectedCalendarDate, setSelectedCalendarDate] = useState('');
   const [hoveredState, setHoveredState] = useState(null);
-  const [mapMode, setMapMode] = useState('available');
+  const [mapMode, setMapMode] = useState('tour');
   const [selectedTourArtist, setSelectedTourArtist] = useState('');
   
   // Estados para Modais & Formulários
@@ -840,8 +830,8 @@ export default function App() {
                       />
                       
                       {/* Plotagem dos Eventos logísticos */}
-                      {stateEvents.map((ev, i) => {
-                        const coord = getCityCoordinates(uf, ev.city + i);
+                      {stateEvents.map((ev) => {
+                        const coord = getCityCoordinates(uf, ev.city);
                         return (
                           <g key={ev.id}>
                             <circle cx={coord.cx} cy={coord.cy} r={isHovered ? "35" : "25"} fill="#ffffff" opacity="0.5" className="animate-ping" style={{animationDuration: '3s'}}/>
@@ -1443,7 +1433,7 @@ export default function App() {
                       </h3>
                       <div className="space-y-2 max-h-[250px] overflow-y-auto custom-scrollbar pr-1">
                         {mapEvents.filter(e => e.stateId === hoveredState).length === 0 ? (
-                          <p className="text-slate-400 text-xs">Nenhuma data livre.</p>
+                          <p className="text-slate-400 text-xs">Nenhum evento nesta área.</p>
                         ) : (
                           mapEvents.filter(e => e.stateId === hoveredState).map(ev => {
                             const comp = companies.find(c => c.id === ev.companyId);
@@ -1453,6 +1443,7 @@ export default function App() {
                                   {new Date(ev.date + 'T12:00:00').toLocaleDateString('pt-BR')}
                                 </span>
                                 <p className="text-[10px] text-slate-400 mb-1">{ev.city}</p>
+                                {ev.artistName && <p className="text-[10px] text-cyan-300 mb-1">Artista: {ev.artistName}</p>}
                                 <span className="text-[9px] text-cyan-400 font-bold truncate">{comp?.name}</span>
                               </div>
                             )
@@ -1479,16 +1470,17 @@ export default function App() {
                         <g key={uf} onMouseEnter={() => setHoveredState(uf)} onMouseLeave={() => setHoveredState(null)} className="cursor-pointer transition-all duration-300">
                           <path d={data.path} fill={fill} stroke={stroke} strokeWidth={strokeWidth} strokeLinejoin="round" className={`transition-all duration-300 ease-in-out ${isHovered ? 'brightness-110' : ''}`} />
                           
-                          {stateEvents.map((ev, i) => {
-                            const coord = getCityCoordinates(uf, ev.city + i);
+                          {stateEvents.map((ev) => {
+                            const coord = getCityCoordinates(uf, ev.city);
                             const proximityColor = mapMode === 'tour' ? getShowProximityColor(ev.date) : '#38bdf8';
                             const markerColor = proximityColor || (mapMode === 'tour' ? '#94a3b8' : '#38bdf8');
                             return (
                               <g key={ev.id}>
                                 {proximityColor && (
-                                  <circle cx={coord.cx} cy={coord.cy} r={isHovered ? "15" : "11"} fill={proximityColor} opacity="0.35" className="animate-ping" style={{ animationDuration: '2.2s' }}/>
+                                  <circle cx={coord.cx} cy={coord.cy} r={isHovered ? "17" : "13"} fill={proximityColor} opacity="0.32" className="animate-ping" style={{ animationDuration: '2.2s' }}/>
                                 )}
-                                <circle cx={coord.cx} cy={coord.cy} r={isHovered ? "5" : "3"} fill="#111827" stroke={markerColor} strokeWidth="1.5" />
+                                <circle cx={coord.cx} cy={coord.cy} r={isHovered ? "8" : "6"} fill="#f8fafc" stroke={markerColor} strokeWidth="2" />
+                                <circle cx={coord.cx} cy={coord.cy} r={isHovered ? "3.5" : "2.5"} fill={markerColor} />
                               </g>
                             )
                           })}
