@@ -8,6 +8,7 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
+          if (id.includes('leaflet')) return 'leaflet'
           if (id.includes('node_modules/react')) return 'react'
           if (id.includes('@supabase/supabase-js')) return 'supabase'
           if (id.includes('lucide-react')) return 'icons'

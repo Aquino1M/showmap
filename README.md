@@ -1,8 +1,8 @@
 # ShowMap
 
-Gestão de turnês, agendas, propostas, escritórios, agentes e planos com Supabase.
+Gestão de turnês, agenda, propostas, escritórios, agentes e planos com Supabase.
 
-## Rodar localmente
+## Local
 
 ```bash
 npm install
@@ -10,12 +10,12 @@ copy .env.example .env.local
 npm run dev
 ```
 
-Use apenas as variáveis públicas do Supabase. Nunca publique chaves secretas.
+Em `.env.local`, informe apenas `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY`. Nunca publique chaves secretas.
 
-## Banco e segurança
+## Produção
 
-1. Projeto novo: execute `supabase/setup.sql`.
-2. Projeto existente: execute, uma vez, `migration-profile-link.sql`, `migration-event-details.sql`, `migration-plans.sql`, `migration-artist-name.sql` e `migration-auth-hardening.sql`, nessa ordem.
+1. Projeto novo: execute `supabase/setup.sql` no SQL Editor.
+2. Projeto existente: execute as migrations pendentes em `supabase/`, incluindo `migration-auth-hardening.sql`.
 3. Em **Authentication > Sign In / Providers**, desative **Allow new users to sign up**.
 4. Crie o Administrador Master em **Authentication > Users** e publique:
 
@@ -23,11 +23,9 @@ Use apenas as variáveis públicas do Supabase. Nunca publique chaves secretas.
 npx supabase functions deploy manage-user --project-ref <seu-project-ref>
 ```
 
-Se usar outro domínio além de `showmap.vercel.app`, configure a variável da Edge Function `SHOWMAP_ALLOWED_ORIGINS` com os domínios permitidos, separados por vírgula.
+Configure `SHOWMAP_ALLOWED_ORIGINS` na Edge Function com os domínios permitidos. `migration-clean-start.sql` apaga dados e é exclusiva para testes.
 
-`migration-clean-start.sql` apaga dados e é exclusiva para teste.
-
-## Validar
+## Verificação
 
 ```bash
 npm run test

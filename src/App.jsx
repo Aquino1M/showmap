@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { lazy, Suspense, useState, useMemo, useEffect, useRef } from 'react';
 import {
   initAuth,
   subscribeCollection,
@@ -14,13 +14,14 @@ import { PLAN_DETAILS, getPlanDaysRemaining, isPlanExpired } from './lib/plans';
 import { DEFAULT_MAP_VIEWPORT, getCityCoordinateKey, getCityCoordinates, getPannedViewport, getZoomedViewport, resolveCityCoordinates } from './lib/map';
 import { filterMapEvents, getCalendarDayType, getEventStatusLabel, getShowProximityColor, getTourArtists, isCalendarEvent } from './lib/tour';
 import TourMapControls from './components/TourMapControls';
-import RealTourMap from './components/RealTourMap';
 import { 
   Map, CalendarDays, MapPin, Plus, ChevronLeft, ChevronRight, Users,
   LayoutDashboard, X, Briefcase, FileText, Building, 
   UserPlus, Trash2, Edit, Save, HandMetal, Hand, LogOut, Clock,
   Globe2, ArrowRight, Menu, Minus, RotateCcw
 } from 'lucide-react';
+
+const RealTourMap = lazy(() => import('./components/RealTourMap'));
 
 // Mapa do Brasil Geograficamente Preciso, Contíguo (sem frestas/gaps) em escala 2048x2048
 // Totalmente plano (2D), sem perspectiva, sem textos ou símbolos sobrepostos.
@@ -1538,7 +1539,7 @@ export default function App() {
                 </div>
                 }
 
-                <div className={`${mapDisplay === 'svg' ? 'flex' : 'hidden'} w-full h-full max-w-[500px] items-center justify-center p-3 sm:p-8`}>
+                {mapDisplay === 'svg' && <div className="flex h-full w-full max-w-[500px] items-center justify-center p-3 sm:p-8">
                   <svg
                     viewBox={`${mapViewport.x} ${mapViewport.y} ${mapViewport.width} ${mapViewport.height}`}
                     className="h-full w-full cursor-grab touch-none active:cursor-grabbing"
@@ -1579,17 +1580,19 @@ export default function App() {
                       );
                     })}
                   </svg>
-                </div>
+                </div>}
                 {mapDisplay === 'real' && <div className="absolute inset-4 z-10 overflow-hidden rounded-xl">
-                  <RealTourMap
-                    events={mapEvents}
-                    mapMode={mapMode}
-                    selectedState={selectedMapState}
-                    selectedEventId={selectedMapEventId}
-                    onSelectEvent={setSelectedMapEventId}
-                    onSelectState={(stateId) => { setSelectedMapState(stateId); setSelectedMapEventId(null); }}
-                    resetToken={mapResetToken}
-                  />
+                  <Suspense fallback={<div className="grid h-full place-items-center bg-[#111827] text-sm text-slate-400">Carregando mapa real…</div>}>
+                    <RealTourMap
+                      events={mapEvents}
+                      mapMode={mapMode}
+                      selectedState={selectedMapState}
+                      selectedEventId={selectedMapEventId}
+                      onSelectEvent={setSelectedMapEventId}
+                      onSelectState={(stateId) => { setSelectedMapState(stateId); setSelectedMapEventId(null); }}
+                      resetToken={mapResetToken}
+                    />
+                  </Suspense>
                 </div>
                 }
              </div>
