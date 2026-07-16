@@ -5,7 +5,7 @@ Gestão de turnês, agenda, propostas, escritórios, agentes e planos com Supaba
 ## Local
 
 ```bash
-npm install
+npm ci
 copy .env.example .env.local
 npm run dev
 ```
