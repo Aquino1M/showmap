@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { CircleMarker, MapContainer, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Minus, Plus, RotateCcw } from 'lucide-react';
+import MapLegend from './MapLegend';
 import { getCityCoordinateKey, getCityLatLng, resolveCityLatLng } from '../lib/map';
 import { getEventStatusLabel, getShowProximityColor } from '../lib/tour';
 
@@ -41,17 +42,6 @@ function MapActions() {
       <button onClick={() => map.zoomIn()} aria-label="Aproximar mapa" className="p-2.5 text-cyan-300 hover:bg-indigo-600 hover:text-white"><Plus size={19} /></button>
       <button onClick={() => map.zoomOut()} aria-label="Afastar mapa" className="border-y border-slate-700 p-2.5 text-cyan-300 hover:bg-indigo-600 hover:text-white"><Minus size={19} /></button>
       <button onClick={() => map.setView(BRAZIL_CENTER, BRAZIL_ZOOM, { animate: true })} aria-label="Centralizar Brasil" className="p-2.5 text-cyan-300 hover:bg-indigo-600 hover:text-white"><RotateCcw size={17} /></button>
-    </div>
-  );
-}
-
-function MapLegend() {
-  return (
-    <div className="pointer-events-none absolute bottom-32 left-1/2 z-[500] flex w-max max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-2 rounded-xl border border-slate-700 bg-[#0B0F19]/95 px-3 py-2.5 text-[9px] text-slate-200 shadow-xl backdrop-blur sm:bottom-4 sm:left-auto sm:right-4 sm:block sm:w-auto sm:max-w-none sm:translate-x-0 sm:text-[10px]">
-      <p className="hidden sm:mb-1.5 sm:block sm:font-bold sm:uppercase sm:tracking-wide sm:text-cyan-300">Índice da agenda</p>
-      <p className="flex items-center gap-1.5 whitespace-nowrap"><span className="h-2.5 w-2.5 rounded-full bg-red-500" />Vermelho: 2 meses</p>
-      <p className="flex items-center gap-1.5 whitespace-nowrap"><span className="h-2.5 w-2.5 rounded-full bg-orange-500" />Laranja: 3 a 4 meses</p>
-      <p className="flex items-center gap-1.5 whitespace-nowrap"><span className="h-2.5 w-2.5 rounded-full bg-green-500" />Verde: 5 a 6 meses</p>
     </div>
   );
 }

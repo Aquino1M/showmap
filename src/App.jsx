@@ -14,6 +14,7 @@ import { PLAN_DETAILS, getPlanDaysRemaining, isPlanExpired } from './lib/plans';
 import { DEFAULT_MAP_VIEWPORT, getCityCoordinateKey, getCityCoordinates, getPannedViewport, getZoomedViewport, resolveCityCoordinates } from './lib/map';
 import { filterMapEvents, getCalendarDayType, getEventStatusLabel, getShowProximityColor, getTourArtists, isCalendarEvent } from './lib/tour';
 import TourMapControls from './components/TourMapControls';
+import MapLegend from './components/MapLegend';
 import { 
   Map, CalendarDays, MapPin, Plus, ChevronLeft, ChevronRight, Users,
   LayoutDashboard, X, Briefcase, FileText, Building, 
@@ -1473,7 +1474,7 @@ export default function App() {
                   Clique no estado para filtrar e depois em uma bolinha para ver o evento.
                 </p>
 
-                {selectedMapState && <button onClick={() => { setSelectedMapState(null); setSelectedMapEventId(null); }} className="absolute left-4 top-40 z-30 rounded-lg border border-cyan-400/60 bg-[#0B0F19]/95 px-3 py-2 text-xs font-bold text-cyan-200 shadow-lg backdrop-blur hover:bg-slate-800">
+                {selectedMapState && <button onClick={() => { setSelectedMapState(null); setSelectedMapEventId(null); }} className="absolute left-4 top-[6.5rem] z-30 rounded-lg border border-cyan-400/60 bg-[#0B0F19]/95 px-3 py-2 text-xs font-bold text-cyan-200 shadow-lg backdrop-blur hover:bg-slate-800 sm:top-40">
                   {BRAZIL_STATES[selectedMapState].name} · Limpar filtro
                 </button>}
 
@@ -1581,6 +1582,7 @@ export default function App() {
                     })}
                   </svg>
                 </div>}
+                {mapDisplay === 'svg' && mapMode === 'tour' && <MapLegend />}
                 {mapDisplay === 'real' && <div className="absolute inset-4 z-10 overflow-hidden rounded-xl">
                   <Suspense fallback={<div className="grid h-full place-items-center bg-[#111827] text-sm text-slate-400">Carregando mapa real…</div>}>
                     <RealTourMap
