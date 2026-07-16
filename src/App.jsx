@@ -1478,7 +1478,7 @@ export default function App() {
 
                 {/* No celular e tablet, três atalhos ficam no alto e dois embaixo. */}
                 {authUser.role !== 'superadmin' && <>
-                  <div className="lg:hidden absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 gap-2 rounded-2xl border border-slate-700 bg-[#0B0F19]/90 p-2 shadow-xl backdrop-blur">
+                  <div className="lg:hidden absolute bottom-14 left-1/2 z-30 flex -translate-x-1/2 gap-2 rounded-2xl border border-slate-700 bg-[#0B0F19]/90 p-2 shadow-xl backdrop-blur">
                     {TABS.filter((tab) => tab.id !== 'map').map((tab) => {
                       const Icon = tab.icon;
                       return <button key={tab.id} onClick={() => setActiveTab(tab.id)} title={tab.label} aria-label={tab.label} className="h-10 w-10 rounded-lg border border-slate-700 bg-[#111827] text-indigo-300 hover:bg-indigo-600 hover:text-white flex items-center justify-center transition-colors"><Icon size={18} /></button>;
@@ -1531,7 +1531,7 @@ export default function App() {
                   )}
                 </div>
 
-                {mapDisplay === 'svg' && <div className="absolute bottom-4 left-4 z-30 flex flex-col overflow-hidden rounded-xl border border-slate-700 bg-[#0B0F19]/95 shadow-lg backdrop-blur">
+                {mapDisplay === 'svg' && <div className="absolute bottom-4 left-4 z-30 hidden flex-col overflow-hidden rounded-xl border border-slate-700 bg-[#0B0F19]/95 shadow-lg backdrop-blur sm:flex">
                   <button onClick={() => zoomMap(0.8)} aria-label="Aproximar mapa" title="Aproximar" className="p-2.5 text-cyan-300 transition-colors hover:bg-indigo-600 hover:text-white"><Plus size={19}/></button>
                   <button onClick={() => zoomMap(1.25)} aria-label="Afastar mapa" title="Afastar" className="border-y border-slate-700 p-2.5 text-cyan-300 transition-colors hover:bg-indigo-600 hover:text-white"><Minus size={19}/></button>
                   <button onClick={() => { setMapViewport(DEFAULT_MAP_VIEWPORT); setMapResetToken((current) => current + 1); }} aria-label="Centralizar mapa" title="Centralizar mapa" className="p-2.5 text-cyan-300 transition-colors hover:bg-indigo-600 hover:text-white"><RotateCcw size={17}/></button>
