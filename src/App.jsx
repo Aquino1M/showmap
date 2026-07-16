@@ -1500,7 +1500,11 @@ export default function App() {
                   artists={tourArtists}
                 />}
 
-                {selectedMapState && <button onClick={() => { setSelectedMapState(null); setSelectedMapEventId(null); }} className="absolute left-4 top-24 z-30 rounded-lg border border-cyan-400/60 bg-[#0B0F19]/95 px-3 py-2 text-xs font-bold text-cyan-200 shadow-lg backdrop-blur hover:bg-slate-800">
+                <p className="absolute left-4 top-24 z-20 max-w-56 rounded-lg bg-[#0B0F19]/85 px-3 py-2 text-[10px] leading-relaxed text-slate-300 backdrop-blur">
+                  Clique no estado para filtrar e depois em uma bolinha para ver o evento.
+                </p>
+
+                {selectedMapState && <button onClick={() => { setSelectedMapState(null); setSelectedMapEventId(null); }} className="absolute left-4 top-40 z-30 rounded-lg border border-cyan-400/60 bg-[#0B0F19]/95 px-3 py-2 text-xs font-bold text-cyan-200 shadow-lg backdrop-blur hover:bg-slate-800">
                   {BRAZIL_STATES[selectedMapState].name} · Limpar filtro
                 </button>}
 
@@ -1601,10 +1605,10 @@ export default function App() {
                             return (
                               <g key={ev.id}>
                                 {proximityColor && (
-                                  <circle cx={coord.cx} cy={coord.cy} r={isHovered ? "17" : "13"} fill={proximityColor} opacity="0.32" className="animate-ping" style={{ animationDuration: '2.2s' }}/>
+                                  <circle cx={coord.cx} cy={coord.cy} r={isHovered ? "28" : "23"} fill={proximityColor} opacity="0.32" className="animate-ping" style={{ animationDuration: '2.2s' }}/>
                                 )}
-                                <circle onClick={(event) => { event.stopPropagation(); setSelectedMapEventId(ev.id); }} className="cursor-pointer" cx={coord.cx} cy={coord.cy} r={isHovered ? "8" : "6"} fill="#f8fafc" stroke={markerColor} strokeWidth="2" />
-                                <circle onClick={(event) => { event.stopPropagation(); setSelectedMapEventId(ev.id); }} className="cursor-pointer" cx={coord.cx} cy={coord.cy} r={isHovered ? "3.5" : "2.5"} fill={markerColor} />
+                                <circle onClick={(event) => { event.stopPropagation(); setSelectedMapEventId(ev.id); }} className="cursor-pointer" cx={coord.cx} cy={coord.cy} r={isHovered ? "14" : "11"} fill="#f8fafc" stroke={markerColor} strokeWidth="3" />
+                                <circle onClick={(event) => { event.stopPropagation(); setSelectedMapEventId(ev.id); }} className="cursor-pointer" cx={coord.cx} cy={coord.cy} r={isHovered ? "6" : "4.5"} fill={markerColor} />
                               </g>
                             )
                           })}
