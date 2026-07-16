@@ -11,7 +11,7 @@ import {
   renewCompanyPlan
 } from './firebase';
 import { PLAN_DETAILS, getPlanDaysRemaining, isPlanExpired } from './lib/plans';
-import { DEFAULT_MAP_VIEWPORT, getCityCoordinateKey, getCityCoordinates, getPannedViewport, getZoomedViewport } from './lib/map';
+import { DEFAULT_MAP_VIEWPORT, getCityCoordinateKey, getCityCoordinates, getPannedViewport, getZoomedViewport, resolveCityCoordinates } from './lib/map';
 import { filterMapEvents, getCalendarDayType, getEventStatusLabel, getShowProximityColor, getTourArtists, isCalendarEvent } from './lib/tour';
 import TourMapControls from './components/TourMapControls';
 import RealTourMap from './components/RealTourMap';
@@ -288,9 +288,10 @@ export default function App() {
   const [selectedCalendarDate, setSelectedCalendarDate] = useState('');
   const [hoveredState, setHoveredState] = useState(null);
   const [mapMode, setMapMode] = useState('tour');
+  const [mapDisplay, setMapDisplay] = useState('real');
   const [selectedTourArtist, setSelectedTourArtist] = useState('');
   const [mapViewport, setMapViewport] = useState(DEFAULT_MAP_VIEWPORT);
-  const [resolvedMapCoordinates] = useState({});
+  const [resolvedMapCoordinates, setResolvedMapCoordinates] = useState({});
   const [selectedMapEventId, setSelectedMapEventId] = useState(null);
   const [selectedMapState, setSelectedMapState] = useState(null);
   const [mapResetToken, setMapResetToken] = useState(0);
@@ -676,6 +677,17 @@ export default function App() {
   }, [authUser, events, visibleEvents]);
 
   const selectedMapEvent = useMemo(() => mapEvents.find((event) => event.id === selectedMapEventId) || null, [mapEvents, selectedMapEventId]);
+
+  useEffect(() => {
+    let active = true;
+    mapEvents.forEach(async (event) => {
+      const key = getCityCoordinateKey(event.stateId, event.city);
+      if (resolvedMapCoordinates[key]) return;
+      const coordinates = await resolveCityCoordinates(event.stateId, event.city);
+      if (active && coordinates) setResolvedMapCoordinates((current) => ({ ...current, [key]: coordinates }));
+    });
+    return () => { active = false; };
+  }, [mapEvents, resolvedMapCoordinates]);
 
   const globalStats = useMemo(() => ({
     offices: companies.filter((company) => company.active).length,
@@ -1449,12 +1461,14 @@ export default function App() {
                 {authUser.role !== 'superadmin' && <TourMapControls
                   mapMode={mapMode}
                   setMapMode={(value) => { setSelectedMapEventId(null); setMapMode(value); }}
+                  mapDisplay={mapDisplay}
+                  setMapDisplay={setMapDisplay}
                   selectedArtist={selectedTourArtist}
                   setSelectedArtist={(artist) => { setSelectedMapEventId(null); setSelectedTourArtist(artist); }}
                   artists={tourArtists}
                 />}
 
-                <p className="absolute left-4 top-24 z-20 max-w-56 rounded-lg bg-[#0B0F19]/85 px-3 py-2 text-[10px] leading-relaxed text-slate-300 backdrop-blur">
+                <p className="absolute left-4 top-24 z-20 hidden max-w-56 rounded-lg bg-[#0B0F19]/85 px-3 py-2 text-[10px] leading-relaxed text-slate-300 backdrop-blur sm:block">
                   Clique no estado para filtrar e depois em uma bolinha para ver o evento.
                 </p>
 
@@ -1464,16 +1478,10 @@ export default function App() {
 
                 {/* No celular e tablet, três atalhos ficam no alto e dois embaixo. */}
                 {authUser.role !== 'superadmin' && <>
-                  <div className="lg:hidden absolute top-4 right-4 z-30 flex flex-col gap-2">
-                    {TABS.filter((tab) => tab.id !== 'map').slice(0, 3).map((tab) => {
+                  <div className="lg:hidden absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 gap-2 rounded-2xl border border-slate-700 bg-[#0B0F19]/90 p-2 shadow-xl backdrop-blur">
+                    {TABS.filter((tab) => tab.id !== 'map').map((tab) => {
                       const Icon = tab.icon;
-                      return <button key={tab.id} onClick={() => setActiveTab(tab.id)} title={tab.label} aria-label={tab.label} className="w-12 h-12 rounded-xl border border-slate-700 bg-[#0B0F19]/95 backdrop-blur text-indigo-300 hover:bg-indigo-600 hover:text-white flex items-center justify-center shadow-lg transition-colors"><Icon size={20} /></button>;
-                    })}
-                  </div>
-                  <div className="lg:hidden absolute bottom-4 right-4 z-30 flex flex-col gap-2">
-                    {TABS.filter((tab) => tab.id !== 'map').slice(3).map((tab) => {
-                      const Icon = tab.icon;
-                      return <button key={tab.id} onClick={() => setActiveTab(tab.id)} title={tab.label} aria-label={tab.label} className="w-12 h-12 rounded-xl border border-slate-700 bg-[#0B0F19]/95 backdrop-blur text-indigo-300 hover:bg-indigo-600 hover:text-white flex items-center justify-center shadow-lg transition-colors"><Icon size={20} /></button>;
+                      return <button key={tab.id} onClick={() => setActiveTab(tab.id)} title={tab.label} aria-label={tab.label} className="h-10 w-10 rounded-lg border border-slate-700 bg-[#111827] text-indigo-300 hover:bg-indigo-600 hover:text-white flex items-center justify-center transition-colors"><Icon size={18} /></button>;
                     })}
                   </div>
                 </>}
@@ -1523,13 +1531,14 @@ export default function App() {
                   )}
                 </div>
 
-                <div className="absolute bottom-4 left-4 z-30 flex flex-col overflow-hidden rounded-xl border border-slate-700 bg-[#0B0F19]/95 shadow-lg backdrop-blur">
+                {mapDisplay === 'svg' && <div className="absolute bottom-4 left-4 z-30 flex flex-col overflow-hidden rounded-xl border border-slate-700 bg-[#0B0F19]/95 shadow-lg backdrop-blur">
                   <button onClick={() => zoomMap(0.8)} aria-label="Aproximar mapa" title="Aproximar" className="p-2.5 text-cyan-300 transition-colors hover:bg-indigo-600 hover:text-white"><Plus size={19}/></button>
                   <button onClick={() => zoomMap(1.25)} aria-label="Afastar mapa" title="Afastar" className="border-y border-slate-700 p-2.5 text-cyan-300 transition-colors hover:bg-indigo-600 hover:text-white"><Minus size={19}/></button>
                   <button onClick={() => { setMapViewport(DEFAULT_MAP_VIEWPORT); setMapResetToken((current) => current + 1); }} aria-label="Centralizar mapa" title="Centralizar mapa" className="p-2.5 text-cyan-300 transition-colors hover:bg-indigo-600 hover:text-white"><RotateCcw size={17}/></button>
                 </div>
+                }
 
-                <div className="w-full h-full max-w-[500px] flex items-center justify-center p-3 sm:p-8">
+                <div className={`${mapDisplay === 'svg' ? 'flex' : 'hidden'} w-full h-full max-w-[500px] items-center justify-center p-3 sm:p-8`}>
                   <svg
                     viewBox={`${mapViewport.x} ${mapViewport.y} ${mapViewport.width} ${mapViewport.height}`}
                     className="h-full w-full cursor-grab touch-none active:cursor-grabbing"
@@ -1571,7 +1580,7 @@ export default function App() {
                     })}
                   </svg>
                 </div>
-                <div className="absolute inset-4 z-10 overflow-hidden rounded-xl">
+                {mapDisplay === 'real' && <div className="absolute inset-4 z-10 overflow-hidden rounded-xl">
                   <RealTourMap
                     events={mapEvents}
                     mapMode={mapMode}
@@ -1582,6 +1591,7 @@ export default function App() {
                     resetToken={mapResetToken}
                   />
                 </div>
+                }
              </div>
           </div>
         )}

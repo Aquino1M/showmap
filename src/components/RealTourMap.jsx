@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CircleMarker, MapContainer, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
+import { Minus, Plus, RotateCcw } from 'lucide-react';
 import { getCityCoordinateKey, getCityLatLng, resolveCityLatLng } from '../lib/map';
 import { getEventStatusLabel, getShowProximityColor } from '../lib/tour';
 
 const BRAZIL_CENTER = [-14.235, -51.925];
-const BRAZIL_ZOOM = 4;
+const BRAZIL_ZOOM = 5;
 
 function ResetMap({ resetToken }) {
   const map = useMap();
@@ -32,9 +33,20 @@ function StateClickHandler({ onSelectState }) {
   return null;
 }
 
+function MapActions() {
+  const map = useMap();
+  return (
+    <div className="absolute bottom-4 left-4 z-[500] flex flex-col overflow-hidden rounded-xl border border-slate-700 bg-[#0B0F19]/95 shadow-lg">
+      <button onClick={() => map.zoomIn()} aria-label="Aproximar mapa" className="p-2.5 text-cyan-300 hover:bg-indigo-600 hover:text-white"><Plus size={19} /></button>
+      <button onClick={() => map.zoomOut()} aria-label="Afastar mapa" className="border-y border-slate-700 p-2.5 text-cyan-300 hover:bg-indigo-600 hover:text-white"><Minus size={19} /></button>
+      <button onClick={() => map.setView(BRAZIL_CENTER, BRAZIL_ZOOM, { animate: true })} aria-label="Centralizar Brasil" className="p-2.5 text-cyan-300 hover:bg-indigo-600 hover:text-white"><RotateCcw size={17} /></button>
+    </div>
+  );
+}
+
 function MapLegend() {
   return (
-    <div className="pointer-events-none absolute bottom-4 right-4 z-[500] rounded-xl border border-slate-700 bg-[#0B0F19]/95 px-3 py-2.5 text-[10px] text-slate-200 shadow-xl backdrop-blur">
+    <div className="pointer-events-none absolute bottom-20 right-3 z-[500] rounded-xl border border-slate-700 bg-[#0B0F19]/95 px-3 py-2.5 text-[10px] text-slate-200 shadow-xl backdrop-blur sm:bottom-4 sm:right-4">
       <p className="mb-1.5 font-bold uppercase tracking-wide text-cyan-300">Índice da agenda</p>
       <p className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-red-500" />Hoje até 2 meses</p>
       <p className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-orange-500" />De 3 a 4 meses</p>
@@ -63,10 +75,11 @@ export default function RealTourMap({ events, mapMode, selectedState, selectedEv
 
   return (
     <div className="relative h-full w-full overflow-hidden rounded-xl">
-      <MapContainer center={BRAZIL_CENTER} zoom={BRAZIL_ZOOM} minZoom={3} maxZoom={14} scrollWheelZoom className="h-full w-full bg-[#101827]" aria-label="Mapa geográfico dos eventos">
+      <MapContainer center={BRAZIL_CENTER} zoom={BRAZIL_ZOOM} minZoom={3} maxZoom={14} zoomControl={false} scrollWheelZoom className="h-full w-full bg-[#101827]" aria-label="Mapa geográfico dos eventos">
         <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         <ResetMap resetToken={resetToken} />
         <StateClickHandler onSelectState={onSelectState} />
+        <MapActions />
         {visibleEvents.map((event) => {
           const key = getCityCoordinateKey(event.stateId, event.city);
           const position = locations[key] || getCityLatLng(event.stateId, event.city);
