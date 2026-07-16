@@ -102,7 +102,12 @@ export const resolveCityLatLng = async (stateId, cityName) => {
 
   try {
     const cached = globalThis.localStorage?.getItem(storageKey);
-    if (cached) return JSON.parse(cached);
+    if (cached) {
+      const coordinates = JSON.parse(cached);
+      if (Array.isArray(coordinates) && coordinates.length === 2 && coordinates.every(Number.isFinite)) return coordinates;
+      // Versões antigas salvavam o ponto do SVG ({ cx, cy }). Esse formato não serve para o mapa GPS.
+      globalThis.localStorage?.removeItem(storageKey);
+    }
   } catch {
     // A consulta continua normalmente se o navegador bloquear o armazenamento local.
   }
