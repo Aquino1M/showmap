@@ -85,7 +85,7 @@ export default function RealTourMap({ events, mapMode, selectedState, selectedEv
           );
         })}
       </MapContainer>
-      {mapMode === 'tour' && <MapLegend />}
+      {mapMode === 'tour' && <MapLegend mobileBottom="bottom-[7rem]" />}
     </div>
   );
 }
