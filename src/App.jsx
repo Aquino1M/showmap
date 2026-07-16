@@ -227,10 +227,13 @@ export default function App() {
   const [dbUser, setDbUser] = useState(null);
   const [resolvedProfile, setResolvedProfile] = useState(null);
   const [profileError, setProfileError] = useState('');
+  const [authBootstrapped, setAuthBootstrapped] = useState(false);
 
   useEffect(() => {
     const unsubscribeAuth = initAuth((usr) => {
       setDbUser(usr);
+      setAuthBootstrapped(true);
+      if (usr) setCurrentView('dashboard');
     });
     return () => unsubscribeAuth();
   }, []);
@@ -248,7 +251,6 @@ export default function App() {
       .catch((error) => {
         const message = error instanceof Error ? error.message : 'Não foi possível preparar o acesso.';
         setProfileError(message);
-        setCurrentView('login');
       });
   }, [dbUser]);
 
@@ -290,7 +292,7 @@ export default function App() {
   const [selectedCalendarDate, setSelectedCalendarDate] = useState('');
   const [hoveredState, setHoveredState] = useState(null);
   const [mapMode, setMapMode] = useState('tour');
-  const [mapDisplay, setMapDisplay] = useState('real');
+  const [mapDisplay, setMapDisplay] = useState('svg');
   const [selectedTourArtist, setSelectedTourArtist] = useState('');
   const [mapViewport, setMapViewport] = useState(DEFAULT_MAP_VIEWPORT);
   const [resolvedMapCoordinates, setResolvedMapCoordinates] = useState({});
@@ -761,6 +763,22 @@ export default function App() {
   };
 
   // ================= VIEW: HOME (Landing Page) =================
+  if (!authBootstrapped) {
+    return <main className="grid min-h-screen place-items-center bg-[#0B0F19] px-6 text-slate-300"><p className="text-sm">Restaurando acesso…</p></main>;
+  }
+
+  if (currentView === 'dashboard' && !authUser) {
+    return (
+      <main className="grid min-h-screen place-items-center bg-[#0B0F19] px-6 text-slate-100">
+        <section className="max-w-md rounded-2xl border border-indigo-500/30 bg-slate-900 p-8 text-center shadow-2xl">
+          <h1 className="text-xl font-extrabold text-white">Restaurando sua sessão</h1>
+          <p className="mt-3 text-sm text-slate-300">{profileError || 'Carregando seu painel…'}</p>
+          {profileError && <button onClick={() => window.location.reload()} className="mt-6 rounded-xl bg-indigo-600 px-5 py-3 font-bold text-white hover:bg-indigo-500">Tentar novamente</button>}
+        </section>
+      </main>
+    );
+  }
+
   if (currentView === 'home') {
     return (
       <div className={`${homeSection === 'home' ? 'h-[100dvh] overflow-hidden' : 'min-h-[100dvh] overflow-y-auto'} bg-[#0B0F19] text-slate-200 relative flex flex-col overflow-x-hidden font-sans selection:bg-indigo-500/30`}>

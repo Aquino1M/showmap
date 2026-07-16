@@ -129,11 +129,20 @@ const fetchCollection = async (collectionName) => {
 };
 
 export const initAuth = (onUserLoaded) => {
-  supabase.auth.getSession().then(({ data }) => onUserLoaded(data.session?.user || null));
+  let active = true;
+  const notify = (session) => {
+    if (active) onUserLoaded(session?.user || null);
+  };
+
   const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-    onUserLoaded(session?.user || null);
+    notify(session);
   });
-  return () => subscription.unsubscribe();
+  supabase.auth.getSession().then(({ data }) => notify(data.session)).catch(() => notify(null));
+
+  return () => {
+    active = false;
+    subscription.unsubscribe();
+  };
 };
 
 export const signIn = async (email, password) => {
