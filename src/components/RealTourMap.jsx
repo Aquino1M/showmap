@@ -66,7 +66,7 @@ export default function RealTourMap({ events, mapMode, selectedState, selectedEv
 
   return (
     <div className="relative h-full w-full overflow-hidden rounded-xl">
-      <MapContainer center={BRAZIL_CENTER} zoom={BRAZIL_ZOOM} minZoom={5} maxZoom={14} maxBounds={BRAZIL_BOUNDS} maxBoundsViscosity={1} zoomControl={false} scrollWheelZoom className="h-full w-full bg-[#101827]" aria-label="Mapa geográfico dos eventos">
+      <MapContainer center={BRAZIL_CENTER} zoom={BRAZIL_ZOOM} minZoom={5} maxZoom={14} maxBounds={BRAZIL_BOUNDS} maxBoundsViscosity={1} zoomControl={false} attributionControl={false} scrollWheelZoom className="h-full w-full bg-[#101827]" aria-label="Mapa geográfico dos eventos">
         <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         <ResetMap resetToken={resetToken} />
         <StateClickHandler onSelectState={onSelectState} />
