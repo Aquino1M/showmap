@@ -11,9 +11,10 @@ import {
   renewCompanyPlan
 } from './firebase';
 import { PLAN_DETAILS, getPlanDaysRemaining, isPlanExpired } from './lib/plans';
-import { DEFAULT_MAP_VIEWPORT, getCityCoordinateKey, getCityCoordinates, getPannedViewport, getZoomedViewport, resolveCityCoordinates } from './lib/map';
+import { DEFAULT_MAP_VIEWPORT, getCityCoordinateKey, getCityCoordinates, getPannedViewport, getZoomedViewport } from './lib/map';
 import { filterMapEvents, getCalendarDayType, getEventStatusLabel, getShowProximityColor, getTourArtists, isCalendarEvent } from './lib/tour';
 import TourMapControls from './components/TourMapControls';
+import RealTourMap from './components/RealTourMap';
 import { 
   Map, CalendarDays, MapPin, Plus, ChevronLeft, ChevronRight, Users,
   LayoutDashboard, X, Briefcase, FileText, Building, 
@@ -289,9 +290,10 @@ export default function App() {
   const [mapMode, setMapMode] = useState('tour');
   const [selectedTourArtist, setSelectedTourArtist] = useState('');
   const [mapViewport, setMapViewport] = useState(DEFAULT_MAP_VIEWPORT);
-  const [resolvedMapCoordinates, setResolvedMapCoordinates] = useState({});
+  const [resolvedMapCoordinates] = useState({});
   const [selectedMapEventId, setSelectedMapEventId] = useState(null);
   const [selectedMapState, setSelectedMapState] = useState(null);
+  const [mapResetToken, setMapResetToken] = useState(0);
   const mapDragRef = useRef(null);
   const mapPointersRef = useRef({});
   
@@ -675,20 +677,6 @@ export default function App() {
 
   const selectedMapEvent = useMemo(() => mapEvents.find((event) => event.id === selectedMapEventId) || null, [mapEvents, selectedMapEventId]);
 
-  useEffect(() => {
-    let cancelled = false;
-    const locations = {};
-    mapEvents.forEach((event) => { locations[getCityCoordinateKey(event.stateId, event.city)] = event; });
-
-    Promise.all(Object.entries(locations).map(async ([key, event]) => {
-      if (resolvedMapCoordinates[key]) return;
-      const coordinates = await resolveCityCoordinates(event.stateId, event.city);
-      if (!cancelled && coordinates) setResolvedMapCoordinates((current) => ({ ...current, [key]: coordinates }));
-    }));
-
-    return () => { cancelled = true; };
-  }, [mapEvents, resolvedMapCoordinates]);
-
   const globalStats = useMemo(() => ({
     offices: companies.filter((company) => company.active).length,
     proposals: events.filter(e => e.status === 'Proposta').length,
@@ -734,54 +722,20 @@ export default function App() {
   const handleMapWheel = (event) => {
     event.preventDefault();
     const bounds = event.currentTarget.getBoundingClientRect();
-    zoomMap(event.deltaY < 0 ? 0.82 : 1.22, {
-      x: (event.clientX - bounds.left) / bounds.width,
-      y: (event.clientY - bounds.top) / bounds.height,
-    });
+    zoomMap(event.deltaY < 0 ? 0.82 : 1.22, { x: (event.clientX - bounds.left) / bounds.width, y: (event.clientY - bounds.top) / bounds.height });
   };
 
   const handleMapPointerDown = (event) => {
     if (event.pointerType === 'mouse' && event.button !== 0) return;
-    event.currentTarget.setPointerCapture?.(event.pointerId);
     const pointers = mapPointersRef.current;
     pointers[event.pointerId] = { x: event.clientX, y: event.clientY };
-    const pointerIds = Object.keys(pointers);
     const bounds = event.currentTarget.getBoundingClientRect();
-
-    if (pointerIds.length === 1) {
-      mapDragRef.current = { type: 'drag', pointerId: event.pointerId, x: event.clientX, y: event.clientY, viewport: mapViewport, bounds };
-      return;
-    }
-
-    if (pointerIds.length === 2) {
-      const [first, second] = pointerIds.map((id) => pointers[id]);
-      mapDragRef.current = {
-        type: 'pinch',
-        pointerIds,
-        distance: Math.hypot(first.x - second.x, first.y - second.y),
-        viewport: mapViewport,
-        bounds,
-        focus: { x: ((first.x + second.x) / 2 - bounds.left) / bounds.width, y: ((first.y + second.y) / 2 - bounds.top) / bounds.height },
-      };
-    }
+    mapDragRef.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY, viewport: mapViewport, bounds };
   };
 
   const handleMapPointerMove = (event) => {
     const drag = mapDragRef.current;
-    if (!drag) return;
-    const pointers = mapPointersRef.current;
-    if (!pointers[event.pointerId]) return;
-    pointers[event.pointerId] = { x: event.clientX, y: event.clientY };
-
-    if (drag.type === 'pinch') {
-      const [first, second] = drag.pointerIds.map((id) => pointers[id]);
-      if (!first || !second) return;
-      const distance = Math.hypot(first.x - second.x, first.y - second.y);
-      if (distance > 0) setMapViewport(getZoomedViewport(drag.viewport, drag.distance / distance, drag.focus));
-      return;
-    }
-
-    if (drag.pointerId !== event.pointerId) return;
+    if (!drag || drag.pointerId !== event.pointerId) return;
     const deltaX = (drag.x - event.clientX) * (drag.viewport.width / drag.bounds.width);
     const deltaY = (drag.y - event.clientY) * (drag.viewport.height / drag.bounds.height);
     setMapViewport(getPannedViewport(drag.viewport, deltaX, deltaY));
@@ -789,7 +743,7 @@ export default function App() {
 
   const handleMapPointerEnd = (event) => {
     delete mapPointersRef.current[event.pointerId];
-    if (Object.keys(mapPointersRef.current).length < 2) mapDragRef.current = null;
+    mapDragRef.current = null;
   };
 
   // ================= VIEW: HOME (Landing Page) =================
@@ -1572,7 +1526,7 @@ export default function App() {
                 <div className="absolute bottom-4 left-4 z-30 flex flex-col overflow-hidden rounded-xl border border-slate-700 bg-[#0B0F19]/95 shadow-lg backdrop-blur">
                   <button onClick={() => zoomMap(0.8)} aria-label="Aproximar mapa" title="Aproximar" className="p-2.5 text-cyan-300 transition-colors hover:bg-indigo-600 hover:text-white"><Plus size={19}/></button>
                   <button onClick={() => zoomMap(1.25)} aria-label="Afastar mapa" title="Afastar" className="border-y border-slate-700 p-2.5 text-cyan-300 transition-colors hover:bg-indigo-600 hover:text-white"><Minus size={19}/></button>
-                  <button onClick={() => setMapViewport(DEFAULT_MAP_VIEWPORT)} aria-label="Centralizar mapa" title="Centralizar mapa" className="p-2.5 text-cyan-300 transition-colors hover:bg-indigo-600 hover:text-white"><RotateCcw size={17}/></button>
+                  <button onClick={() => { setMapViewport(DEFAULT_MAP_VIEWPORT); setMapResetToken((current) => current + 1); }} aria-label="Centralizar mapa" title="Centralizar mapa" className="p-2.5 text-cyan-300 transition-colors hover:bg-indigo-600 hover:text-white"><RotateCcw size={17}/></button>
                 </div>
 
                 <div className="w-full h-full max-w-[500px] flex items-center justify-center p-3 sm:p-8">
@@ -1616,6 +1570,16 @@ export default function App() {
                       );
                     })}
                   </svg>
+                </div>
+                <div className="absolute inset-4 z-10 overflow-hidden rounded-xl">
+                  <RealTourMap
+                    events={mapEvents}
+                    mapMode={mapMode}
+                    selectedState={selectedMapState}
+                    selectedEventId={selectedMapEventId}
+                    onSelectEvent={setSelectedMapEventId}
+                    resetToken={mapResetToken}
+                  />
                 </div>
              </div>
           </div>

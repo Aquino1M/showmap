@@ -84,14 +84,18 @@ export const getPannedViewport = (viewport, deltaX, deltaY) => constrainViewport
 });
 
 export const getCityCoordinates = (stateId, cityName) => {
+  return toSvgPoint(getCityLatLng(stateId, cityName));
+};
+
+export const getCityLatLng = (stateId, cityName) => {
   const state = String(stateId || '').toUpperCase();
   const cityKey = `${normalize(cityName)}-${state.toLowerCase()}`;
-  return toSvgPoint(CITY_COORDINATES[cityKey] || STATE_CAPITALS[state] || STATE_CAPITALS.DF);
+  return CITY_COORDINATES[cityKey] || STATE_CAPITALS[state] || STATE_CAPITALS.DF;
 };
 
 export const getCityCoordinateKey = (stateId, cityName) => `${String(stateId || '').toUpperCase()}:${normalize(cityName)}`;
 
-export const resolveCityCoordinates = async (stateId, cityName) => {
+export const resolveCityLatLng = async (stateId, cityName) => {
   const state = String(stateId || '').toUpperCase();
   const key = getCityCoordinateKey(state, cityName);
   const storageKey = `showmap:geocoding:${key}`;
@@ -109,10 +113,15 @@ export const resolveCityCoordinates = async (stateId, cityName) => {
     if (!response.ok) return null;
     const [result] = await response.json();
     if (!result?.lat || !result?.lon) return null;
-    const coordinates = toSvgPoint([Number(result.lat), Number(result.lon)]);
+    const coordinates = [Number(result.lat), Number(result.lon)];
     try { globalThis.localStorage?.setItem(storageKey, JSON.stringify(coordinates)); } catch { /* cache opcional */ }
     return coordinates;
   } catch {
     return null;
   }
+};
+
+export const resolveCityCoordinates = async (stateId, cityName) => {
+  const coordinates = await resolveCityLatLng(stateId, cityName);
+  return coordinates ? toSvgPoint(coordinates) : null;
 };
