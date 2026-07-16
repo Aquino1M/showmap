@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterMapEvents, getTourArtists } from '../src/lib/tour.js';
+import { filterMapEvents, getCalendarDayType, getShowProximityColor, getTourArtists } from '../src/lib/tour.js';
 
 const events = [
   { id: '1', status: 'Disponível', artistName: '', agentId: null },
@@ -21,4 +21,17 @@ test('agente vê apenas sua própria turnê e pode filtrar por artista', () => {
 
 test('lista artistas confirmados sem repetir nomes', () => {
   assert.deepEqual(getTourArtists(events, { role: 'company_admin' }), ['Caio', 'Luna']);
+});
+
+test('calendário prioriza borda laranja para show e azul para data livre', () => {
+  assert.equal(getCalendarDayType([{ status: 'Disponível' }]), 'available');
+  assert.equal(getCalendarDayType([{ status: 'Disponível' }, { status: 'Confirmado' }]), 'show');
+});
+
+test('cor do brilho da turnê segue a proximidade do show', () => {
+  const today = new Date('2026-07-16T12:00:00');
+  assert.equal(getShowProximityColor('2026-08-15', today), '#ef4444');
+  assert.equal(getShowProximityColor('2026-10-24', today), '#f97316');
+  assert.equal(getShowProximityColor('2026-12-20', today), '#22c55e');
+  assert.equal(getShowProximityColor('2027-02-01', today), null);
 });

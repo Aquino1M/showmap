@@ -11,7 +11,7 @@ import {
   renewCompanyPlan
 } from './firebase';
 import { PLAN_DETAILS, getPlanDaysRemaining, isPlanExpired } from './lib/plans';
-import { filterMapEvents, getTourArtists } from './lib/tour';
+import { filterMapEvents, getCalendarDayType, getShowProximityColor, getTourArtists } from './lib/tour';
 import TourMapControls from './components/TourMapControls';
 import { 
   Map, CalendarDays, MapPin, Plus, ChevronLeft, ChevronRight, Users,
@@ -713,7 +713,7 @@ export default function App() {
   }, [calendarCursor]);
 
   const calendarEvents = useMemo(() => visibleEvents.filter((event) =>
-    (event.status === 'Confirmado' || event.status === 'Reservado') &&
+    (event.status === 'Confirmado' || event.status === 'Reservado' || event.status === 'Disponível') &&
     (!selectedCalendarDate || event.date === selectedCalendarDate)
   ), [visibleEvents, selectedCalendarDate]);
 
@@ -1344,18 +1344,29 @@ export default function App() {
                 <div className="grid grid-cols-7 gap-1 sm:gap-2">
                   {calendarDays.map((item, index) => {
                     if (!item) return <div key={`empty-${index}`} />;
-                    const eventsOnDay = visibleEvents.filter((event) => event.date === item.date && (event.status === 'Confirmado' || event.status === 'Reservado'));
+                    const eventsOnDay = visibleEvents.filter((event) => event.date === item.date && (event.status === 'Confirmado' || event.status === 'Reservado' || event.status === 'Disponível'));
+                    const dayType = getCalendarDayType(eventsOnDay);
                     const selected = selectedCalendarDate === item.date;
-                    return <button key={item.date} onClick={() => setSelectedCalendarDate(selected ? '' : item.date)} className={`min-h-12 sm:min-h-16 rounded-lg border p-1.5 text-left transition-colors ${selected ? 'border-indigo-400 bg-indigo-500/20' : eventsOnDay.length ? 'border-emerald-500/50 bg-emerald-500/10' : 'border-slate-800 bg-[#0B0F19] hover:border-slate-600'}`}>
+                    const dayStyle = dayType === 'show'
+                      ? 'border-orange-400 bg-orange-500/10 hover:border-orange-300'
+                      : dayType === 'available'
+                        ? 'border-sky-400 bg-sky-500/10 hover:border-sky-300'
+                        : 'border-slate-800 bg-[#0B0F19] hover:border-slate-600';
+                    const showCount = eventsOnDay.filter((event) => event.status !== 'Disponível').length;
+                    return <button key={item.date} onClick={() => setSelectedCalendarDate(selected ? '' : item.date)} className={`min-h-12 sm:min-h-16 rounded-lg border-2 p-1.5 text-left transition-colors ${selected ? 'ring-2 ring-indigo-400 ring-offset-1 ring-offset-[#111827]' : dayStyle}`}>
                       <span className="text-xs font-bold text-white">{item.day}</span>
-                      {eventsOnDay.length > 0 && <span className="mt-1 block text-[9px] text-emerald-300 truncate">{eventsOnDay.length} show{eventsOnDay.length > 1 ? 's' : ''}</span>}
+                      {eventsOnDay.length > 0 && <span className={`mt-1 block text-[9px] font-semibold truncate ${dayType === 'show' ? 'text-orange-300' : 'text-sky-300'}`}>{dayType === 'show' ? `${showCount} show${showCount > 1 ? 's' : ''}` : `${eventsOnDay.length} livre${eventsOnDay.length > 1 ? 's' : ''}`}</span>}
                     </button>;
                   })}
+                </div>
+                <div className="mt-4 flex flex-wrap gap-3 text-[11px] font-semibold text-slate-300">
+                  <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded border-2 border-orange-400 bg-orange-500/10"/> Show confirmado ou reservado</span>
+                  <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded border-2 border-sky-400 bg-sky-500/10"/> Data livre</span>
                 </div>
                 {selectedCalendarDate && <button onClick={() => setSelectedCalendarDate('')} className="mt-3 text-xs text-indigo-300 hover:text-white">Limpar seleção</button>}
               </div>
               <div className="space-y-4">
-                {/* Calendário mostra apenas os Confirmados/Reservados */}
+                {/* Calendário mostra shows e datas livres. */}
                 {calendarEvents.sort((a,b) => new Date(a.date) - new Date(b.date)).map(ev => {
                   const comp = companies.find(c => c.id === ev.companyId);
                   const agent = users.find(u => u.id === ev.agentId);
@@ -1380,14 +1391,14 @@ export default function App() {
                         </div>
                       </div>
                       <div>
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase ${ev.status === 'Confirmado' ? 'bg-emerald-500' : 'bg-orange-500'}`}>
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase ${ev.status === 'Disponível' ? 'bg-sky-500' : 'bg-orange-500'}`}>
                           {ev.status}
                         </span>
                       </div>
                     </div>
                   )
                 })}
-                {calendarEvents.length === 0 && <p className="text-slate-500 italic">Nenhum evento confirmado{selectedCalendarDate ? ' nesta data' : ' no calendário'}.</p>}
+                {calendarEvents.length === 0 && <p className="text-slate-500 italic">Nenhum show ou data livre{selectedCalendarDate ? ' nesta data' : ' no calendário'}.</p>}
               </div>
             </div>
           </div>
@@ -1465,10 +1476,14 @@ export default function App() {
                           
                           {stateEvents.map((ev, i) => {
                             const coord = getCityCoordinates(uf, ev.city + i);
+                            const proximityColor = mapMode === 'tour' ? getShowProximityColor(ev.date) : '#38bdf8';
+                            const markerColor = proximityColor || (mapMode === 'tour' ? '#94a3b8' : '#38bdf8');
                             return (
                               <g key={ev.id}>
-                                <circle cx={coord.cx} cy={coord.cy} r={isHovered ? "12" : "8"} fill={mapMode === 'tour' ? '#22d3ee' : '#ffffff'} opacity="0.4" className="animate-ping" style={{animationDuration: '3s'}}/>
-                                <circle cx={coord.cx} cy={coord.cy} r={isHovered ? "5" : "3"} fill="#111827" stroke={mapMode === 'tour' ? '#22d3ee' : '#ffffff'} strokeWidth="1" />
+                                {proximityColor && (
+                                  <circle cx={coord.cx} cy={coord.cy} r={isHovered ? "15" : "11"} fill={proximityColor} opacity="0.35" className="animate-ping" style={{ animationDuration: '2.2s' }}/>
+                                )}
+                                <circle cx={coord.cx} cy={coord.cy} r={isHovered ? "5" : "3"} fill="#111827" stroke={markerColor} strokeWidth="1.5" />
                               </g>
                             )
                           })}
