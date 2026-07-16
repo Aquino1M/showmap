@@ -2,7 +2,7 @@
 
 Gestão de turnês, agenda, propostas, escritórios, agentes e planos com Supabase.
 
-## Local
+## Rodar localmente
 
 ```bash
 npm ci
@@ -10,25 +10,24 @@ copy .env.example .env.local
 npm run dev
 ```
 
-Em `.env.local`, informe apenas `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY`. Nunca publique chaves secretas.
+Em `.env.local`, use somente `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY`. Nunca exponha chaves secretas.
 
-## Produção
+## Publicar com segurança
 
-1. Projeto novo: execute `supabase/setup.sql` no SQL Editor.
-2. Projeto existente: execute as migrations pendentes em `supabase/`, incluindo `migration-auth-hardening.sql`.
-3. Em **Authentication > Sign In / Providers**, desative **Allow new users to sign up**.
-4. Crie o Administrador Master em **Authentication > Users** e publique:
+1. Projeto novo: execute `supabase/setup.sql` no SQL Editor. Projeto existente: aplique somente as migrations pendentes em `supabase/`.
+2. Em **Authentication > Sign In / Providers**, desative **Allow new users to sign up**.
+3. Crie o Administrador Master em **Authentication > Users** e publique a função:
 
 ```bash
 npx supabase functions deploy manage-user --project-ref <seu-project-ref>
 ```
 
-Configure `SHOWMAP_ALLOWED_ORIGINS` na Edge Function com os domínios permitidos. `migration-clean-start.sql` apaga dados e é exclusiva para testes.
+Defina `SHOWMAP_ALLOWED_ORIGINS` com os domínios autorizados. `migration-clean-start.sql` apaga dados e serve apenas para testes.
 
-## Verificação
+## Verificar
 
 ```bash
-npm run test
 npm run lint
+npm run test
 npm run build
 ```
