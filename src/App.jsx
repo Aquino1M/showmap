@@ -11,7 +11,7 @@ import {
   renewCompanyPlan
 } from './firebase';
 import { PLAN_DETAILS, getPlanDaysRemaining, isPlanExpired } from './lib/plans';
-import { filterMapEvents, getCalendarDayType, getShowProximityColor, getTourArtists } from './lib/tour';
+import { filterMapEvents, getCalendarDayType, getEventStatusLabel, getShowProximityColor, getTourArtists, isCalendarEvent } from './lib/tour';
 import TourMapControls from './components/TourMapControls';
 import { 
   Map, CalendarDays, MapPin, Plus, ChevronLeft, ChevronRight, Users,
@@ -713,7 +713,7 @@ export default function App() {
   }, [calendarCursor]);
 
   const calendarEvents = useMemo(() => visibleEvents.filter((event) =>
-    (event.status === 'Confirmado' || event.status === 'Reservado' || event.status === 'Disponível') &&
+    isCalendarEvent(event) &&
     (!selectedCalendarDate || event.date === selectedCalendarDate)
   ), [visibleEvents, selectedCalendarDate]);
 
@@ -1181,12 +1181,12 @@ export default function App() {
 
                 return (
                   <div key={ev.id} className="bg-[#111827] border border-slate-800 rounded-2xl p-4 sm:p-5 relative overflow-hidden flex flex-col shadow-lg">
-                    <div className={`absolute top-0 left-0 w-full h-1 ${ev.status === 'Confirmado' ? 'bg-emerald-500' : ev.status === 'Proposta' ? 'bg-purple-500' : ev.status === 'Disponível' ? 'bg-blue-500' : 'bg-orange-500'}`}></div>
+                    <div className={`absolute top-0 left-0 w-full h-1 ${['Confirmado', 'Vendido'].includes(ev.status) ? 'bg-red-500' : ev.status === 'Proposta' ? 'bg-purple-500' : ev.status === 'Disponível' ? 'bg-blue-500' : 'bg-orange-500'}`}></div>
                     
                     <div className="flex justify-between items-start mb-4 mt-2">
                       <div>
-                        <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase mb-2 inline-block ${ev.status === 'Confirmado' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-800 text-slate-300'}`}>
-                          {ev.status}
+                        <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase mb-2 inline-block ${['Confirmado', 'Vendido'].includes(ev.status) ? 'bg-red-500/20 text-red-300' : ev.status === 'Reservado' || ev.status === 'Agendado' ? 'bg-orange-500/20 text-orange-300' : 'bg-slate-800 text-slate-300'}`}>
+                          {getEventStatusLabel(ev.status)}
                         </span>
                         <h3 className="text-base sm:text-lg font-bold text-white">{ev.city} - {ev.stateId}</h3>
                         <p className="text-xs text-slate-400 flex items-center gap-1"><CalendarDays size={12}/> {new Date(ev.date + 'T12:00:00').toLocaleDateString('pt-BR')} às {ev.time || '--:--'}</p>
@@ -1246,10 +1246,11 @@ export default function App() {
                            </button>
                          )}
 
-                         {/* Agente muda status da proposta que assumiu ou Escritório muda qualquer uma dele */}
+                         {/* Agente muda o status da proposta assumida; o escritório pode mudar qualquer proposta. */}
                          {(authUser.role === 'company_admin' || (authUser.role === 'agent' && ev.agentId === authUser.id)) && ev.status === 'Proposta' && (
                            <div className="flex gap-2">
-                             <button onClick={() => handleUpdateStatus(ev.id, 'Confirmado')} className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Confirmar Show</button>
+                             <button onClick={() => handleUpdateStatus(ev.id, 'Agendado')} className="flex-1 bg-orange-600 hover:bg-orange-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Agendar</button>
+                             <button onClick={() => handleUpdateStatus(ev.id, 'Vendido')} className="flex-1 bg-red-600 hover:bg-red-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Vendido</button>
                            </div>
                          )}
 
@@ -1344,23 +1345,27 @@ export default function App() {
                 <div className="grid grid-cols-7 gap-1 sm:gap-2">
                   {calendarDays.map((item, index) => {
                     if (!item) return <div key={`empty-${index}`} />;
-                    const eventsOnDay = visibleEvents.filter((event) => event.date === item.date && (event.status === 'Confirmado' || event.status === 'Reservado' || event.status === 'Disponível'));
+                    const eventsOnDay = visibleEvents.filter((event) => event.date === item.date && isCalendarEvent(event));
                     const dayType = getCalendarDayType(eventsOnDay);
                     const selected = selectedCalendarDate === item.date;
-                    const dayStyle = dayType === 'show'
-                      ? 'border-orange-400 bg-orange-500/10 hover:border-orange-300'
-                      : dayType === 'available'
-                        ? 'border-sky-400 bg-sky-500/10 hover:border-sky-300'
-                        : 'border-slate-800 bg-[#0B0F19] hover:border-slate-600';
-                    const showCount = eventsOnDay.filter((event) => event.status !== 'Disponível').length;
+                    const dayStyle = dayType === 'sold'
+                      ? 'border-red-400 bg-red-500/10 hover:border-red-300'
+                      : dayType === 'scheduled'
+                        ? 'border-orange-400 bg-orange-500/10 hover:border-orange-300'
+                        : dayType === 'available'
+                          ? 'border-sky-400 bg-sky-500/10 hover:border-sky-300'
+                          : 'border-slate-800 bg-[#0B0F19] hover:border-slate-600';
+                    const dayLabel = dayType === 'sold' ? 'Vendido' : dayType === 'scheduled' ? 'Agendado' : 'Livre';
+                    const dayLabelColor = dayType === 'sold' ? 'text-red-300' : dayType === 'scheduled' ? 'text-orange-300' : 'text-sky-300';
                     return <button key={item.date} onClick={() => setSelectedCalendarDate(selected ? '' : item.date)} className={`min-h-12 sm:min-h-16 rounded-lg border-2 p-1.5 text-left transition-colors ${selected ? 'ring-2 ring-indigo-400 ring-offset-1 ring-offset-[#111827]' : dayStyle}`}>
                       <span className="text-xs font-bold text-white">{item.day}</span>
-                      {eventsOnDay.length > 0 && <span className={`mt-1 block text-[9px] font-semibold truncate ${dayType === 'show' ? 'text-orange-300' : 'text-sky-300'}`}>{dayType === 'show' ? `${showCount} show${showCount > 1 ? 's' : ''}` : `${eventsOnDay.length} livre${eventsOnDay.length > 1 ? 's' : ''}`}</span>}
+                      {eventsOnDay.length > 0 && <span className={`mt-1 block text-[9px] font-semibold truncate ${dayLabelColor}`}>{dayLabel}</span>}
                     </button>;
                   })}
                 </div>
                 <div className="mt-4 flex flex-wrap gap-3 text-[11px] font-semibold text-slate-300">
-                  <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded border-2 border-orange-400 bg-orange-500/10"/> Show confirmado ou reservado</span>
+                  <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded border-2 border-red-400 bg-red-500/10"/> Vendido</span>
+                  <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded border-2 border-orange-400 bg-orange-500/10"/> Agendado</span>
                   <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded border-2 border-sky-400 bg-sky-500/10"/> Data livre</span>
                 </div>
                 {selectedCalendarDate && <button onClick={() => setSelectedCalendarDate('')} className="mt-3 text-xs text-indigo-300 hover:text-white">Limpar seleção</button>}
@@ -1391,8 +1396,8 @@ export default function App() {
                         </div>
                       </div>
                       <div>
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase ${ev.status === 'Disponível' ? 'bg-sky-500' : 'bg-orange-500'}`}>
-                          {ev.status}
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase ${ev.status === 'Disponível' ? 'bg-sky-500' : ['Confirmado', 'Vendido'].includes(ev.status) ? 'bg-red-500' : 'bg-orange-500'}`}>
+                          {getEventStatusLabel(ev.status)}
                         </span>
                       </div>
                     </div>

@@ -23,9 +23,10 @@ test('lista artistas confirmados sem repetir nomes', () => {
   assert.deepEqual(getTourArtists(events, { role: 'company_admin' }), ['Caio', 'Luna']);
 });
 
-test('calendário prioriza borda laranja para show e azul para data livre', () => {
+test('calendário diferencia data livre, agendada e vendida', () => {
   assert.equal(getCalendarDayType([{ status: 'Disponível' }]), 'available');
-  assert.equal(getCalendarDayType([{ status: 'Disponível' }, { status: 'Confirmado' }]), 'show');
+  assert.equal(getCalendarDayType([{ status: 'Agendado' }]), 'scheduled');
+  assert.equal(getCalendarDayType([{ status: 'Disponível' }, { status: 'Vendido' }]), 'sold');
 });
 
 test('cor do brilho da turnê segue a proximidade do show', () => {
