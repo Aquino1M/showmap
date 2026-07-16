@@ -293,6 +293,7 @@ export default function App() {
   const [hoveredState, setHoveredState] = useState(null);
   const [mapMode, setMapMode] = useState('tour');
   const [mapDisplay, setMapDisplay] = useState('svg');
+  const [isArtistMenuOpen, setIsArtistMenuOpen] = useState(false);
   const [selectedTourArtist, setSelectedTourArtist] = useState('');
   const [mapViewport, setMapViewport] = useState(DEFAULT_MAP_VIEWPORT);
   const [resolvedMapCoordinates, setResolvedMapCoordinates] = useState({});
@@ -1492,11 +1493,12 @@ export default function App() {
                   selectedArtist={selectedTourArtist}
                   setSelectedArtist={(artist) => { setSelectedMapEventId(null); setSelectedTourArtist(artist); }}
                   artists={tourArtists}
+                  onArtistMenuChange={setIsArtistMenuOpen}
                 />}
 
-                <p className="absolute left-4 top-24 z-20 hidden max-w-56 rounded-lg bg-[#0B0F19]/85 px-3 py-2 text-[10px] leading-relaxed text-slate-300 backdrop-blur sm:block">
+                {!isArtistMenuOpen && <p className="absolute left-4 top-24 z-20 hidden max-w-56 rounded-lg bg-[#0B0F19]/85 px-3 py-2 text-[10px] leading-relaxed text-slate-300 backdrop-blur sm:block">
                   Clique no estado para filtrar e depois em uma bolinha para ver o evento.
-                </p>
+                </p>}
 
                 {selectedMapState && <button onClick={() => { setSelectedMapState(null); setSelectedMapEventId(null); }} className="absolute left-4 top-[6.5rem] z-30 rounded-lg border border-cyan-400/60 bg-[#0B0F19]/95 px-3 py-2 text-xs font-bold text-cyan-200 shadow-lg backdrop-blur hover:bg-slate-800 sm:top-40">
                   {BRAZIL_STATES[selectedMapState].name} · Limpar filtro
