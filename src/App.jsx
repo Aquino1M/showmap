@@ -1482,7 +1482,13 @@ export default function App() {
                   mapMode={mapMode}
                   setMapMode={(value) => { setSelectedMapEventId(null); setMapMode(value); }}
                   mapDisplay={mapDisplay}
-                  setMapDisplay={setMapDisplay}
+                  setMapDisplay={(display) => {
+                    if (display === 'svg') {
+                      setMapViewport(DEFAULT_MAP_VIEWPORT);
+                      setMapResetToken((current) => current + 1);
+                    }
+                    setMapDisplay(display);
+                  }}
                   selectedArtist={selectedTourArtist}
                   setSelectedArtist={(artist) => { setSelectedMapEventId(null); setSelectedTourArtist(artist); }}
                   artists={tourArtists}
@@ -1561,6 +1567,7 @@ export default function App() {
                 {mapDisplay === 'svg' && <div className="flex h-full w-full max-w-[500px] items-center justify-center p-3 sm:p-8">
                   <svg
                     viewBox={`${mapViewport.x} ${mapViewport.y} ${mapViewport.width} ${mapViewport.height}`}
+                    preserveAspectRatio="xMidYMid meet"
                     className="h-full w-full cursor-grab touch-none active:cursor-grabbing"
                     onWheel={handleMapWheel}
                     onPointerDown={handleMapPointerDown}
