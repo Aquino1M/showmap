@@ -46,6 +46,39 @@ const toSvgPoint = ([latitude, longitude]) => ({
   cy: 189 - latitude * 20,
 });
 
+export const DEFAULT_MAP_VIEWPORT = { x: 0, y: 0, width: 1000, height: 912 };
+const MIN_MAP_WIDTH = 300;
+
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
+const constrainViewport = (viewport) => {
+  const width = clamp(viewport.width, MIN_MAP_WIDTH, DEFAULT_MAP_VIEWPORT.width);
+  const height = width * (DEFAULT_MAP_VIEWPORT.height / DEFAULT_MAP_VIEWPORT.width);
+  return {
+    width,
+    height,
+    x: clamp(viewport.x, 0, DEFAULT_MAP_VIEWPORT.width - width),
+    y: clamp(viewport.y, 0, DEFAULT_MAP_VIEWPORT.height - height),
+  };
+};
+
+export const getZoomedViewport = (viewport, factor, focus = { x: 0.5, y: 0.5 }) => {
+  const width = viewport.width * factor;
+  const height = viewport.height * factor;
+  return constrainViewport({
+    width,
+    height,
+    x: viewport.x + (viewport.width - width) * focus.x,
+    y: viewport.y + (viewport.height - height) * focus.y,
+  });
+};
+
+export const getPannedViewport = (viewport, deltaX, deltaY) => constrainViewport({
+  ...viewport,
+  x: viewport.x + deltaX,
+  y: viewport.y + deltaY,
+});
+
 export const getCityCoordinates = (stateId, cityName) => {
   const state = String(stateId || '').toUpperCase();
   const cityKey = `${normalize(cityName)}-${state.toLowerCase()}`;

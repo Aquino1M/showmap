@@ -11,14 +11,14 @@ import {
   renewCompanyPlan
 } from './firebase';
 import { PLAN_DETAILS, getPlanDaysRemaining, isPlanExpired } from './lib/plans';
-import { getCityCoordinates } from './lib/map';
+import { DEFAULT_MAP_VIEWPORT, getCityCoordinates, getPannedViewport, getZoomedViewport } from './lib/map';
 import { filterMapEvents, getCalendarDayType, getEventStatusLabel, getShowProximityColor, getTourArtists, isCalendarEvent } from './lib/tour';
 import TourMapControls from './components/TourMapControls';
 import { 
   Map, CalendarDays, MapPin, Plus, ChevronLeft, ChevronRight, Users,
   LayoutDashboard, X, Briefcase, FileText, Building, 
   UserPlus, Trash2, Edit, Save, HandMetal, Hand, LogOut, Clock,
-  Globe2, ArrowRight, Menu
+  Globe2, ArrowRight, Menu, Minus, RotateCcw
 } from 'lucide-react';
 
 // Mapa do Brasil Geograficamente Preciso, Contíguo (sem frestas/gaps) em escala 2048x2048
@@ -288,6 +288,9 @@ export default function App() {
   const [hoveredState, setHoveredState] = useState(null);
   const [mapMode, setMapMode] = useState('tour');
   const [selectedTourArtist, setSelectedTourArtist] = useState('');
+  const [mapViewport, setMapViewport] = useState(DEFAULT_MAP_VIEWPORT);
+  const mapDragRef = useRef(null);
+  const mapPointersRef = useRef({});
   
   // Estados para Modais & Formulários
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
@@ -706,6 +709,69 @@ export default function App() {
     isCalendarEvent(event) &&
     (!selectedCalendarDate || event.date === selectedCalendarDate)
   ), [visibleEvents, selectedCalendarDate]);
+
+  const zoomMap = (factor, focus) => setMapViewport((current) => getZoomedViewport(current, factor, focus));
+
+  const handleMapWheel = (event) => {
+    event.preventDefault();
+    const bounds = event.currentTarget.getBoundingClientRect();
+    zoomMap(event.deltaY < 0 ? 0.82 : 1.22, {
+      x: (event.clientX - bounds.left) / bounds.width,
+      y: (event.clientY - bounds.top) / bounds.height,
+    });
+  };
+
+  const handleMapPointerDown = (event) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    const pointers = mapPointersRef.current;
+    pointers[event.pointerId] = { x: event.clientX, y: event.clientY };
+    const pointerIds = Object.keys(pointers);
+    const bounds = event.currentTarget.getBoundingClientRect();
+
+    if (pointerIds.length === 1) {
+      mapDragRef.current = { type: 'drag', pointerId: event.pointerId, x: event.clientX, y: event.clientY, viewport: mapViewport, bounds };
+      return;
+    }
+
+    if (pointerIds.length === 2) {
+      const [first, second] = pointerIds.map((id) => pointers[id]);
+      mapDragRef.current = {
+        type: 'pinch',
+        pointerIds,
+        distance: Math.hypot(first.x - second.x, first.y - second.y),
+        viewport: mapViewport,
+        bounds,
+        focus: { x: ((first.x + second.x) / 2 - bounds.left) / bounds.width, y: ((first.y + second.y) / 2 - bounds.top) / bounds.height },
+      };
+    }
+  };
+
+  const handleMapPointerMove = (event) => {
+    const drag = mapDragRef.current;
+    if (!drag) return;
+    const pointers = mapPointersRef.current;
+    if (!pointers[event.pointerId]) return;
+    pointers[event.pointerId] = { x: event.clientX, y: event.clientY };
+
+    if (drag.type === 'pinch') {
+      const [first, second] = drag.pointerIds.map((id) => pointers[id]);
+      if (!first || !second) return;
+      const distance = Math.hypot(first.x - second.x, first.y - second.y);
+      if (distance > 0) setMapViewport(getZoomedViewport(drag.viewport, drag.distance / distance, drag.focus));
+      return;
+    }
+
+    if (drag.pointerId !== event.pointerId) return;
+    const deltaX = (drag.x - event.clientX) * (drag.viewport.width / drag.bounds.width);
+    const deltaY = (drag.y - event.clientY) * (drag.viewport.height / drag.bounds.height);
+    setMapViewport(getPannedViewport(drag.viewport, deltaX, deltaY));
+  };
+
+  const handleMapPointerEnd = (event) => {
+    delete mapPointersRef.current[event.pointerId];
+    if (Object.keys(mapPointersRef.current).length < 2) mapDragRef.current = null;
+  };
 
   // ================= VIEW: HOME (Landing Page) =================
   if (currentView === 'home') {
@@ -1454,9 +1520,22 @@ export default function App() {
                   )}
                 </div>
 
+                <div className="absolute bottom-4 left-4 z-30 flex flex-col overflow-hidden rounded-xl border border-slate-700 bg-[#0B0F19]/95 shadow-lg backdrop-blur">
+                  <button onClick={() => zoomMap(0.8)} aria-label="Aproximar mapa" title="Aproximar" className="p-2.5 text-cyan-300 transition-colors hover:bg-indigo-600 hover:text-white"><Plus size={19}/></button>
+                  <button onClick={() => zoomMap(1.25)} aria-label="Afastar mapa" title="Afastar" className="border-y border-slate-700 p-2.5 text-cyan-300 transition-colors hover:bg-indigo-600 hover:text-white"><Minus size={19}/></button>
+                  <button onClick={() => setMapViewport(DEFAULT_MAP_VIEWPORT)} aria-label="Centralizar mapa" title="Centralizar mapa" className="p-2.5 text-cyan-300 transition-colors hover:bg-indigo-600 hover:text-white"><RotateCcw size={17}/></button>
+                </div>
+
                 <div className="w-full h-full max-w-[500px] flex items-center justify-center p-3 sm:p-8">
-                  {/* Viewbox ajustado com base nos paths fornecidos para enquadrar 100% perfeitamente */}
-                  <svg viewBox="0 0 1000 912" className="w-full h-full">
+                  <svg
+                    viewBox={`${mapViewport.x} ${mapViewport.y} ${mapViewport.width} ${mapViewport.height}`}
+                    className="h-full w-full cursor-grab touch-none active:cursor-grabbing"
+                    onWheel={handleMapWheel}
+                    onPointerDown={handleMapPointerDown}
+                    onPointerMove={handleMapPointerMove}
+                    onPointerUp={handleMapPointerEnd}
+                    onPointerCancel={handleMapPointerEnd}
+                  >
                     {Object.entries(BRAZIL_STATES).map(([uf, data]) => {
                       const isHovered = hoveredState === uf;
                       const stateEvents = mapEvents.filter(e => e.stateId === uf);
