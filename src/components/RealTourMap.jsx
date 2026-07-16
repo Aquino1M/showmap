@@ -8,7 +8,9 @@ import { getEventStatusLabel, getShowProximityColor } from '../lib/tour';
 
 const BRAZIL_CENTER = [-14.235, -51.925];
 const BRAZIL_ZOOM = 5;
-const BRAZIL_BOUNDS = [[-34.2, -74.2], [5.7, -34.2]];
+// Margem ao redor do Brasil: permite arrastar para conferir todo o Sul sem
+// deixar o usuário preso na borda do mapa.
+const BRAZIL_BOUNDS = [[-38.5, -78.5], [8.5, -30.5]];
 
 function ResetMap({ resetToken }) {
   const map = useMap();
@@ -66,7 +68,7 @@ export default function RealTourMap({ events, mapMode, selectedState, selectedEv
 
   return (
     <div className="relative h-full w-full overflow-hidden rounded-xl">
-      <MapContainer center={BRAZIL_CENTER} zoom={BRAZIL_ZOOM} minZoom={5} maxZoom={14} maxBounds={BRAZIL_BOUNDS} maxBoundsViscosity={1} zoomControl={false} attributionControl={false} scrollWheelZoom className="h-full w-full bg-[#101827]" aria-label="Mapa geográfico dos eventos">
+      <MapContainer center={BRAZIL_CENTER} zoom={BRAZIL_ZOOM} minZoom={5} maxZoom={14} maxBounds={BRAZIL_BOUNDS} maxBoundsViscosity={0.25} dragging touchZoom doubleClickZoom zoomControl={false} attributionControl={false} scrollWheelZoom className="h-full w-full bg-[#101827]" aria-label="Mapa geográfico dos eventos">
         <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         <ResetMap resetToken={resetToken} />
         <StateClickHandler onSelectState={onSelectState} />
