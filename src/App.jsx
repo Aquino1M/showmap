@@ -1502,7 +1502,7 @@ export default function App() {
                   </div>}
                 </div>}
 
-                <div className={`absolute top-4 right-4 z-20 w-48 sm:w-64 bg-[#0B0F19]/95 backdrop-blur-xl border border-slate-700/80 p-4 rounded-2xl shadow-2xl transition-all duration-200 ${hoveredState && !selectedMapEvent ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'}`}>
+                <div className={`absolute bottom-24 right-4 z-20 w-48 sm:w-64 bg-[#0B0F19]/95 backdrop-blur-xl border border-slate-700/80 p-4 rounded-2xl shadow-2xl transition-all duration-200 ${hoveredState && !selectedMapEvent ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'}`}>
                   {hoveredState && (
                     <>
                       <h3 className="text-base sm:text-lg font-bold text-white mb-3 border-b border-slate-700 pb-2 flex items-center gap-2">
