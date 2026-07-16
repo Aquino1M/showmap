@@ -39,6 +39,10 @@ const STATE_CAPITALS = {
   SP: [-23.551, -46.633], SE: [-10.947, -37.073], TO: [-10.184, -48.333],
 };
 
+const STATE_NAMES = {
+  AC: 'Acre', AL: 'Alagoas', AP: 'Amapá', AM: 'Amazonas', BA: 'Bahia', CE: 'Ceará', DF: 'Distrito Federal', ES: 'Espírito Santo', GO: 'Goiás', MA: 'Maranhão', MT: 'Mato Grosso', MS: 'Mato Grosso do Sul', MG: 'Minas Gerais', PA: 'Pará', PB: 'Paraíba', PR: 'Paraná', PE: 'Pernambuco', PI: 'Piauí', RJ: 'Rio de Janeiro', RN: 'Rio Grande do Norte', RS: 'Rio Grande do Sul', RO: 'Rondônia', RR: 'Roraima', SC: 'Santa Catarina', SP: 'São Paulo', SE: 'Sergipe', TO: 'Tocantins',
+};
+
 const normalize = (value = '') => value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim().replace(/\s+/g, '-');
 
 const toSvgPoint = ([latitude, longitude]) => ({
@@ -83,4 +87,32 @@ export const getCityCoordinates = (stateId, cityName) => {
   const state = String(stateId || '').toUpperCase();
   const cityKey = `${normalize(cityName)}-${state.toLowerCase()}`;
   return toSvgPoint(CITY_COORDINATES[cityKey] || STATE_CAPITALS[state] || STATE_CAPITALS.DF);
+};
+
+export const getCityCoordinateKey = (stateId, cityName) => `${String(stateId || '').toUpperCase()}:${normalize(cityName)}`;
+
+export const resolveCityCoordinates = async (stateId, cityName) => {
+  const state = String(stateId || '').toUpperCase();
+  const key = getCityCoordinateKey(state, cityName);
+  const storageKey = `showmap:geocoding:${key}`;
+
+  try {
+    const cached = globalThis.localStorage?.getItem(storageKey);
+    if (cached) return JSON.parse(cached);
+  } catch {
+    // A consulta continua normalmente se o navegador bloquear o armazenamento local.
+  }
+
+  try {
+    const query = `${cityName}, ${STATE_NAMES[state] || state}, Brasil`;
+    const response = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=br&q=${encodeURIComponent(query)}`);
+    if (!response.ok) return null;
+    const [result] = await response.json();
+    if (!result?.lat || !result?.lon) return null;
+    const coordinates = toSvgPoint([Number(result.lat), Number(result.lon)]);
+    try { globalThis.localStorage?.setItem(storageKey, JSON.stringify(coordinates)); } catch { /* cache opcional */ }
+    return coordinates;
+  } catch {
+    return null;
+  }
 };

@@ -11,7 +11,7 @@ import {
   renewCompanyPlan
 } from './firebase';
 import { PLAN_DETAILS, getPlanDaysRemaining, isPlanExpired } from './lib/plans';
-import { DEFAULT_MAP_VIEWPORT, getCityCoordinates, getPannedViewport, getZoomedViewport } from './lib/map';
+import { DEFAULT_MAP_VIEWPORT, getCityCoordinateKey, getCityCoordinates, getPannedViewport, getZoomedViewport, resolveCityCoordinates } from './lib/map';
 import { filterMapEvents, getCalendarDayType, getEventStatusLabel, getShowProximityColor, getTourArtists, isCalendarEvent } from './lib/tour';
 import TourMapControls from './components/TourMapControls';
 import { 
@@ -289,6 +289,9 @@ export default function App() {
   const [mapMode, setMapMode] = useState('tour');
   const [selectedTourArtist, setSelectedTourArtist] = useState('');
   const [mapViewport, setMapViewport] = useState(DEFAULT_MAP_VIEWPORT);
+  const [resolvedMapCoordinates, setResolvedMapCoordinates] = useState({});
+  const [selectedMapEventId, setSelectedMapEventId] = useState(null);
+  const [selectedMapState, setSelectedMapState] = useState(null);
   const mapDragRef = useRef(null);
   const mapPointersRef = useRef({});
   
@@ -669,6 +672,22 @@ export default function App() {
     const eventSource = !authUser || authUser.role === 'superadmin' ? events : visibleEvents;
     return getTourArtists(eventSource, authUser);
   }, [authUser, events, visibleEvents]);
+
+  const selectedMapEvent = useMemo(() => mapEvents.find((event) => event.id === selectedMapEventId) || null, [mapEvents, selectedMapEventId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const locations = {};
+    mapEvents.forEach((event) => { locations[getCityCoordinateKey(event.stateId, event.city)] = event; });
+
+    Promise.all(Object.entries(locations).map(async ([key, event]) => {
+      if (resolvedMapCoordinates[key]) return;
+      const coordinates = await resolveCityCoordinates(event.stateId, event.city);
+      if (!cancelled && coordinates) setResolvedMapCoordinates((current) => ({ ...current, [key]: coordinates }));
+    }));
+
+    return () => { cancelled = true; };
+  }, [mapEvents, resolvedMapCoordinates]);
 
   const globalStats = useMemo(() => ({
     offices: companies.filter((company) => company.active).length,
@@ -1473,7 +1492,17 @@ export default function App() {
              </div>
              
              <div className="bg-[#111827] border border-slate-800 rounded-2xl flex-1 relative overflow-hidden flex items-center justify-center p-4">
-                {authUser.role !== 'superadmin' && <TourMapControls mapMode={mapMode} setMapMode={setMapMode} selectedArtist={selectedTourArtist} setSelectedArtist={setSelectedTourArtist} artists={tourArtists} />}
+                {authUser.role !== 'superadmin' && <TourMapControls
+                  mapMode={mapMode}
+                  setMapMode={(value) => { setSelectedMapEventId(null); setMapMode(value); }}
+                  selectedArtist={selectedTourArtist}
+                  setSelectedArtist={(artist) => { setSelectedMapEventId(null); setSelectedTourArtist(artist); }}
+                  artists={tourArtists}
+                />}
+
+                {selectedMapState && <button onClick={() => { setSelectedMapState(null); setSelectedMapEventId(null); }} className="absolute left-4 top-24 z-30 rounded-lg border border-cyan-400/60 bg-[#0B0F19]/95 px-3 py-2 text-xs font-bold text-cyan-200 shadow-lg backdrop-blur hover:bg-slate-800">
+                  {BRAZIL_STATES[selectedMapState].name} · Limpar filtro
+                </button>}
 
                 {/* No celular e tablet, três atalhos ficam no alto e dois embaixo. */}
                 {authUser.role !== 'superadmin' && <>
@@ -1491,7 +1520,23 @@ export default function App() {
                   </div>
                 </>}
 
-                <div className={`absolute top-4 right-4 z-20 w-48 sm:w-64 bg-[#0B0F19]/95 backdrop-blur-xl border border-slate-700/80 p-4 rounded-2xl shadow-2xl transition-all duration-200 ${hoveredState ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'}`}>
+                {selectedMapEvent && <div className="absolute top-4 right-4 z-40 w-56 sm:w-64 rounded-2xl border border-cyan-500/50 bg-[#0B0F19]/95 p-4 shadow-2xl backdrop-blur-xl">
+                  <div className="mb-3 flex items-start justify-between gap-2 border-b border-slate-700 pb-2">
+                    <div><p className="text-[10px] font-bold uppercase tracking-wide text-cyan-300">Evento selecionado</p><h3 className="mt-1 text-base font-bold text-white">{selectedMapEvent.city} · {selectedMapEvent.stateId}</h3></div>
+                    <button onClick={() => setSelectedMapEventId(null)} aria-label="Fechar detalhes do evento" className="text-slate-400 hover:text-white"><X size={17}/></button>
+                  </div>
+                  <p className="text-sm font-semibold text-white">{new Date(`${selectedMapEvent.date}T12:00:00`).toLocaleDateString('pt-BR')}</p>
+                  {selectedMapEvent.artistName && <p className="mt-1 text-xs text-cyan-300">Artista: {selectedMapEvent.artistName}</p>}
+                  <p className="mt-1 text-xs text-slate-300">Status: <span className="font-bold text-white">{getEventStatusLabel(selectedMapEvent.status)}</span></p>
+                  {mapMode === 'tour' && <div className="mt-3 space-y-1.5 border-t border-slate-700 pt-3 text-[10px] text-slate-300">
+                    <p className="font-bold uppercase tracking-wide text-slate-400">Índice de proximidade</p>
+                    <p className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-red-500"/> Hoje até 2 meses</p>
+                    <p className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-orange-500"/> De 3 a 4 meses</p>
+                    <p className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-green-500"/> De 5 a 6 meses</p>
+                  </div>}
+                </div>}
+
+                <div className={`absolute top-4 right-4 z-20 w-48 sm:w-64 bg-[#0B0F19]/95 backdrop-blur-xl border border-slate-700/80 p-4 rounded-2xl shadow-2xl transition-all duration-200 ${hoveredState && !selectedMapEvent ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'}`}>
                   {hoveredState && (
                     <>
                       <h3 className="text-base sm:text-lg font-bold text-white mb-3 border-b border-slate-700 pb-2 flex items-center gap-2">
@@ -1538,7 +1583,7 @@ export default function App() {
                   >
                     {Object.entries(BRAZIL_STATES).map(([uf, data]) => {
                       const isHovered = hoveredState === uf;
-                      const stateEvents = mapEvents.filter(e => e.stateId === uf);
+                      const stateEvents = mapEvents.filter(e => e.stateId === uf && (!selectedMapState || e.stateId === selectedMapState));
                       
                       // Paleta de Cores Reais no Dashboard
                       let fill = data.color;
@@ -1547,10 +1592,10 @@ export default function App() {
 
                       return (
                         <g key={uf} onMouseEnter={() => setHoveredState(uf)} onMouseLeave={() => setHoveredState(null)} className="cursor-pointer transition-all duration-300">
-                          <path d={data.path} fill={fill} stroke={stroke} strokeWidth={strokeWidth} strokeLinejoin="round" className={`transition-all duration-300 ease-in-out ${isHovered ? 'brightness-110' : ''}`} />
+                          <path onClick={() => { setSelectedMapState((current) => current === uf ? null : uf); setSelectedMapEventId(null); }} d={data.path} fill={fill} stroke={selectedMapState === uf ? '#22d3ee' : stroke} strokeWidth={selectedMapState === uf ? '4' : strokeWidth} strokeLinejoin="round" className={`transition-all duration-300 ease-in-out ${isHovered ? 'brightness-110' : ''}`} />
                           
                           {stateEvents.map((ev) => {
-                            const coord = getCityCoordinates(uf, ev.city);
+                            const coord = resolvedMapCoordinates[getCityCoordinateKey(uf, ev.city)] || getCityCoordinates(uf, ev.city);
                             const proximityColor = mapMode === 'tour' ? getShowProximityColor(ev.date) : '#38bdf8';
                             const markerColor = proximityColor || (mapMode === 'tour' ? '#94a3b8' : '#38bdf8');
                             return (
@@ -1558,8 +1603,8 @@ export default function App() {
                                 {proximityColor && (
                                   <circle cx={coord.cx} cy={coord.cy} r={isHovered ? "17" : "13"} fill={proximityColor} opacity="0.32" className="animate-ping" style={{ animationDuration: '2.2s' }}/>
                                 )}
-                                <circle cx={coord.cx} cy={coord.cy} r={isHovered ? "8" : "6"} fill="#f8fafc" stroke={markerColor} strokeWidth="2" />
-                                <circle cx={coord.cx} cy={coord.cy} r={isHovered ? "3.5" : "2.5"} fill={markerColor} />
+                                <circle onClick={(event) => { event.stopPropagation(); setSelectedMapEventId(ev.id); }} className="cursor-pointer" cx={coord.cx} cy={coord.cy} r={isHovered ? "8" : "6"} fill="#f8fafc" stroke={markerColor} strokeWidth="2" />
+                                <circle onClick={(event) => { event.stopPropagation(); setSelectedMapEventId(ev.id); }} className="cursor-pointer" cx={coord.cx} cy={coord.cy} r={isHovered ? "3.5" : "2.5"} fill={markerColor} />
                               </g>
                             )
                           })}
