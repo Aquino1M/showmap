@@ -43,8 +43,8 @@ export const buildCommercialSuggestion = (events, referenceDate = new Date()) =>
     ? items.slice(0, 3).map((event) => `${event.city} (${event.distance} km)`).join(', ')
     : 'nenhuma oportunidade cadastrada';
 
-  return `Show-base: ${anchor.city} - ${anchor.stateId} em ${formatDate(anchor.date)}. `
-    + `Até 600 km: dia anterior, ${describe(before)}; dia seguinte, ${describe(after)}. `
+  return `Show confirmado em ${anchor.city} - ${anchor.stateId}, no dia ${formatDate(anchor.date)}. `
+    + `Em até 600 km, sugestões para o dia anterior: ${describe(before)}; para o dia seguinte: ${describe(after)}. `
     + 'As sugestões usam somente datas livres e propostas já cadastradas neste escritório.';
 };
 
