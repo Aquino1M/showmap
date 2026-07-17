@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { MessageCircle, Send, Sparkles, X } from 'lucide-react';
-import { getSystemAnswer } from '../lib/commercialAdvisor';
+import { getLocalKnowledgeAnswer, LOCAL_ASSISTANT_QUESTIONS } from '../lib/commercialAdvisor';
 import { askCommercialAssistant } from '../firebase';
 
 const initialMessage = {
@@ -8,33 +8,39 @@ const initialMessage = {
   text: 'Olá! Sou o assistente comercial do ShowMap. Posso tirar dúvidas do sistema e analisar oportunidades de roteiro com os dados do seu escritório.',
 };
 
-const suggestedQuestions = [
-  'Qual show tenho em Goiás?',
-  'Quais datas livres eu tenho?',
-  'Mostre minhas propostas',
-  'Quais artistas estão cadastrados?',
-];
+const humanizeAssistantText = (text) => String(text || '')
+  .replace(/\*\*/g, '')
+  .replace(/`/g, '')
+  .replace(/^\s*[-*]\s+/gm, '• ')
+  .replace(/\n{3,}/g, '\n\n')
+  .trim();
 
 export default function FloatingCommercialAssistant({ events, onOpenChange }) {
   const [isOpen, setIsOpen] = useState(false);
   const [question, setQuestion] = useState('');
   const [messages, setMessages] = useState([initialMessage]);
   const [isLoading, setIsLoading] = useState(false);
+  const [areQuickQuestionsOpen, setAreQuickQuestionsOpen] = useState(false);
 
-  const answer = async (text) => {
+  const answer = async (text, localOnly = false) => {
     const trimmed = text.trim();
     if (!trimmed || isLoading) return;
     setMessages((current) => [...current, { role: 'user', text: trimmed }]);
     setQuestion('');
+    if (localOnly) {
+      setMessages((current) => [...current, { role: 'assistant', text: humanizeAssistantText(getLocalKnowledgeAnswer(trimmed, events)) }]);
+      setAreQuickQuestionsOpen(false);
+      return;
+    }
     setIsLoading(true);
     try {
       const response = await askCommercialAssistant(trimmed);
       if (!response || typeof response !== 'string') throw new Error('A IA não retornou uma resposta. Verifique o crédito e o modelo configurado no OpenRouter.');
-      setMessages((current) => [...current, { role: 'assistant', text: response }]);
+      setMessages((current) => [...current, { role: 'assistant', text: humanizeAssistantText(response) }]);
     } catch (error) {
-      const fallback = getSystemAnswer(trimmed, events);
+      const fallback = getLocalKnowledgeAnswer(trimmed, events);
       const message = error instanceof Error ? error.message : 'Não foi possível consultar a IA agora.';
-      setMessages((current) => [...current, { role: 'assistant', text: `${message}\n\nResposta local: ${fallback}` }]);
+      setMessages((current) => [...current, { role: 'assistant', text: humanizeAssistantText(`${message}\n\nResposta local: ${fallback}`) }]);
     } finally {
       setIsLoading(false);
     }
@@ -67,9 +73,10 @@ export default function FloatingCommercialAssistant({ events, onOpenChange }) {
       </div>
       <div className="border-t border-slate-800 p-3">
         <button disabled={isLoading} onClick={suggestRoute} className="mb-2 w-full rounded-xl border border-cyan-500/40 bg-cyan-500/10 px-3 py-2 text-xs font-bold text-cyan-200 hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-50">Analisar roteiro até 600 km</button>
-        <div className="mb-2 flex flex-wrap gap-1.5">
-          {suggestedQuestions.map((suggestion) => <button disabled={isLoading} key={suggestion} onClick={() => answer(suggestion)} className="rounded-lg border border-slate-700 bg-[#0B0F19] px-2 py-1 text-[10px] text-slate-300 hover:border-indigo-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-50">{suggestion}</button>)}
-        </div>
+        <button disabled={isLoading} onClick={() => setAreQuickQuestionsOpen((open) => !open)} className="mb-2 w-full rounded-xl border border-slate-700 bg-[#0B0F19] px-3 py-2 text-xs font-bold text-slate-200 hover:border-indigo-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-50">{areQuickQuestionsOpen ? 'Fechar perguntas prontas' : 'Perguntas prontas'}</button>
+        {areQuickQuestionsOpen && <div className="mb-2 grid grid-cols-2 gap-1.5 rounded-xl border border-slate-800 bg-[#0B0F19] p-2">
+          {LOCAL_ASSISTANT_QUESTIONS.map((suggestion) => <button disabled={isLoading} key={suggestion} onClick={() => answer(suggestion, true)} className="rounded-lg border border-slate-700 bg-[#111827] px-2 py-2 text-left text-[10px] text-slate-300 hover:border-indigo-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-50">{suggestion}</button>)}
+        </div>}
         <form onSubmit={(event) => { event.preventDefault(); answer(question); }} className="flex gap-2">
           <input disabled={isLoading} value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Digite sua dúvida" className="min-w-0 flex-1 rounded-xl border border-slate-700 bg-[#0B0F19] px-3 py-2 text-xs text-white outline-none focus:border-indigo-400 disabled:opacity-50" />
           <button disabled={isLoading} type="submit" aria-label="Enviar pergunta" className="rounded-xl bg-indigo-600 p-2 text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"><Send size={16} /></button>

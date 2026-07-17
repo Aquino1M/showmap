@@ -48,6 +48,50 @@ const findStateInQuestion = (question) => Object.entries(STATE_ALIASES)
 
 const futureFirst = (events) => [...events].sort((first, second) => toDate(first.date) - toDate(second.date));
 
+export const LOCAL_ASSISTANT_QUESTIONS = [
+  'Qual show tenho em Goiás?',
+  'Quais datas livres eu tenho?',
+  'Mostre minhas propostas',
+  'Quais artistas estão cadastrados?',
+  'Como funciona o cadastro anual?',
+  'Como funciona o calendário?',
+  'Como cadastrar uma proposta?',
+  'Qual é o meu plano?',
+];
+
+const LOCAL_KNOWLEDGE = [
+  {
+    matches: /cadastro anual|evento recorrente|recorrente/,
+    answer: 'O cadastro anual guarda uma oportunidade recorrente, como feira, rodeio ou aniversário da cidade. Ele não reserva nem vende a data. Quando o período se aproxima, aparece em verde entre 5 e 6 meses, laranja entre 3 e 4 meses e vermelho até 2 meses antes.',
+  },
+  {
+    matches: /como funciona o calendario|calendario|calendário/,
+    answer: 'No calendário, vermelho é vendido, laranja é agendado, roxo é proposta e azul é data livre. Você pode clicar em um dia para consultar os registros e cadastrar uma nova proposta.',
+  },
+  {
+    matches: /como cadastrar.*proposta|criar.*proposta|nova proposta/,
+    answer: 'Abra Agenda e Propostas ou clique em uma data no Calendário. Preencha contratante, evento, artista, cidade e data. A proposta fica disponível para acompanhamento e depois pode ser reservada ou vendida.',
+  },
+  {
+    matches: /meu plano|financeiro|plano/,
+    answer: 'Na aba Financeiro você consulta o plano atual, quantidade de agentes permitidos e dias restantes. Quando o plano vence, o acesso do escritório fica bloqueado até a renovação.',
+  },
+  {
+    matches: /agente|agentes/,
+    answer: 'O escritório gerencia os agentes na aba Agentes. Cada agente vê os dados do próprio escritório e pode criar propostas, reservar ou vender os registros que assumir.',
+  },
+  {
+    matches: /mapa|mapa logistico|mapa logístico/,
+    answer: 'O Mapa Logístico mostra a turnê, datas abertas e oportunidades por cidade. Você pode alternar entre o mapa visual e o mapa real, filtrar por artista e abrir os detalhes de cada ponto.',
+  },
+];
+
+export const getLocalKnowledgeAnswer = (question, events) => {
+  const normalized = normalize(question);
+  const article = LOCAL_KNOWLEDGE.find((item) => item.matches.test(normalized));
+  return article ? article.answer : getSystemAnswer(question, events);
+};
+
 export const buildCommercialSuggestion = (events, referenceDate = new Date()) => {
   const today = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), referenceDate.getDate());
   const anchor = events
