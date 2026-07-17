@@ -4,7 +4,7 @@ import 'leaflet/dist/leaflet.css';
 import { Minus, Plus, RotateCcw } from 'lucide-react';
 import MapLegend from './MapLegend';
 import { getCityCoordinateKey, getCityLatLng, resolveCityLatLng } from '../lib/map';
-import { getEventStatusLabel, getShowProximityColor } from '../lib/tour';
+import { getEventStatusLabel, getRecurringOccurrenceDate, getShowProximityColor } from '../lib/tour';
 
 const BRAZIL_CENTER = [-14.235, -51.925];
 const BRAZIL_ZOOM = 5;
@@ -93,7 +93,10 @@ export default function RealTourMap({ events, mapMode, selectedState, selectedEv
         {visibleEvents.map((event) => {
           const key = getCityCoordinateKey(event.stateId, event.city);
           const position = locations[key] || getCityLatLng(event.stateId, event.city);
-          const color = mapMode === 'tour' ? (getShowProximityColor(event.date) || '#94a3b8') : '#38bdf8';
+          const occurrenceDate = getRecurringOccurrenceDate(event);
+          const color = mapMode === 'tour' || event.isRecurring
+            ? (getShowProximityColor(occurrenceDate || event.date) || '#94a3b8')
+            : '#38bdf8';
           const selected = selectedEventId === event.id;
           return (
             <CircleMarker key={event.id} center={position} radius={selected ? 12 : 9} pathOptions={{ color: '#fff', weight: 3, fillColor: color, fillOpacity: 1 }} eventHandlers={{ click: () => onSelectEvent(event.id) }}>
@@ -104,7 +107,7 @@ export default function RealTourMap({ events, mapMode, selectedState, selectedEv
           );
         })}
       </MapContainer>
-      {mapMode === 'tour' && <MapLegend mobileBottom="bottom-[7rem]" />}
+      <MapLegend mobileBottom="bottom-[7rem]" />
     </div>
   );
 }

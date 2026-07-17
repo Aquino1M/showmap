@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { MessageCircle, Send, Sparkles, X } from 'lucide-react';
-import { buildCommercialSuggestion, getSystemAnswer } from '../lib/commercialAdvisor';
+import { getSystemAnswer } from '../lib/commercialAdvisor';
+import { askCommercialAssistant } from '../firebase';
 
 const initialMessage = {
   role: 'assistant',
@@ -18,17 +19,28 @@ export default function FloatingCommercialAssistant({ events, onOpenChange }) {
   const [isOpen, setIsOpen] = useState(false);
   const [question, setQuestion] = useState('');
   const [messages, setMessages] = useState([initialMessage]);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const answer = (text) => {
+  const answer = async (text) => {
     const trimmed = text.trim();
-    if (!trimmed) return;
-    setMessages((current) => [...current, { role: 'user', text: trimmed }, { role: 'assistant', text: getSystemAnswer(trimmed, events) }]);
+    if (!trimmed || isLoading) return;
+    setMessages((current) => [...current, { role: 'user', text: trimmed }]);
     setQuestion('');
+    setIsLoading(true);
+    try {
+      const response = await askCommercialAssistant(trimmed);
+      if (!response || typeof response !== 'string') throw new Error('A IA não retornou uma resposta. Verifique o crédito e o modelo configurado no OpenRouter.');
+      setMessages((current) => [...current, { role: 'assistant', text: response }]);
+    } catch (error) {
+      const fallback = getSystemAnswer(trimmed, events);
+      const message = error instanceof Error ? error.message : 'Não foi possível consultar a IA agora.';
+      setMessages((current) => [...current, { role: 'assistant', text: `${message}\n\nResposta local: ${fallback}` }]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const suggestRoute = () => {
-    setMessages((current) => [...current, { role: 'assistant', text: buildCommercialSuggestion(events) }]);
-  };
+  const suggestRoute = () => answer('Analise meu próximo roteiro em até 600 km, priorizando o dia anterior e o posterior aos shows confirmados.');
 
   const toggleAssistant = () => {
     setIsOpen((open) => {
@@ -49,17 +61,18 @@ export default function FloatingCommercialAssistant({ events, onOpenChange }) {
         <div className="flex items-center gap-2"><Sparkles size={18} className="text-cyan-400" /><div><h2 className="text-sm font-bold text-white">Assistente Comercial</h2><p className="text-[10px] text-slate-400">Dados do seu escritório</p></div></div>
         <button onClick={closeAssistant} aria-label="Fechar assistente" className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white"><X size={18} /></button>
       </header>
-      <div className="max-h-72 space-y-3 overflow-y-auto p-4 custom-scrollbar">
-        {messages.map((message, index) => <div key={`${message.role}-${index}`} className={`max-w-[92%] rounded-2xl px-3 py-2 text-xs leading-relaxed ${message.role === 'user' ? 'ml-auto bg-indigo-600 text-white' : 'bg-[#0B0F19] text-slate-300 border border-slate-800'}`}>{message.text}</div>)}
+      <div onWheel={(event) => { event.preventDefault(); event.stopPropagation(); event.currentTarget.scrollTop += event.deltaY; }} className="max-h-72 space-y-3 overflow-y-auto overscroll-contain p-4 custom-scrollbar">
+        {messages.map((message, index) => <div key={`${message.role}-${index}`} className={`whitespace-pre-line max-w-[92%] rounded-2xl px-3 py-2 text-xs leading-relaxed ${message.role === 'user' ? 'ml-auto bg-indigo-600 text-white' : 'bg-[#0B0F19] text-slate-300 border border-slate-800'}`}>{message.text}</div>)}
+        {isLoading && <div className="w-fit rounded-2xl border border-slate-800 bg-[#0B0F19] px-3 py-2 text-xs text-slate-400">Analisando os dados do escritório…</div>}
       </div>
       <div className="border-t border-slate-800 p-3">
-        <button onClick={suggestRoute} className="mb-2 w-full rounded-xl border border-cyan-500/40 bg-cyan-500/10 px-3 py-2 text-xs font-bold text-cyan-200 hover:bg-cyan-500/20">Analisar roteiro até 600 km</button>
+        <button disabled={isLoading} onClick={suggestRoute} className="mb-2 w-full rounded-xl border border-cyan-500/40 bg-cyan-500/10 px-3 py-2 text-xs font-bold text-cyan-200 hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-50">Analisar roteiro até 600 km</button>
         <div className="mb-2 flex flex-wrap gap-1.5">
-          {suggestedQuestions.map((suggestion) => <button key={suggestion} onClick={() => answer(suggestion)} className="rounded-lg border border-slate-700 bg-[#0B0F19] px-2 py-1 text-[10px] text-slate-300 hover:border-indigo-400 hover:text-white">{suggestion}</button>)}
+          {suggestedQuestions.map((suggestion) => <button disabled={isLoading} key={suggestion} onClick={() => answer(suggestion)} className="rounded-lg border border-slate-700 bg-[#0B0F19] px-2 py-1 text-[10px] text-slate-300 hover:border-indigo-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-50">{suggestion}</button>)}
         </div>
         <form onSubmit={(event) => { event.preventDefault(); answer(question); }} className="flex gap-2">
-          <input value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Digite sua dúvida" className="min-w-0 flex-1 rounded-xl border border-slate-700 bg-[#0B0F19] px-3 py-2 text-xs text-white outline-none focus:border-indigo-400" />
-          <button type="submit" aria-label="Enviar pergunta" className="rounded-xl bg-indigo-600 p-2 text-white hover:bg-indigo-500"><Send size={16} /></button>
+          <input disabled={isLoading} value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Digite sua dúvida" className="min-w-0 flex-1 rounded-xl border border-slate-700 bg-[#0B0F19] px-3 py-2 text-xs text-white outline-none focus:border-indigo-400 disabled:opacity-50" />
+          <button disabled={isLoading} type="submit" aria-label="Enviar pergunta" className="rounded-xl bg-indigo-600 p-2 text-white hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-50"><Send size={16} /></button>
         </form>
       </div>
     </section>}

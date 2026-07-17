@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterMapEvents, getCalendarDayType, getEventDateKey, getShowProximityColor, getTourArtists } from '../src/lib/tour.js';
+import { filterMapEvents, getCalendarDayType, getEventDateKey, getRecurringOccurrenceDate, getShowProximityColor, getTourArtists } from '../src/lib/tour.js';
 
 const events = [
   { id: '1', status: 'Disponível', artistName: '', agentId: null },
@@ -41,4 +41,10 @@ test('cor do brilho da turnê segue a proximidade do show', () => {
   assert.equal(getShowProximityColor('2026-10-24', today), '#f97316');
   assert.equal(getShowProximityColor('2026-12-20', today), '#22c55e');
   assert.equal(getShowProximityColor('2027-02-01', today), null);
+});
+
+test('cadastro recorrente usa a proxima ocorrencia anual', () => {
+  const event = { date: '2026-06-15', isRecurring: true };
+  assert.equal(getRecurringOccurrenceDate(event, new Date('2027-01-10T12:00:00')), '2027-06-15');
+  assert.equal(getRecurringOccurrenceDate(event, new Date('2027-07-10T12:00:00')), '2028-06-15');
 });

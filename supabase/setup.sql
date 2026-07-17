@@ -35,7 +35,7 @@ create table if not exists public.events (
   date date not null,
   time time,
   type text not null check (type in ('emenda', 'privado', 'cache', 'portaria')),
-  status text not null default 'Disponível' check (status in ('Disponível', 'Proposta', 'Confirmado', 'Reservado')),
+  status text not null default 'Disponível' check (status in ('Disponível', 'Proposta', 'Confirmado', 'Reservado', 'Agendado', 'Vendido', 'Cadastro')),
   company_id uuid not null references public.companies(id) on delete restrict,
   agent_id uuid references public.profiles(id) on delete set null,
   contractor_name text,
@@ -44,6 +44,7 @@ create table if not exists public.events (
   contractor_instagram text,
   event_name text,
   artist_name text,
+  is_recurring boolean not null default false,
   created_at timestamptz not null default now()
 );
 

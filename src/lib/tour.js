@@ -1,6 +1,7 @@
 const isSoldEvent = (event) => event.status === 'Confirmado' || event.status === 'Vendido';
 const isScheduledEvent = (event) => event.status === 'Reservado' || event.status === 'Agendado';
 const isProposalEvent = (event) => event.status === 'Proposta';
+const isRecurringRegistration = (event) => event.status === 'Cadastro' || event.isRecurring;
 const isTourEvent = (event) => isSoldEvent(event) || isScheduledEvent(event);
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
@@ -15,6 +16,17 @@ export const getEventDateKey = (value) => {
   if (brazilianDate) return `${brazilianDate[3]}-${brazilianDate[2]}-${brazilianDate[1]}`;
 
   return '';
+};
+
+export const getRecurringOccurrenceDate = (event, referenceDate = new Date()) => {
+  const baseDate = getEventDateKey(event.date);
+  if (!(event.isRecurring || event.status === 'Cadastro') || !baseDate) return baseDate;
+
+  const [, month, day] = baseDate.split('-');
+  const today = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), referenceDate.getDate());
+  let occurrence = new Date(`${referenceDate.getFullYear()}-${month}-${day}T12:00:00`);
+  if (occurrence < today) occurrence = new Date(`${referenceDate.getFullYear() + 1}-${month}-${day}T12:00:00`);
+  return occurrence.toISOString().slice(0, 10);
 };
 
 export const filterMapEvents = (events, user, mode, artistName = '') => {
@@ -47,11 +59,12 @@ export const getCalendarDayType = (events) => {
   if (events.some(isSoldEvent)) return 'sold';
   if (events.some(isScheduledEvent)) return 'scheduled';
   if (events.some(isProposalEvent)) return 'proposal';
+  if (events.some(isRecurringRegistration)) return 'registration';
   if (events.some((event) => event.status === 'Disponível')) return 'available';
   return 'empty';
 };
 
-export const isCalendarEvent = (event) => isTourEvent(event) || isProposalEvent(event) || event.status === 'Disponível';
+export const isCalendarEvent = (event) => isTourEvent(event) || isProposalEvent(event) || isRecurringRegistration(event) || event.status === 'Disponível';
 
 export const getEventStatusLabel = (status) => {
   if (status === 'Confirmado') return 'Vendido';

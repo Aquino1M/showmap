@@ -194,6 +194,7 @@ Deno.serve(async (request) => {
         contractor_instagram: typeof event.contractor_instagram === 'string' ? event.contractor_instagram.trim() || null : null,
         event_name: typeof event.event_name === 'string' ? event.event_name.trim() || null : null,
         artist_name: typeof event.artist_name === 'string' ? event.artist_name.trim() || null : null,
+        is_recurring: event.is_recurring === true,
       }
       if (!safeEvent.state_id || !safeEvent.city || !safeEvent.date || !safeEvent.type) throw new Error('Preencha os dados obrigatórios da agenda.')
       const eventCompanyId = safeEvent.company_id

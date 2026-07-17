@@ -12,7 +12,7 @@ import {
 } from './firebase';
 import { PLAN_DETAILS, getPlanDaysRemaining, isPlanExpired } from './lib/plans';
 import { DEFAULT_MAP_VIEWPORT, getCityCoordinateKey, getCityCoordinates, getPannedViewport, getZoomedViewport, resolveCityCoordinates } from './lib/map';
-import { filterMapEvents, getCalendarDayType, getEventDateKey, getEventStatusLabel, getShowProximityColor, getTourArtists, isCalendarEvent } from './lib/tour';
+import { filterMapEvents, getCalendarDayType, getEventDateKey, getEventStatusLabel, getRecurringOccurrenceDate, getShowProximityColor, getTourArtists, isCalendarEvent } from './lib/tour';
 import TourMapControls from './components/TourMapControls';
 import MapLegend from './components/MapLegend';
 import FloatingCommercialAssistant from './components/FloatingCommercialAssistant';
@@ -252,6 +252,14 @@ export default function App() {
       .catch((error) => {
         const message = error instanceof Error ? error.message : 'Não foi possível preparar o acesso.';
         setProfileError(message);
+        // Uma sessão expirada não pode deixar o usuário preso na tela de restauração.
+        // Limpamos o token local e voltamos diretamente ao login.
+        if (/sessão|session|jwt|token/i.test(message)) {
+          signOut().catch(() => undefined);
+          setResolvedProfile(null);
+          setDbUser(null);
+          setCurrentView('login');
+        }
       });
   }, [dbUser]);
 
@@ -308,8 +316,8 @@ export default function App() {
   
   // Estados para Modais & Formulários
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
-  const [isFreeDateRegistration, setIsFreeDateRegistration] = useState(false);
-  const [formData, setFormData] = useState({ id: null, date: '', time: '', city: '', stateId: 'GO', type: 'cache', contractorName: '', contractorEmail: '', contractorPhone: '', contractorInstagram: '', eventName: '', artistName: '' });
+  const [registrationMode, setRegistrationMode] = useState('available');
+  const [formData, setFormData] = useState({ id: null, date: '', time: '', city: '', stateId: 'GO', type: 'cache', contractorName: '', contractorEmail: '', contractorPhone: '', contractorInstagram: '', eventName: '', artistName: '', isRecurring: false });
   const [authForm, setAuthForm] = useState({ email: '', password: '' });
   
   const [agentForm, setAgentForm] = useState({ id: null, name: '', email: '', password: '', companyId: '' });
@@ -586,10 +594,10 @@ export default function App() {
   };
 
   // --- CRUD Shows / Eventos Livres (Escritório) ---
-  const openEventModal = (ev = null, freeDateRegistration = false, prefilledDate = '') => {
-    setIsFreeDateRegistration(Boolean(freeDateRegistration && !ev));
-    if (ev) setFormData({ id: ev.id, date: ev.date, time: ev.time || '', city: ev.city, stateId: ev.stateId, type: ev.type, contractorName: ev.contractorName || '', contractorEmail: ev.contractorEmail || '', contractorPhone: ev.contractorPhone || '', contractorInstagram: ev.contractorInstagram || '', eventName: ev.eventName || '', artistName: ev.artistName || '' });
-    else setFormData({ id: null, date: prefilledDate, time: '', city: '', stateId: 'GO', type: 'cache', contractorName: '', contractorEmail: '', contractorPhone: '', contractorInstagram: '', eventName: '', artistName: '' });
+  const openEventModal = (ev = null, mode = 'available', prefilledDate = '') => {
+    setRegistrationMode(ev?.isRecurring || ev?.status === 'Cadastro' ? 'recurring' : mode);
+    if (ev) setFormData({ id: ev.id, date: ev.date, time: ev.time || '', city: ev.city, stateId: ev.stateId, type: ev.type, contractorName: ev.contractorName || '', contractorEmail: ev.contractorEmail || '', contractorPhone: ev.contractorPhone || '', contractorInstagram: ev.contractorInstagram || '', eventName: ev.eventName || '', artistName: ev.artistName || '', isRecurring: Boolean(ev.isRecurring || ev.status === 'Cadastro') });
+    else setFormData({ id: null, date: prefilledDate, time: '', city: '', stateId: 'GO', type: 'cache', contractorName: '', contractorEmail: '', contractorPhone: '', contractorInstagram: '', eventName: '', artistName: '', isRecurring: mode === 'recurring' });
     setIsEventModalOpen(true);
   };
 
@@ -603,7 +611,7 @@ export default function App() {
       city: formData.city,
       stateId: formData.stateId,
       type: formData.type,
-      status: existing ? existing.status : (isFreeDateRegistration ? 'Disponível' : (formData.contractorName ? 'Proposta' : 'Disponível')),
+      status: existing ? existing.status : (registrationMode === 'recurring' ? 'Cadastro' : 'Disponível'),
       companyId: authUser.companyId,
       agentId: existing ? existing.agentId : null,
       contractorName: formData.contractorName,
@@ -611,11 +619,12 @@ export default function App() {
       contractorPhone: formData.contractorPhone,
       contractorInstagram: formData.contractorInstagram,
       eventName: formData.eventName,
-      artistName: formData.artistName
+      artistName: formData.artistName,
+      isRecurring: registrationMode === 'recurring' || formData.isRecurring
     };
     try {
       await saveDocument('events', eventToSave);
-      showToast(formData.id ? 'Evento atualizado com sucesso!' : 'Data livre registrada com sucesso!');
+      showToast(formData.id ? 'Cadastro atualizado com sucesso!' : registrationMode === 'recurring' ? 'Oportunidade anual cadastrada com sucesso!' : 'Data livre registrada com sucesso!');
       setIsEventModalOpen(false);
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Não foi possível salvar a agenda.', 'error');
@@ -742,8 +751,11 @@ export default function App() {
 
   const calendarEvents = useMemo(() => {
     const monthKey = `${calendarCursor.getFullYear()}-${String(calendarCursor.getMonth() + 1).padStart(2, '0')}`;
-    return visibleEvents.filter((event) => {
-      const eventDate = getEventDateKey(event.date);
+    return visibleEvents.map((event) => ({
+      ...event,
+      calendarDate: getRecurringOccurrenceDate(event) || getEventDateKey(event.date),
+    })).filter((event) => {
+      const eventDate = event.calendarDate;
       return isCalendarEvent(event)
         && (selectedCalendarDate ? eventDate === selectedCalendarDate : eventDate.startsWith(monthKey));
     });
@@ -789,7 +801,7 @@ export default function App() {
         <section className="max-w-md rounded-2xl border border-indigo-500/30 bg-slate-900 p-8 text-center shadow-2xl">
           <h1 className="text-xl font-extrabold text-white">Restaurando sua sessão</h1>
           <p className="mt-3 text-sm text-slate-300">{profileError || 'Carregando seu painel…'}</p>
-          {profileError && <button onClick={() => window.location.reload()} className="mt-6 rounded-xl bg-indigo-600 px-5 py-3 font-bold text-white hover:bg-indigo-500">Tentar novamente</button>}
+          {profileError && <button onClick={() => { signOut().catch(() => undefined); setResolvedProfile(null); setDbUser(null); setAuthUser(null); setCurrentView('login'); }} className="mt-6 rounded-xl bg-indigo-600 px-5 py-3 font-bold text-white hover:bg-indigo-500">Ir para o login</button>}
         </section>
       </main>
     );
@@ -1104,7 +1116,7 @@ export default function App() {
               <ul className="mt-3 space-y-2 text-[11px] leading-tight text-slate-400">
                 <li><span className="font-bold text-white">Calendário:</span> criar proposta.</li>
                 <li><span className="font-bold text-white">Agenda:</span> reservar ou vender.</li>
-                <li><span className="font-bold text-white">Cadastro:</span> data livre.</li>
+                <li><span className="font-bold text-white">Cadastro:</span> oportunidade anual.</li>
                 <li><span className="font-bold text-white">Agentes:</span> equipe.</li>
                 <li><span className="font-bold text-white">Financeiro:</span> plano.</li>
               </ul>
@@ -1238,15 +1250,15 @@ export default function App() {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
               <div>
                 <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2"><UserPlus className="text-indigo-400"/> Cadastro</h2>
-                <p className="mt-1 text-xs text-slate-400">Cadastre uma data livre. Este cadastro sempre fica como disponível.</p>
+                <p className="mt-1 text-xs text-slate-400">Cadastre oportunidades anuais. Elas não reservam nem vendem a data.</p>
               </div>
-              <button onClick={() => openEventModal(null, true)} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg">
-                <Plus size={16}/> Cadastrar Data Livre
+              <button onClick={() => openEventModal(null, 'recurring')} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg">
+                <Plus size={16}/> Cadastrar oportunidade
               </button>
             </div>
             <div className="bg-[#111827] border border-slate-800 rounded-2xl p-6 text-center">
               <CalendarDays size={48} className="mx-auto mb-4 text-slate-600" />
-              <p className="text-sm text-slate-400">Use este espaço para cadastrar datas abertas. As negociações e os status ficam na Agenda e Propostas.</p>
+              <p className="text-sm text-slate-400">Cadastre aqui eventos recorrentes, como feiras e aniversários de cidade. A negociação fica na Agenda e Propostas.</p>
             </div>
           </div>
         )}
@@ -1257,7 +1269,7 @@ export default function App() {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
               <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2"><Briefcase className="text-indigo-400"/> Agenda e Propostas</h2>
               {authUser.role === 'company_admin' && (
-                <button onClick={() => openEventModal(null, true)} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg">
+                <button onClick={() => openEventModal(null, 'recurring')} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg">
                   <Plus size={16}/> Cadastro
                 </button>
               )}
@@ -1340,7 +1352,7 @@ export default function App() {
                            <div className="flex gap-2">
                              <button onClick={() => handleUpdateStatus(ev.id, 'Reservado')} className="flex-1 bg-orange-600 hover:bg-orange-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Reservar</button>
                              <button onClick={() => handleUpdateStatus(ev.id, 'Vendido')} className="flex-1 bg-red-600 hover:bg-red-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Vendido</button>
-                             {authUser.role === 'company_admin' && <button onClick={() => openEventModal(null, true, ev.date)} className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Cadastro</button>}
+                             {authUser.role === 'company_admin' && <button onClick={() => openEventModal(null, 'recurring', ev.date)} className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Cadastro</button>}
                            </div>
                          )}
 
@@ -1435,8 +1447,10 @@ export default function App() {
                 <div className="grid grid-cols-7 gap-1 sm:gap-2">
                   {calendarDays.map((item, index) => {
                     if (!item) return <div key={`empty-${index}`} />;
-                    const eventsOnDay = visibleEvents.filter((event) => getEventDateKey(event.date) === item.date && isCalendarEvent(event));
+                    const eventsOnDay = visibleEvents.filter((event) => (getRecurringOccurrenceDate(event) || getEventDateKey(event.date)) === item.date && isCalendarEvent(event));
                     const dayType = getCalendarDayType(eventsOnDay);
+                    const recurringDate = eventsOnDay.find((event) => event.isRecurring)?.date;
+                    const recurringColor = recurringDate ? getShowProximityColor(getRecurringOccurrenceDate(eventsOnDay.find((event) => event.isRecurring))) : null;
                     const selected = selectedCalendarDate === item.date;
                     const dayStyle = dayType === 'sold'
                       ? 'border-red-400 bg-red-500/10 hover:border-red-300'
@@ -1444,11 +1458,19 @@ export default function App() {
                         ? 'border-orange-400 bg-orange-500/10 hover:border-orange-300'
                         : dayType === 'proposal'
                           ? 'border-violet-400 bg-violet-500/10 hover:border-violet-300'
+                          : dayType === 'registration' && recurringColor === '#ef4444'
+                            ? 'border-red-400 bg-red-500/10 hover:border-red-300'
+                            : dayType === 'registration' && recurringColor === '#f97316'
+                              ? 'border-orange-400 bg-orange-500/10 hover:border-orange-300'
+                              : dayType === 'registration' && recurringColor === '#22c55e'
+                                ? 'border-green-400 bg-green-500/10 hover:border-green-300'
+                                : dayType === 'registration'
+                                  ? 'border-slate-500 bg-slate-500/10 hover:border-slate-400'
                         : dayType === 'available'
                           ? 'border-sky-400 bg-sky-500/10 hover:border-sky-300'
                           : 'border-slate-800 bg-[#0B0F19] hover:border-slate-600';
-                    const dayLabel = dayType === 'sold' ? 'Vendido' : dayType === 'scheduled' ? 'Agendado' : dayType === 'proposal' ? 'Proposta' : 'Livre';
-                    const dayLabelColor = dayType === 'sold' ? 'text-red-300' : dayType === 'scheduled' ? 'text-orange-300' : dayType === 'proposal' ? 'text-violet-300' : 'text-sky-300';
+                    const dayLabel = dayType === 'sold' ? 'Vendido' : dayType === 'scheduled' ? 'Agendado' : dayType === 'proposal' ? 'Proposta' : dayType === 'registration' ? 'Cadastro' : 'Livre';
+                    const dayLabelColor = dayType === 'sold' ? 'text-red-300' : dayType === 'scheduled' ? 'text-orange-300' : dayType === 'proposal' ? 'text-violet-300' : dayType === 'registration' && recurringColor === '#ef4444' ? 'text-red-300' : dayType === 'registration' && recurringColor === '#f97316' ? 'text-orange-300' : dayType === 'registration' && recurringColor === '#22c55e' ? 'text-green-300' : dayType === 'registration' ? 'text-slate-300' : 'text-sky-300';
                     return <button key={item.date} onClick={() => { setSelectedCalendarDate(item.date); openProposalModal(item.date); }} className={`min-h-12 sm:min-h-16 rounded-lg border-2 p-1.5 text-left transition-colors ${selected ? 'ring-2 ring-indigo-400 ring-offset-1 ring-offset-[#111827]' : dayStyle}`}>
                       <span className="text-xs font-bold text-white">{item.day}</span>
                       {eventsOnDay.length > 0 && <span className={`mt-1 block text-[9px] font-semibold truncate ${dayLabelColor}`}>{dayLabel}</span>}
@@ -1460,13 +1482,14 @@ export default function App() {
                   <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded border-2 border-orange-400 bg-orange-500/10"/> Agendado</span>
                   <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded border-2 border-violet-400 bg-violet-500/10"/> Proposta</span>
                   <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded border-2 border-sky-400 bg-sky-500/10"/> Data livre</span>
+                  <span className="text-slate-500">Cadastro anual: verde 5–6 meses, laranja 3–4, vermelho até 2.</span>
                 </div>
                 {!selectedCalendarDate && <p className="mt-3 text-xs text-slate-500">A lista abaixo mostra somente os registros do mês aberto.</p>}
                 {selectedCalendarDate && <button onClick={() => setSelectedCalendarDate('')} className="mt-3 text-xs text-indigo-300 hover:text-white">Limpar seleção</button>}
               </div>
               <div className="space-y-4">
                 {/* Calendário mostra shows e datas livres. */}
-                {calendarEvents.sort((a,b) => new Date(a.date) - new Date(b.date)).map(ev => {
+                {calendarEvents.sort((a,b) => new Date(a.calendarDate || a.date) - new Date(b.calendarDate || b.date)).map(ev => {
                   const comp = companies.find(c => c.id === ev.companyId);
                   const agent = users.find(u => u.id === ev.agentId);
                   
@@ -1474,8 +1497,8 @@ export default function App() {
                     <div key={ev.id} className="flex flex-col sm:flex-row sm:items-center justify-between bg-[#0B0F19] border border-slate-800 p-4 rounded-xl gap-4">
                       <div className="flex items-center gap-4">
                         <div className="bg-[#111827] px-3 py-2 sm:px-4 sm:py-2 rounded-lg border border-slate-800 text-center min-w-[70px] sm:min-w-[90px]">
-                          <p className="text-[10px] text-slate-500 uppercase font-bold">{new Date(ev.date + 'T12:00:00').toLocaleString('pt-BR', {month: 'short'})} {new Date(ev.date + 'T12:00:00').getFullYear()}</p>
-                          <p className="text-base sm:text-lg font-bold text-white">{new Date(ev.date + 'T12:00:00').getDate()}</p>
+                          <p className="text-[10px] text-slate-500 uppercase font-bold">{new Date((ev.calendarDate || ev.date) + 'T12:00:00').toLocaleString('pt-BR', {month: 'short'})} {new Date((ev.calendarDate || ev.date) + 'T12:00:00').getFullYear()}</p>
+                          <p className="text-base sm:text-lg font-bold text-white">{new Date((ev.calendarDate || ev.date) + 'T12:00:00').getDate()}</p>
                         </div>
                         <div>
                           <h4 className="text-white font-bold text-sm sm:text-lg">{ev.city} - {ev.stateId} <span className="text-xs text-slate-400 ml-2 font-normal"><Clock size={12} className="inline mr-1 mb-0.5"/>{ev.time || '--:--'}</span></h4>
@@ -1490,8 +1513,8 @@ export default function App() {
                         </div>
                       </div>
                       <div>
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase ${ev.status === 'Disponível' ? 'bg-sky-500' : ev.status === 'Proposta' ? 'bg-violet-500' : ['Confirmado', 'Vendido'].includes(ev.status) ? 'bg-red-500' : 'bg-orange-500'}`}>
-                          {getEventStatusLabel(ev.status)}
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase ${ev.status === 'Disponível' ? 'bg-sky-500' : ev.status === 'Proposta' ? 'bg-violet-500' : ev.status === 'Cadastro' ? 'bg-emerald-600' : ['Confirmado', 'Vendido'].includes(ev.status) ? 'bg-red-500' : 'bg-orange-500'}`}>
+                          {ev.status === 'Cadastro' ? 'Cadastro anual' : getEventStatusLabel(ev.status)}
                         </span>
                       </div>
                     </div>
@@ -1624,8 +1647,9 @@ export default function App() {
                           
                           {stateEvents.map((ev) => {
                             const coord = resolvedMapCoordinates[getCityCoordinateKey(uf, ev.city)] || getCityCoordinates(uf, ev.city);
-                            const proximityColor = mapMode === 'tour' ? getShowProximityColor(ev.date) : '#38bdf8';
-                            const markerColor = proximityColor || (mapMode === 'tour' ? '#94a3b8' : '#38bdf8');
+                            const recurringDate = getRecurringOccurrenceDate(ev);
+                            const proximityColor = mapMode === 'tour' || ev.isRecurring ? getShowProximityColor(recurringDate || ev.date) : null;
+                            const markerColor = proximityColor || (mapMode === 'tour' ? '#94a3b8' : ev.isRecurring ? '#94a3b8' : '#38bdf8');
                             return (
                               <g key={ev.id}>
                                 {proximityColor && (
@@ -1641,7 +1665,7 @@ export default function App() {
                     })}
                   </svg>
                 </div>}
-                {mapDisplay === 'svg' && mapMode === 'tour' && !isCommercialAssistantOpen && <MapLegend />}
+                {mapDisplay === 'svg' && !isCommercialAssistantOpen && <MapLegend />}
                 {mapDisplay === 'real' && <div className="absolute inset-4 z-10 overflow-hidden rounded-xl">
                   <Suspense fallback={<div className="grid h-full place-items-center bg-[#111827] text-sm text-slate-400">Carregando mapa real…</div>}>
                     <RealTourMap
@@ -1782,10 +1806,11 @@ export default function App() {
         <div className="fixed inset-0 bg-[#0B0F19]/90 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-[#111827] rounded-3xl border border-slate-800 w-full max-w-lg shadow-2xl overflow-hidden max-h-[calc(100dvh-2rem)] flex flex-col">
             <div className="p-4 sm:p-5 border-b border-slate-800 flex justify-between items-center bg-[#0B0F19]">
-              <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2"><FileText className="text-indigo-500" /> {formData.id ? 'Editar Show/Data' : 'Cadastrar Data Livre'}</h3>
+              <h3 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2"><FileText className="text-indigo-500" /> {formData.id ? 'Editar cadastro' : registrationMode === 'recurring' ? 'Cadastrar evento recorrente' : 'Cadastrar data livre'}</h3>
               <button onClick={() => setIsEventModalOpen(false)} className="text-slate-400 hover:text-white"><X size={20} /></button>
             </div>
             <form onSubmit={handleSaveEvent} className="p-4 sm:p-6 space-y-4 overflow-y-auto">
+              {registrationMode === 'recurring' && <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-xs leading-relaxed text-emerald-100">Este cadastro alimenta o banco de oportunidades do escritório. Ele se repete todos os anos, não reserva nem vende a data e ganha destaque conforme o período se aproxima.</div>}
               <div className="border-b border-slate-800 pb-4 space-y-4">
                 <p className="text-sm font-bold text-white">Dados do contratante e evento</p>
                 <div className="grid sm:grid-cols-2 gap-4">

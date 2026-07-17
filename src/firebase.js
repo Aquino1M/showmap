@@ -7,6 +7,49 @@ const TABLES = {
 };
 
 const DATA_CHANGED_EVENT = 'showmap:data-changed';
+const LOCAL_SNAPSHOT_PREFIX = 'showmap:verified-snapshot:';
+const LOCAL_SNAPSHOT_MAX_AGE = 6 * 60 * 60 * 1000;
+
+// Cópia local apenas para leitura temporária quando a conexão cai. Dados só entram
+// aqui depois de confirmados pelo Supabase; portanto, o banco remoto continua sendo
+// a única fonte oficial e não há conflito entre versões da agenda.
+const getSnapshotKey = async (collectionName) => {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.user?.id ? `${LOCAL_SNAPSHOT_PREFIX}${session.user.id}:${collectionName}` : null;
+};
+
+const storeVerifiedSnapshot = async (collectionName, items) => {
+  try {
+    const key = await getSnapshotKey(collectionName);
+    if (!key || !globalThis.sessionStorage) return;
+    globalThis.sessionStorage.setItem(key, JSON.stringify({ savedAt: Date.now(), items }));
+  } catch {
+    // Cache é opcional: uma falha local não pode impedir o uso do Supabase.
+  }
+};
+
+const readVerifiedSnapshot = async (collectionName) => {
+  try {
+    const key = await getSnapshotKey(collectionName);
+    if (!key || !globalThis.sessionStorage) return null;
+    const snapshot = JSON.parse(globalThis.sessionStorage.getItem(key) || 'null');
+    if (!snapshot?.savedAt || !Array.isArray(snapshot.items) || Date.now() - snapshot.savedAt > LOCAL_SNAPSHOT_MAX_AGE) return null;
+    return snapshot.items;
+  } catch {
+    return null;
+  }
+};
+
+const clearVerifiedSnapshots = () => {
+  try {
+    if (!globalThis.sessionStorage) return;
+    Object.keys(globalThis.sessionStorage)
+      .filter((key) => key.startsWith(LOCAL_SNAPSHOT_PREFIX))
+      .forEach((key) => globalThis.sessionStorage.removeItem(key));
+  } catch {
+    // Limpeza local é preventiva e não deve interromper o logout.
+  }
+};
 const notifyCollectionChanged = (collectionName) => {
   globalThis.dispatchEvent?.(new CustomEvent(DATA_CHANGED_EVENT, { detail: collectionName }));
 };
@@ -45,6 +88,7 @@ const toEvent = (row) => ({
   contractorInstagram: row.contractor_instagram || '',
   eventName: row.event_name || '',
   artistName: row.artist_name || '',
+  isRecurring: Boolean(row.is_recurring),
 });
 
 const fromCompany = (data) => ({
@@ -73,6 +117,7 @@ const fromEvent = (data) => ({
   contractor_instagram: data.contractorInstagram?.trim() || null,
   event_name: data.eventName?.trim() || null,
   artist_name: data.artistName?.trim() || null,
+  is_recurring: Boolean(data.isRecurring),
 });
 
 const throwIfError = (error) => {
@@ -166,6 +211,7 @@ export const signIn = async (email, password) => {
 };
 
 export const signOut = async () => {
+  clearVerifiedSnapshots();
   const { error } = await supabase.auth.signOut();
   throwIfError(error);
 };
@@ -177,14 +223,36 @@ export const ensureCurrentProfile = async () => {
   return data?.profile || null;
 };
 
+export const askCommercialAssistant = async (question) => {
+  let { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw sessionError;
+  if (!session) throw new Error('Sessão inválida. Entre novamente para continuar.');
+  if (!session.expires_at || session.expires_at * 1000 < Date.now() + 60_000) {
+    const { data, error } = await supabase.auth.refreshSession();
+    if (error) throw error;
+    session = data.session;
+  }
+  if (!session?.access_token) throw new Error('Sessão inválida. Entre novamente para continuar.');
+  const result = await supabase.functions.invoke('commercial-assistant', {
+    body: { question },
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  });
+  await throwFunctionError(result.error, 'Não foi possível consultar o assistente.');
+  if (result.data?.error) throw new Error(result.data.error);
+  return result.data?.answer;
+};
+
 export const subscribeCollection = (collectionName, callback) => {
   let active = true;
   const refresh = async () => {
     try {
       const list = await fetchCollection(collectionName);
+      await storeVerifiedSnapshot(collectionName, list);
       if (active) callback(list);
     } catch (error) {
       console.error(`Erro ao carregar ${collectionName}:`, error);
+      const snapshot = await readVerifiedSnapshot(collectionName);
+      if (active && snapshot) callback(snapshot);
     }
   };
 
