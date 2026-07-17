@@ -1447,15 +1447,15 @@ export default function App() {
                 <p className="mt-1 text-xs text-slate-400">Cadastre oportunidades anuais. Elas não reservam nem vendem a data.</p>
               </div>
               <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                <button onClick={() => openEventModal(null, 'recurring')} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg">
+                  <Plus size={16}/> Cadastrar oportunidade
+                </button>
                 <button
                   type="button"
                   onClick={() => setIsImportModalOpen(true)}
-                  className="hidden lg:flex w-full sm:w-auto border border-cyan-500/50 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-200 px-4 py-2 rounded-xl text-sm font-bold items-center justify-center gap-2 transition-colors"
+                  className="flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-cyan-500/50 bg-cyan-500/10 px-4 py-2 text-sm font-bold text-cyan-200 transition-colors hover:bg-cyan-500/20 sm:w-auto"
                 >
                   <Upload size={16}/> Importar oportunidades
-                </button>
-                <button onClick={() => openEventModal(null, 'recurring')} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg">
-                  <Plus size={16}/> Cadastrar oportunidade
                 </button>
               </div>
             </div>
@@ -1926,7 +1926,7 @@ export default function App() {
 
       {/* Modal - Importar oportunidades */}
       {isImportModalOpen && (
-        <div className="fixed inset-0 z-[100] hidden lg:flex items-center justify-center bg-[#0B0F19]/90 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-[#0B0F19]/90 p-4 backdrop-blur-sm">
           <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-slate-700 bg-[#111827] shadow-2xl">
             <div className="flex items-center justify-between border-b border-slate-800 bg-[#0B0F19] p-4 sm:p-5">
               <div>
