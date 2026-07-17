@@ -178,7 +178,7 @@ Deno.serve(async (request) => {
     if (body.action === 'save_event') {
       const event = body.event
       if (!event || typeof event.company_id !== 'string') throw new Error('Dados da agenda inválidos.')
-      const safeEvent = {
+      let safeEvent = {
         ...(typeof event.id === 'string' ? { id: event.id } : {}),
         state_id: typeof event.state_id === 'string' ? event.state_id.trim().toUpperCase() : '',
         city: typeof event.city === 'string' ? event.city.trim() : '',
@@ -203,13 +203,15 @@ Deno.serve(async (request) => {
       if (!isMaster && eventCompanyId !== caller.company_id) {
         throw new Error('Você não pode salvar dados de outro escritório.')
       }
-      if (!isMaster && !isCompanyAdmin && eventAgentId !== authData.user.id) {
-        throw new Error('O agente só pode registrar propostas em seu próprio nome.')
+      if (!isMaster && !isCompanyAdmin && !eventId) {
+        throw new Error('O agente não pode criar cadastros. Apenas o escritório cadastra datas livres.')
       }
 
+      let existing: any = null
       if (eventId) {
-        const { data: existing, error: existingError } = await admin.from('events')
-          .select('company_id, agent_id').eq('id', eventId).single()
+        const { data, error: existingError } = await admin.from('events')
+          .select('*').eq('id', eventId).single()
+        existing = data
         if (existingError || !existing) throw new Error('Registro da agenda não encontrado.')
         if (!isMaster && existing.company_id !== caller.company_id) {
           throw new Error('Você não pode alterar dados de outro escritório.')
@@ -217,6 +219,17 @@ Deno.serve(async (request) => {
         if (!isMaster && !isCompanyAdmin && existing.agent_id && existing.agent_id !== authData.user.id) {
           throw new Error('O agente só pode alterar propostas assumidas por ele.')
         }
+      }
+
+      if (!isMaster && !isCompanyAdmin && existing) {
+        if (!existing.agent_id && (safeEvent.status !== 'Proposta' || eventAgentId !== authData.user.id)) {
+          throw new Error('Assuma a proposta antes de alterar o status.')
+        }
+        if (existing.agent_id && !['Proposta', 'Reservado', 'Vendido'].includes(String(safeEvent.status))) {
+          throw new Error('O agente pode registrar somente proposta, reserva ou venda.')
+        }
+        // O agente somente pode assumir, reservar ou vender; demais dados são imutáveis.
+        safeEvent = { ...existing, status: safeEvent.status, agent_id: authData.user.id }
       }
 
       const { data: savedEvent, error: eventError } = await admin.from('events')

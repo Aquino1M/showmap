@@ -306,6 +306,7 @@ export default function App() {
   
   // Estados para Modais & Formulários
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
+  const [isFreeDateRegistration, setIsFreeDateRegistration] = useState(false);
   const [formData, setFormData] = useState({ id: null, date: '', time: '', city: '', stateId: 'GO', type: 'cache', contractorName: '', contractorEmail: '', contractorPhone: '', contractorInstagram: '', eventName: '', artistName: '' });
   const [authForm, setAuthForm] = useState({ email: '', password: '' });
   
@@ -577,7 +578,8 @@ export default function App() {
   };
 
   // --- CRUD Shows / Eventos Livres (Escritório) ---
-  const openEventModal = (ev = null) => {
+  const openEventModal = (ev = null, freeDateRegistration = false) => {
+    setIsFreeDateRegistration(Boolean(freeDateRegistration && !ev));
     if (ev) setFormData({ id: ev.id, date: ev.date, time: ev.time || '', city: ev.city, stateId: ev.stateId, type: ev.type, contractorName: ev.contractorName || '', contractorEmail: ev.contractorEmail || '', contractorPhone: ev.contractorPhone || '', contractorInstagram: ev.contractorInstagram || '', eventName: ev.eventName || '', artistName: ev.artistName || '' });
     else setFormData({ id: null, date: '', time: '', city: '', stateId: 'GO', type: 'cache', contractorName: '', contractorEmail: '', contractorPhone: '', contractorInstagram: '', eventName: '', artistName: '' });
     setIsEventModalOpen(true);
@@ -593,7 +595,7 @@ export default function App() {
       city: formData.city,
       stateId: formData.stateId,
       type: formData.type,
-      status: existing ? existing.status : (formData.contractorName ? 'Proposta' : 'Disponível'),
+      status: existing ? existing.status : (isFreeDateRegistration ? 'Disponível' : (formData.contractorName ? 'Proposta' : 'Disponível')),
       companyId: authUser.companyId,
       agentId: existing ? existing.agentId : null,
       contractorName: formData.contractorName,
@@ -1211,9 +1213,9 @@ export default function App() {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
               <div>
                 <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2"><UserPlus className="text-indigo-400"/> Cadastro</h2>
-                <p className="mt-1 text-xs text-slate-400">Registre uma data livre sem alterar o status dos eventos já cadastrados.</p>
+                <p className="mt-1 text-xs text-slate-400">Cadastre uma data livre. Este cadastro sempre fica como disponível.</p>
               </div>
-              <button onClick={() => openEventModal()} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg">
+              <button onClick={() => openEventModal(null, true)} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg">
                 <Plus size={16}/> Cadastrar Data Livre
               </button>
             </div>
@@ -1303,7 +1305,7 @@ export default function App() {
                            </button>
                          )}
 
-                         {/* Agente muda o status da proposta assumida; o escritório pode mudar qualquer proposta. */}
+                         {/* Escritório ou agente responsável registra reserva ou venda. */}
                          {(authUser.role === 'company_admin' || (authUser.role === 'agent' && ev.agentId === authUser.id)) && ev.status === 'Proposta' && (
                            <div className="flex gap-2">
                              <button onClick={() => handleUpdateStatus(ev.id, 'Reservado')} className="flex-1 bg-orange-600 hover:bg-orange-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Reservar</button>
