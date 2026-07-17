@@ -1090,6 +1090,18 @@ export default function App() {
               </button>
             )
           })}
+          {authUser.role === 'company_admin' && (
+            <section className="mt-3 hidden rounded-xl border border-slate-700 bg-[#0B0F19] p-3 text-left lg:block">
+              <h3 className="text-xs font-bold uppercase tracking-wide text-indigo-300">Guia rápido</h3>
+              <ul className="mt-3 space-y-2 text-[11px] leading-relaxed text-slate-400">
+                <li><span className="font-bold text-white">Calendário:</span> clique em um dia para criar uma proposta.</li>
+                <li><span className="font-bold text-white">Agenda:</span> acompanhe propostas e marque Reservar ou Vendido.</li>
+                <li><span className="font-bold text-white">Cadastro:</span> registra uma data livre, sem mudar status.</li>
+                <li><span className="font-bold text-white">Agentes:</span> crie e gerencie os acessos da equipe.</li>
+                <li><span className="font-bold text-white">Financeiro:</span> consulte plano e vencimento.</li>
+              </ul>
+            </section>
+          )}
         </div>
       </aside>
 
