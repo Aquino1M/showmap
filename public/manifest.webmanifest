@@ -1,0 +1,19 @@
+{
+  "name": "ShowMap — Solução Logística de Espetáculos",
+  "short_name": "ShowMap",
+  "description": "Gestão visual de agendas, propostas, equipes e turnês.",
+  "lang": "pt-BR",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0B0F19",
+  "theme_color": "#0B0F19",
+  "icons": [
+    {
+      "src": "/showmap-app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

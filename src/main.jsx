@@ -5,6 +5,12 @@ import App from './App.jsx'
 import { isSupabaseConfigured } from './supabase.js'
 import AppErrorBoundary from './components/AppErrorBoundary.jsx'
 
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => undefined)
+  })
+}
+
 const root = createRoot(document.getElementById('root'))
 
 root.render(

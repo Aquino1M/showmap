@@ -1,4 +1,5 @@
 import { lazy, Suspense, useState, useMemo, useEffect, useRef } from 'react';
+import { readSheet } from 'read-excel-file/browser';
 import {
   initAuth,
   subscribeCollection,
@@ -20,10 +21,43 @@ import {
   Map, CalendarDays, MapPin, Plus, ChevronLeft, ChevronRight, Users,
   LayoutDashboard, X, Briefcase, FileText, Building, 
   UserPlus, Trash2, Edit, Save, HandMetal, Hand, LogOut, Clock,
-  Globe2, ArrowRight, Menu, Minus, RotateCcw
+  Globe2, ArrowRight, Menu, Minus, RotateCcw, Upload, Download
 } from 'lucide-react';
 
 const RealTourMap = lazy(() => import('./components/RealTourMap'));
+
+function InstallAppButton({ className = '' }) {
+  const [installEvent, setInstallEvent] = useState(null);
+  const [installed, setInstalled] = useState(() => typeof window !== 'undefined' && (window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true));
+  const [help, setHelp] = useState('');
+
+  useEffect(() => {
+    const receivePrompt = (event) => { event.preventDefault(); setInstallEvent(event); };
+    const markInstalled = () => { setInstalled(true); setInstallEvent(null); };
+    window.addEventListener('beforeinstallprompt', receivePrompt);
+    window.addEventListener('appinstalled', markInstalled);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', receivePrompt);
+      window.removeEventListener('appinstalled', markInstalled);
+    };
+  }, []);
+
+  const install = async () => {
+    if (installEvent) {
+      await installEvent.prompt();
+      const choice = await installEvent.userChoice;
+      if (choice.outcome === 'accepted') setInstallEvent(null);
+      return;
+    }
+    setHelp('No iPhone: Compartilhar → Adicionar à Tela de Início. No computador, use o ícone de instalação na barra de endereço.');
+  };
+
+  if (installed) return null;
+  return <div className={className}>
+    <button type="button" onClick={install} className="inline-flex items-center gap-2 rounded-xl border border-cyan-400/50 bg-cyan-500/10 px-4 py-2.5 text-sm font-bold text-cyan-200 transition-colors hover:bg-cyan-500 hover:text-slate-950"><Download size={17} /> Adicionar como aplicativo</button>
+    {help && <p className="mt-2 max-w-xs text-xs text-slate-400">{help}</p>}
+  </div>;
+}
 
 // Mapa do Brasil Geograficamente Preciso, Contíguo (sem frestas/gaps) em escala 2048x2048
 // Totalmente plano (2D), sem perspectiva, sem textos ou símbolos sobrepostos.
@@ -310,6 +344,8 @@ export default function App() {
   const [resolvedMapCoordinates, setResolvedMapCoordinates] = useState({});
   const [selectedMapEventId, setSelectedMapEventId] = useState(null);
   const [selectedMapState, setSelectedMapState] = useState(null);
+  const [selectedAgendaEventIds, setSelectedAgendaEventIds] = useState([]);
+  const [isAgendaSelectionMode, setIsAgendaSelectionMode] = useState(false);
   const [mapResetToken, setMapResetToken] = useState(0);
   const mapDragRef = useRef(null);
   const mapPointersRef = useRef({});
@@ -332,12 +368,143 @@ export default function App() {
 
   const [contractorForm, setContractorForm] = useState({ contractorName: '', email: '', phone: '', instagram: '', eventName: '', artistName: '', date: '', time: '', city: '', stateId: 'GO', type: 'cache' });
   const [isContractorModalOpen, setIsContractorModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importedOpportunities, setImportedOpportunities] = useState([]);
+  const [importFileName, setImportFileName] = useState('');
+  const [importError, setImportError] = useState('');
+  const [confirmingImportId, setConfirmingImportId] = useState('');
+  const [editingImportId, setEditingImportId] = useState('');
 
   const [toast, setToast] = useState(null);
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
+  };
+
+  const normalizeImportHeader = (value) => String(value || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .trim().toLowerCase();
+
+  const getImportedValue = (row, aliases) => {
+    const key = Object.keys(row).find((column) => aliases.includes(normalizeImportHeader(column)));
+    return key ? String(row[key] ?? '').trim() : '';
+  };
+
+  const parseCsvRows = (content) => {
+    const rows = [];
+    let row = [];
+    let cell = '';
+    let quoted = false;
+    for (let index = 0; index < content.length; index += 1) {
+      const char = content[index];
+      const next = content[index + 1];
+      if (char === '"' && quoted && next === '"') { cell += '"'; index += 1; }
+      else if (char === '"') quoted = !quoted;
+      else if (!quoted && (char === ',' || char === ';')) { row.push(cell.trim()); cell = ''; }
+      else if (!quoted && (char === '\n' || char === '\r')) {
+        if (char === '\r' && next === '\n') index += 1;
+        row.push(cell.trim());
+        if (row.some(Boolean)) rows.push(row);
+        row = []; cell = '';
+      } else cell += char;
+    }
+    row.push(cell.trim());
+    if (row.some(Boolean)) rows.push(row);
+    return rows;
+  };
+
+  const formatImportCell = (value) => value instanceof Date
+    ? value.toLocaleDateString('pt-BR')
+    : String(value ?? '').trim();
+
+  const handleOpportunityFile = async (file) => {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      setImportError('A planilha deve ter no máximo 5 MB.');
+      return;
+    }
+    setImportError('');
+    setImportFileName(file.name);
+    try {
+      const isCsv = file.name.toLowerCase().endsWith('.csv');
+      // `readSheet` returns the rows from the first worksheet. The package default
+      // export returns an array of worksheets, which made valid Excel files look empty.
+      const sheetRows = isCsv ? parseCsvRows(await file.text()) : await readSheet(file);
+      const [headers, ...dataRows] = sheetRows;
+      if (!headers?.length || !dataRows.length) throw new Error('A planilha não possui linhas para importar.');
+      const rows = dataRows.map((values) => Object.fromEntries(headers.map((header, index) => [String(header || '').trim(), formatImportCell(values[index])])));
+      setImportedOpportunities(rows.slice(0, 100).map((row, index) => ({
+        id: `${index}-${Date.now()}`,
+        day: getImportedValue(row, ['dia', 'data', 'data do evento']),
+        city: getImportedValue(row, ['cidade', 'municipio', 'município']),
+        eventType: getImportedValue(row, ['tipo de evento', 'tipo', 'evento']),
+        organizer: getImportedValue(row, ['organizador', 'organizacao', 'organização']),
+        responsible: getImportedValue(row, ['responsavel', 'responsável']),
+        contact: getImportedValue(row, ['contato 1', 'contato', 'nome']),
+        phone: getImportedValue(row, ['telefone', 'whatsapp', 'contato telefone']),
+        instagram: getImportedValue(row, ['instagram', 'insta']),
+        source: row,
+      })));
+    } catch (error) {
+      setImportedOpportunities([]);
+      setImportError(error instanceof Error ? error.message : 'Não foi possível ler esta planilha.');
+    }
+  };
+
+  const getImportDate = (value) => {
+    const raw = String(value || '').trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+    const match = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (!match) return '';
+    const [, day, month, year] = match;
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  };
+
+  const cancelImportedOpportunity = (id) => {
+    setImportedOpportunities((items) => items.filter((item) => item.id !== id));
+  };
+
+  const updateImportedOpportunity = (id, field, value) => {
+    setImportedOpportunities((items) => items.map((item) => item.id === id ? { ...item, [field]: value } : item));
+  };
+
+  const confirmImportedOpportunity = async (opportunity) => {
+    const date = getImportDate(opportunity.day);
+    if (!date) {
+      showToast(`A data "${opportunity.day || 'vazia'}" precisa estar no formato dia/mês/ano antes de confirmar.`, 'error');
+      return;
+    }
+    if (!opportunity.city) {
+      showToast('Informe a cidade da oportunidade antes de confirmar.', 'error');
+      return;
+    }
+    setConfirmingImportId(opportunity.id);
+    try {
+      await saveDocument('events', {
+        date,
+        time: '',
+        city: opportunity.city,
+        stateId: 'GO',
+        type: opportunity.eventType || 'Outro',
+        status: 'Cadastro',
+        companyId: authUser.companyId,
+        agentId: null,
+        contractorName: opportunity.responsible || opportunity.organizer || opportunity.contact,
+        contractorEmail: '',
+        contractorPhone: opportunity.phone,
+        contractorInstagram: opportunity.instagram,
+        eventName: opportunity.eventType || opportunity.organizer || 'Oportunidade importada',
+        artistName: '',
+        isRecurring: true,
+      });
+      cancelImportedOpportunity(opportunity.id);
+      showToast('Oportunidade cadastrada no banco com sucesso.');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Não foi possível cadastrar esta oportunidade.', 'error');
+    } finally {
+      setConfirmingImportId('');
+    }
   };
 
   useEffect(() => {
@@ -673,6 +840,25 @@ export default function App() {
     }
   };
 
+  const toggleAgendaEventSelection = (eventId) => {
+    setSelectedAgendaEventIds((ids) => ids.includes(eventId)
+      ? ids.filter((id) => id !== eventId)
+      : [...ids, eventId]);
+  };
+
+  const handleDeleteSelectedAgendaEvents = async () => {
+    if (!selectedAgendaEventIds.length) return;
+    if (!window.confirm(`Cancelar e excluir ${selectedAgendaEventIds.length} registro(s) selecionado(s)? Esta ação não pode ser desfeita.`)) return;
+    try {
+      await Promise.all(selectedAgendaEventIds.map((eventId) => deleteDocument('events', eventId)));
+      setSelectedAgendaEventIds([]);
+      setIsAgendaSelectionMode(false);
+      showToast('Registros selecionados foram cancelados e excluídos.');
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Não foi possível excluir todos os registros selecionados.', 'error');
+    }
+  };
+
   const handleRenewCompanyPlan = async (company) => {
     if (!window.confirm(`Renovar o plano ${PLAN_DETAILS[company.plan || 'lite'].label} de ${company.name} por mais um mês?`)) return;
     try {
@@ -809,7 +995,7 @@ export default function App() {
 
   if (currentView === 'home') {
     return (
-      <div className={`${homeSection === 'home' ? 'h-[100dvh] overflow-hidden' : 'min-h-[100dvh] overflow-y-auto'} bg-[#0B0F19] text-slate-200 relative flex flex-col overflow-x-hidden font-sans selection:bg-indigo-500/30`}>
+      <div className={`${['home', 'plans', 'showcase'].includes(homeSection) ? 'h-[100dvh] overflow-hidden' : 'min-h-[100dvh] overflow-y-auto'} bg-[#0B0F19] text-slate-200 relative flex flex-col overflow-x-hidden font-sans selection:bg-indigo-500/30`}>
         <ToastNotification toast={toast} />
         
         {/* Efeitos de Fundo Modernos */}
@@ -848,12 +1034,12 @@ export default function App() {
         <main className={`${homeSection === 'home' ? 'flex' : 'hidden'} min-h-0 flex-1 w-full max-w-7xl mx-auto flex-col lg:flex-row items-center justify-center p-3 md:p-6 gap-4 md:gap-6 lg:gap-12 relative z-10`}>
           
           {/* Coluna Esquerda */}
-          <div className="h-full flex-1 w-full flex flex-col justify-between gap-3 md:gap-7 mt-1 pb-5 md:pb-8 lg:mt-0 text-center lg:text-left z-20">
+          <div className="h-full flex-1 w-full flex flex-col justify-between gap-3 md:gap-7 mt-1 pb-5 md:pb-8 lg:mt-0 lg:pb-24 text-center lg:text-left z-20">
             <div className="inline-flex max-w-full items-center justify-center lg:justify-start gap-2 px-3 md:px-4 py-1.5 md:py-2 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-[8px] md:text-xs font-bold uppercase tracking-[0.08em] md:tracking-widest mx-auto lg:mx-0 text-center">
                <Globe2 size={14} /> Solução Logística de Espetáculos
             </div>
             
-            <h2 className="text-3xl md:text-5xl lg:text-6xl xl:text-7xl font-extrabold text-white tracking-tight leading-[1.1]">
+            <h2 className="text-3xl md:text-5xl lg:text-5xl xl:text-6xl font-extrabold text-white tracking-tight leading-[1.1]">
               A inteligência por trás das maiores <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-cyan-400">Turnés do País.</span>
             </h2>
             
@@ -870,10 +1056,11 @@ export default function App() {
                 <Briefcase size={20}/> Sou Agente
               </button>
             </div>
+            <InstallAppButton className="mt-3 lg:hidden" />
           </div>
 
           {/* Coluna Direita: Mapa Político Exato e Contíguo (Totalmente Plano, Sem 3D, Sem Nomes Escritos) */}
-          <div className="hidden lg:flex flex-1 w-full max-w-[500px] lg:max-w-none h-[min(68dvh,620px)] relative items-center justify-center">
+          <div className="hidden lg:flex flex-1 w-full max-w-[500px] lg:max-w-none h-[min(60dvh,540px)] relative items-center justify-center">
             
             {/* Tooltip Dinâmico ao passar o Rato */}
             <div className={`absolute top-0 right-0 z-20 w-48 sm:w-64 bg-[#0B0F19]/95 backdrop-blur-xl border border-slate-700/80 p-4 rounded-2xl shadow-2xl transition-all duration-200 ease-out ${hoveredState ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'}`}>
@@ -946,34 +1133,41 @@ export default function App() {
           </div>
         </main>
 
-        <section id="planos" className={`${homeSection === 'plans' ? 'block' : 'hidden'} relative z-10 min-h-0 flex-1 overflow-y-auto w-full border-t border-slate-800/80 bg-[#0E1422]/80 px-4 py-12 sm:px-6 sm:py-16`}>
-          <div className="mx-auto max-w-7xl">
+        <section id="planos" className={`${homeSection === 'plans' || homeSection === 'showcase' ? 'block' : 'hidden'} relative z-10 min-h-0 flex-1 overflow-y-auto lg:overflow-hidden w-full border-t border-slate-800/80 bg-[#0E1422]/80 px-4 py-6 sm:px-6 sm:py-8 lg:py-3`}>
+          <div className={`mx-auto max-w-7xl ${homeSection === 'plans' ? '' : 'hidden'}`}>
             <div className="mx-auto max-w-3xl text-center">
               <p className="inline-flex items-center gap-2 rounded-full border border-amber-400/40 bg-amber-400/10 px-4 py-2 text-xs font-bold uppercase tracking-wider text-amber-300"><Clock size={14} /> Acesso limitado para empresas selecionadas</p>
-              <h2 className="mt-5 text-3xl font-black text-white sm:text-5xl">Controle a operação dos seus artistas em um só lugar.</h2>
-              <p className="mt-4 text-slate-400 sm:text-lg">Organize propostas, agenda, agentes e disponibilidade nacional antes que as vagas de acesso sejam preenchidas.</p>
+              <h2 className="mt-5 text-3xl font-black text-white sm:text-5xl lg:mt-2 lg:text-3xl">Controle a operação dos seus artistas em um só lugar.</h2>
+              <p className="mt-4 text-slate-400 sm:text-lg lg:mt-2 lg:text-sm">Organize propostas, agenda, agentes e disponibilidade nacional antes que as vagas de acesso sejam preenchidas.</p>
+              <button type="button" onClick={() => setHomeSection('showcase')} className="mt-5 inline-flex items-center gap-2 rounded-xl border border-cyan-400/50 bg-cyan-500/10 px-4 py-2.5 text-sm font-bold text-cyan-200 transition-colors hover:bg-cyan-500 hover:text-slate-950 lg:mt-3"><Map size={17} /> Ver mapa demonstrativo</button>
             </div>
 
-            <div className="mt-10 grid gap-5 md:grid-cols-3">
+            <div className="mt-6 grid gap-5 md:grid-cols-3 lg:mt-3">
               {Object.entries(PLAN_DETAILS).map(([key, plan]) => (
-                <article key={key} className={`rounded-3xl border p-6 shadow-xl ${key === 'pro' ? 'border-indigo-400 bg-indigo-500/10' : 'border-slate-700 bg-[#111827]'}`}>
+                <article key={key} className={`rounded-3xl border p-6 shadow-xl lg:p-4 ${key === 'pro' ? 'border-indigo-400 bg-indigo-500/10' : 'border-slate-700 bg-[#111827]'}`}>
                   {key === 'pro' && <p className="mb-3 text-xs font-bold uppercase tracking-wider text-cyan-300">Mais escolhido</p>}
-                  <h3 className="text-2xl font-black text-white">Plano {plan.label}</h3>
-                  <p className="mt-4 text-4xl font-black text-indigo-300">R$ {plan.price.toLocaleString('pt-BR')}</p>
+                  <h3 className="text-2xl font-black text-white lg:text-xl">Plano {plan.label}</h3>
+                  <p className="mt-4 text-4xl font-black text-indigo-300 lg:mt-2 lg:text-3xl">R$ {plan.price.toLocaleString('pt-BR')}</p>
                   <p className="mt-1 text-sm text-slate-400">por mês</p>
-                  <p className="mt-6 rounded-xl bg-[#0B0F19]/70 px-4 py-3 text-sm font-bold text-white">Até {plan.agents} agentes cadastrados</p>
-                  <button onClick={() => handleLoginClick('office')} className="mt-6 w-full rounded-xl bg-indigo-600 px-4 py-3 font-bold text-white hover:bg-indigo-500">Quero este plano</button>
+                  <p className="mt-6 rounded-xl bg-[#0B0F19]/70 px-4 py-3 text-sm font-bold text-white lg:mt-3 lg:py-2">Até {plan.agents} agentes cadastrados</p>
+                  <ul className="mt-5 space-y-2 text-sm text-slate-300 lg:mt-3 lg:space-y-1.5">
+                    {plan.benefits.map((benefit) => <li key={benefit} className="flex items-center gap-2"><span className="h-1.5 w-1.5 rounded-full bg-cyan-400" />{benefit}</li>)}
+                  </ul>
+                  <button onClick={() => handleLoginClick('office')} className="mt-6 w-full rounded-xl bg-indigo-600 px-4 py-3 font-bold text-white hover:bg-indigo-500 lg:mt-4 lg:py-2.5">Quero este plano</button>
                 </article>
               ))}
             </div>
           </div>
 
-          <div className="mx-auto mt-16 grid max-w-7xl items-center gap-10 border-t border-slate-800 pt-14 lg:grid-cols-2">
+          <div id="mapa-demonstrativo" className={`${homeSection === 'showcase' ? 'grid' : 'hidden'} mx-auto h-full max-w-7xl items-center gap-10 lg:grid-cols-2`}>
             <div>
               <p className="text-sm font-bold uppercase tracking-widest text-cyan-300">Visão nacional</p>
               <h2 className="mt-3 text-3xl font-black text-white sm:text-5xl">A turnê inteira visível na palma da sua mão.</h2>
               <p className="mt-5 max-w-xl text-slate-300 sm:text-lg">Enquanto você dorme, seus agentes vendem.<br />Não perca mais nenhuma oportunidade.</p>
-              <button onClick={() => handleLoginClick('office')} className="mt-7 inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-6 py-3 font-bold text-slate-950 hover:bg-cyan-400"><Building size={18} /> Conhecer o ShowMap</button>
+              <div className="mt-7 flex flex-wrap gap-3">
+                <button onClick={() => handleLoginClick('office')} className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-6 py-3 font-bold text-slate-950 hover:bg-cyan-400"><Building size={18} /> Conhecer o ShowMap</button>
+                <button type="button" onClick={() => setHomeSection('plans')} className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-[#111827] px-6 py-3 font-bold text-white hover:border-indigo-400"><ArrowRight className="rotate-180" size={18} /> Voltar aos planos</button>
+              </div>
             </div>
             <div className="rounded-3xl border border-slate-700 bg-[#111827] p-5 shadow-2xl">
               <svg viewBox="0 0 1000 912" className="mx-auto w-full max-w-lg">
@@ -1252,9 +1446,18 @@ export default function App() {
                 <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2"><UserPlus className="text-indigo-400"/> Cadastro</h2>
                 <p className="mt-1 text-xs text-slate-400">Cadastre oportunidades anuais. Elas não reservam nem vendem a data.</p>
               </div>
-              <button onClick={() => openEventModal(null, 'recurring')} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg">
-                <Plus size={16}/> Cadastrar oportunidade
-              </button>
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                <button
+                  type="button"
+                  onClick={() => setIsImportModalOpen(true)}
+                  className="hidden lg:flex w-full sm:w-auto border border-cyan-500/50 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-200 px-4 py-2 rounded-xl text-sm font-bold items-center justify-center gap-2 transition-colors"
+                >
+                  <Upload size={16}/> Importar oportunidades
+                </button>
+                <button onClick={() => openEventModal(null, 'recurring')} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg">
+                  <Plus size={16}/> Cadastrar oportunidade
+                </button>
+              </div>
             </div>
             <div className="bg-[#111827] border border-slate-800 rounded-2xl p-6 text-center">
               <CalendarDays size={48} className="mx-auto mb-4 text-slate-600" />
@@ -1268,10 +1471,29 @@ export default function App() {
           <div className="max-w-7xl mx-auto">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
               <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2"><Briefcase className="text-indigo-400"/> Agenda e Propostas</h2>
-              {authUser.role === 'company_admin' && (
-                <button onClick={() => openEventModal(null, 'recurring')} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg">
-                  <Plus size={16}/> Cadastro
-                </button>
+              {(authUser.role === 'company_admin' || authUser.role === 'superadmin') && (
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAgendaSelectionMode((active) => !active);
+                      setSelectedAgendaEventIds([]);
+                    }}
+                    className={`w-full sm:w-auto border px-4 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors ${isAgendaSelectionMode ? 'border-slate-600 bg-slate-800 text-white hover:bg-slate-700' : 'border-red-500/50 bg-red-500/10 text-red-200 hover:bg-red-500/20'}`}
+                  >
+                    {isAgendaSelectionMode ? 'Fechar seleção' : 'Selecionar'}
+                  </button>
+                  {isAgendaSelectionMode && selectedAgendaEventIds.length > 0 && (
+                    <button onClick={handleDeleteSelectedAgendaEvents} className="w-full sm:w-auto bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg">
+                      <Trash2 size={16}/> Cancelar selecionados ({selectedAgendaEventIds.length})
+                    </button>
+                  )}
+                  {authUser.role === 'company_admin' && (
+                    <button onClick={() => openEventModal(null, 'recurring')} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg">
+                      <Plus size={16}/> Cadastro
+                    </button>
+                  )}
+                </div>
               )}
             </div>
             
@@ -1296,6 +1518,17 @@ export default function App() {
                       
                       {/* Apenas o Escritório Responsável pode editar (Admin da Empresa) */}
                       <div className="flex items-center gap-2">
+                        {isAgendaSelectionMode && (authUser.role === 'superadmin' || (authUser.role === 'company_admin' && ev.companyId === authUser.companyId)) && (
+                          <button
+                            type="button"
+                            onClick={() => toggleAgendaEventSelection(ev.id)}
+                            className={`flex h-8 w-8 items-center justify-center rounded-lg border text-sm font-bold transition-colors ${selectedAgendaEventIds.includes(ev.id) ? 'border-red-400 bg-red-500 text-white' : 'border-slate-700 bg-[#0B0F19] text-slate-500 hover:border-red-400 hover:text-red-300'}`}
+                            title="Selecionar para cancelar"
+                            aria-label="Selecionar para cancelar"
+                          >
+                            {selectedAgendaEventIds.includes(ev.id) ? '✓' : ''}
+                          </button>
+                        )}
                         {authUser.role === 'company_admin' && ev.companyId === authUser.companyId && (
                           <button onClick={() => openEventModal(ev)} className="text-slate-500 hover:text-indigo-400 bg-[#0B0F19] p-1.5 rounded-lg border border-slate-800" title="Editar Evento">
                             <Edit size={16} />
@@ -1394,7 +1627,7 @@ export default function App() {
           const upgrades = Object.entries(PLAN_DETAILS).filter(([key]) => key !== planKey);
           return (
             <div className="max-w-6xl mx-auto">
-              <div className="mb-6"><h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2"><Briefcase className="text-indigo-400"/> Financeiro do Escritório</h2><p className="text-sm text-slate-400 mt-2">Acompanhe seu plano e solicite renovação ou upgrade ao Administrador Master.</p></div>
+              <div className="mb-6 flex flex-wrap items-end justify-between gap-4"><div><h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2"><Briefcase className="text-indigo-400"/> Financeiro do Escritório</h2><p className="text-sm text-slate-400 mt-2">Acompanhe seu plano e solicite renovação ou upgrade ao Administrador Master.</p></div><InstallAppButton /></div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 <div className="bg-[#111827] border border-indigo-500/40 rounded-2xl p-5"><p className="text-xs uppercase font-bold text-slate-400">Plano atual</p><p className="text-3xl font-black text-indigo-300 mt-2">{plan.label}</p><p className="text-xs text-slate-400 mt-2">R$ {plan.price}/mês</p></div>
                 <div className="bg-[#111827] border border-slate-800 rounded-2xl p-5"><p className="text-xs uppercase font-bold text-slate-400">Agentes</p><p className="text-3xl font-black text-white mt-2">{agentCount}/{plan.agents}</p><p className="text-xs text-slate-400 mt-2">Limite do plano</p></div>
@@ -1690,6 +1923,98 @@ export default function App() {
       </div>
 
       {/* ================= MODAIS ================= */}
+
+      {/* Modal - Importar oportunidades */}
+      {isImportModalOpen && (
+        <div className="fixed inset-0 z-[100] hidden lg:flex items-center justify-center bg-[#0B0F19]/90 p-4 backdrop-blur-sm">
+          <div className="flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-slate-700 bg-[#111827] shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-800 bg-[#0B0F19] p-4 sm:p-5">
+              <div>
+                <h3 className="flex items-center gap-2 text-lg font-bold text-white sm:text-xl"><Upload className="text-cyan-400" /> Importar oportunidades</h3>
+                <p className="mt-1 text-xs text-slate-400">Envie uma planilha Excel ou CSV para revisar os dados antes de cadastrar.</p>
+              </div>
+              <button type="button" onClick={() => setIsImportModalOpen(false)} className="text-slate-400 hover:text-white" aria-label="Fechar importação"><X size={20} /></button>
+            </div>
+
+            <div className="overflow-y-auto p-4 sm:p-6">
+              <label className="flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-cyan-500/40 bg-cyan-500/5 px-6 py-8 text-center transition-colors hover:bg-cyan-500/10">
+                <Upload size={30} className="mb-3 text-cyan-300" />
+                <span className="text-sm font-bold text-white">Escolher planilha</span>
+                <span className="mt-1 text-xs text-slate-400">Formatos aceitos: .xlsx e .csv · até 5 MB</span>
+                <input type="file" accept=".xlsx,.csv" className="sr-only" onChange={(event) => handleOpportunityFile(event.target.files?.[0])} />
+              </label>
+
+              {importFileName && <p className="mt-4 text-sm text-cyan-200">Arquivo selecionado: <span className="font-bold">{importFileName}</span></p>}
+              {importError && <p className="mt-4 rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-200">{importError}</p>}
+
+              {importedOpportunities.length > 0 && (
+                <div className="mt-5">
+                  <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-sm font-bold text-white">Prévia para conferência</p>
+                    <span className="rounded-full bg-cyan-500/15 px-3 py-1 text-xs font-bold text-cyan-200">{importedOpportunities.length} oportunidades encontradas</span>
+                  </div>
+                  <p className="mb-4 text-xs leading-relaxed text-slate-400">Confira os dados antes de confirmar. Nenhuma oportunidade foi salva ainda.</p>
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {importedOpportunities.map((opportunity) => (
+                      <article key={opportunity.id} className="rounded-2xl border border-slate-700 bg-[#0B0F19] p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="font-bold text-white">{opportunity.city || 'Cidade não identificada'}</p>
+                            <p className="mt-1 text-xs text-cyan-200">{opportunity.day || 'Data não identificada'}{opportunity.eventType ? ` · ${opportunity.eventType}` : ''}</p>
+                          </div>
+                          <button type="button" onClick={() => setEditingImportId(editingImportId === opportunity.id ? '' : opportunity.id)} className="rounded-lg border border-slate-700 bg-slate-900 p-2 text-slate-300 transition-colors hover:border-indigo-400 hover:text-white" title="Editar oportunidade">
+                            <Edit size={15} />
+                          </button>
+                        </div>
+                        {editingImportId === opportunity.id ? (
+                          <div className="mt-3 grid gap-2 text-xs">
+                            {[
+                              ['day', 'Data (dd/mm/aaaa)'], ['city', 'Cidade'], ['eventType', 'Tipo de evento'], ['organizer', 'Organizador'],
+                              ['responsible', 'Responsável'], ['contact', 'Contato'], ['phone', 'Telefone'], ['instagram', 'Instagram'],
+                            ].map(([field, label]) => (
+                              <label key={field} className="text-slate-400">{label}
+                                <input value={opportunity[field] || ''} onChange={(event) => updateImportedOpportunity(opportunity.id, field, event.target.value)} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs text-white outline-none focus:border-cyan-400" />
+                              </label>
+                            ))}
+                            <button type="button" onClick={() => setEditingImportId('')} className="mt-1 rounded-lg bg-indigo-600 py-2 text-xs font-bold text-white hover:bg-indigo-500">Concluir edição</button>
+                          </div>
+                        ) : (
+                          <div className="mt-3 space-y-1 text-xs text-slate-400">
+                            {opportunity.organizer && <p>Organizador: {opportunity.organizer}</p>}
+                            {opportunity.responsible && <p>Responsável: {opportunity.responsible}</p>}
+                            {opportunity.contact && <p>Contato: {opportunity.contact}</p>}
+                            {opportunity.phone && <p>Telefone: {opportunity.phone}</p>}
+                            {opportunity.instagram && <p>Instagram: {opportunity.instagram}</p>}
+                          </div>
+                        )}
+                        <div className="mt-4 grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => confirmImportedOpportunity(opportunity)}
+                            disabled={confirmingImportId === opportunity.id}
+                            className="rounded-lg bg-emerald-600 px-3 py-2 text-xs font-bold text-white transition-colors hover:bg-emerald-500 disabled:cursor-wait disabled:opacity-60"
+                          >
+                            {confirmingImportId === opportunity.id ? 'Salvando...' : 'Confirmar'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => cancelImportedOpportunity(opportunity.id)}
+                            disabled={confirmingImportId === opportunity.id}
+                            className="rounded-lg border border-slate-600 px-3 py-2 text-xs font-bold text-slate-200 transition-colors hover:bg-slate-800 disabled:opacity-60"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                  <div className="mt-5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs leading-relaxed text-amber-100">Confirme somente os cards corretos. Cada confirmação salva uma oportunidade anual no banco, sem reservar nem vender a data.</div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Modal - Cadastro de Contratante */}
       {isContractorModalOpen && (

@@ -1,7 +1,16 @@
 export const PLAN_DETAILS = Object.freeze({
-  lite: { label: 'Lite', price: 1000, agents: 5 },
-  pro: { label: 'Pro', price: 2000, agents: 10 },
-  ultra: { label: 'Ultra', price: 3000, agents: 20 },
+  lite: {
+    label: 'Lite', price: 1000, agents: 5,
+    benefits: ['Agenda inteligente e propostas', 'Mapa logístico', 'Até 5 agentes'],
+  },
+  pro: {
+    label: 'Pro', price: 2000, agents: 10,
+    benefits: ['Tudo do Lite', 'Oportunidades anuais', 'Até 10 agentes'],
+  },
+  ultra: {
+    label: 'Ultra', price: 3000, agents: 20,
+    benefits: ['Tudo do Pro', 'Inteligência comercial', 'Importar oportunidades', 'Até 20 agentes'],
+  },
 });
 
 export const getPlan = (planKey) => PLAN_DETAILS[planKey] || PLAN_DETAILS.lite;
