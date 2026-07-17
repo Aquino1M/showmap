@@ -90,32 +90,47 @@ const throwFunctionError = async (error, fallback) => {
   throw new Error(error.message || fallback);
 };
 
+// A função segura exige o token atual do usuário. Enviamos explicitamente o token
+// mais recente para evitar que o navegador reutilize uma sessão antiga ao salvar.
+const invokeManageUser = async (body) => {
+  let { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError) throw sessionError;
+  if (!session) throw new Error('Sessão inválida. Entre novamente para continuar.');
+
+  const expiresSoon = !session.expires_at || session.expires_at * 1000 < Date.now() + 60_000;
+  if (expiresSoon) {
+    const { data, error } = await supabase.auth.refreshSession();
+    if (error) throw error;
+    session = data.session;
+  }
+  if (!session?.access_token) throw new Error('Sessão inválida. Entre novamente para continuar.');
+
+  return supabase.functions.invoke('manage-user', {
+    body,
+    headers: { Authorization: `Bearer ${session.access_token}` },
+  });
+};
+
 const fetchCollection = async (collectionName) => {
   const table = TABLES[collectionName];
   if (!table) throw new Error(`Coleção inválida: ${collectionName}`);
 
   if (collectionName === 'events') {
-    const { data, error } = await supabase.functions.invoke('manage-user', {
-      body: { action: 'list_events' },
-    });
+    const { data, error } = await invokeManageUser({ action: 'list_events' });
     await throwFunctionError(error, 'Não foi possível carregar a agenda.');
     if (data?.error) throw new Error(data.error);
     return (data?.events || []).map(toEvent);
   }
 
   if (collectionName === 'users') {
-    const { data, error } = await supabase.functions.invoke('manage-user', {
-      body: { action: 'list_users' },
-    });
+    const { data, error } = await invokeManageUser({ action: 'list_users' });
     await throwFunctionError(error, 'Não foi possível carregar os usuários.');
     if (data?.error) throw new Error(data.error);
     return (data?.users || []).map(toUser);
   }
 
   if (collectionName === 'companies') {
-    const { data, error } = await supabase.functions.invoke('manage-user', {
-      body: { action: 'list_companies' },
-    });
+    const { data, error } = await invokeManageUser({ action: 'list_companies' });
     await throwFunctionError(error, 'Não foi possível carregar os escritórios.');
     if (data?.error) throw new Error(data.error);
     return (data?.companies || []).map(toCompany);
@@ -156,9 +171,7 @@ export const signOut = async () => {
 };
 
 export const ensureCurrentProfile = async () => {
-  const { data, error } = await supabase.functions.invoke('manage-user', {
-    body: { action: 'bootstrap' },
-  });
+  const { data, error } = await invokeManageUser({ action: 'bootstrap' });
   await throwFunctionError(error, 'Não foi possível preparar o perfil.');
   if (data?.error) throw new Error(data.error);
   return data?.profile || null;
@@ -200,8 +213,7 @@ export const subscribeCollection = (collectionName, callback) => {
 export const saveDocument = async (collectionName, data) => {
   if (collectionName === 'users') {
     const action = data.id ? 'update' : 'create';
-    const { data: result, error } = await supabase.functions.invoke('manage-user', {
-      body: {
+    const { data: result, error } = await invokeManageUser({
         action,
         id: data.id || undefined,
         name: data.name,
@@ -209,7 +221,6 @@ export const saveDocument = async (collectionName, data) => {
         password: data.password || undefined,
         role: data.role,
         companyId: data.companyId || null,
-      },
     });
     await throwFunctionError(error, 'Não foi possível salvar o usuário.');
     if (result?.error) throw new Error(result.error);
@@ -219,9 +230,7 @@ export const saveDocument = async (collectionName, data) => {
 
   const row = collectionName === 'companies' ? fromCompany(data) : fromEvent(data);
   if (collectionName === 'companies') {
-    const { data: result, error } = await supabase.functions.invoke('manage-user', {
-      body: { action: 'save_company', company: row },
-    });
+    const { data: result, error } = await invokeManageUser({ action: 'save_company', company: row });
     await throwFunctionError(error, 'Não foi possível salvar o escritório.');
     if (result?.error) throw new Error(result.error);
     notifyCollectionChanged('companies');
@@ -229,9 +238,7 @@ export const saveDocument = async (collectionName, data) => {
   }
 
   if (collectionName === 'events') {
-    const { data: result, error } = await supabase.functions.invoke('manage-user', {
-      body: { action: 'save_event', event: row },
-    });
+    const { data: result, error } = await invokeManageUser({ action: 'save_event', event: row });
     await throwFunctionError(error, 'Não foi possível salvar a agenda.');
     if (result?.error) throw new Error(result.error);
     notifyCollectionChanged('events');
@@ -249,9 +256,7 @@ export const saveDocument = async (collectionName, data) => {
 
 export const deleteDocument = async (collectionName, docId) => {
   if (collectionName === 'users') {
-    const { data, error } = await supabase.functions.invoke('manage-user', {
-      body: { action: 'delete', id: docId },
-    });
+    const { data, error } = await invokeManageUser({ action: 'delete', id: docId });
     await throwFunctionError(error, 'Não foi possível excluir o usuário.');
     if (data?.error) throw new Error(data.error);
     notifyCollectionChanged('users');
@@ -259,9 +264,7 @@ export const deleteDocument = async (collectionName, docId) => {
   }
 
   if (collectionName === 'events') {
-    const { data, error } = await supabase.functions.invoke('manage-user', {
-      body: { action: 'delete_event', id: docId },
-    });
+    const { data, error } = await invokeManageUser({ action: 'delete_event', id: docId });
     await throwFunctionError(error, 'Não foi possível excluir a agenda.');
     if (data?.error) throw new Error(data.error);
     notifyCollectionChanged('events');
@@ -269,9 +272,7 @@ export const deleteDocument = async (collectionName, docId) => {
   }
 
   if (collectionName === 'companies') {
-    const { data, error } = await supabase.functions.invoke('manage-user', {
-      body: { action: 'delete_company', id: docId },
-    });
+    const { data, error } = await invokeManageUser({ action: 'delete_company', id: docId });
     await throwFunctionError(error, 'Não foi possível excluir o escritório.');
     if (data?.error) throw new Error(data.error);
     notifyCollectionChanged('companies');
@@ -284,9 +285,7 @@ export const deleteDocument = async (collectionName, docId) => {
 };
 
 export const renewCompanyPlan = async (companyId) => {
-  const { data, error } = await supabase.functions.invoke('manage-user', {
-    body: { action: 'renew_company_plan', id: companyId },
-  });
+  const { data, error } = await invokeManageUser({ action: 'renew_company_plan', id: companyId });
   await throwFunctionError(error, 'Não foi possível renovar o plano.');
   if (data?.error) throw new Error(data.error);
   notifyCollectionChanged('companies');
