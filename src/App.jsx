@@ -16,7 +16,6 @@ import { DEFAULT_MAP_VIEWPORT, getCityCoordinateKey, getCityCoordinates, getPann
 import { filterMapEvents, getCalendarDayType, getEventDateKey, getEventStatusLabel, getRecurringOccurrenceDate, getShowProximityColor, getTourArtists, isCalendarEvent } from './lib/tour';
 import TourMapControls from './components/TourMapControls';
 import MapLegend from './components/MapLegend';
-import FloatingCommercialAssistant from './components/FloatingCommercialAssistant';
 import { 
   Map, CalendarDays, MapPin, Plus, ChevronLeft, ChevronRight, Users,
   LayoutDashboard, X, Briefcase, FileText, Building, 
@@ -25,6 +24,7 @@ import {
 } from 'lucide-react';
 
 const RealTourMap = lazy(() => import('./components/RealTourMap'));
+const FloatingCommercialAssistant = lazy(() => import('./components/FloatingCommercialAssistant'));
 
 function InstallAppButton({ className = '' }) {
   const [installEvent, setInstallEvent] = useState(null);
@@ -1266,7 +1266,7 @@ export default function App() {
   return (
     <div className="min-h-[100dvh] bg-[#0B0F19] text-slate-200 flex flex-col h-[100dvh] overflow-hidden">
       <ToastNotification toast={toast} />
-      {authUser.role === 'company_admin' && <FloatingCommercialAssistant events={visibleEvents} onOpenChange={setIsCommercialAssistantOpen} />}
+      {authUser.role === 'company_admin' && <Suspense fallback={null}><FloatingCommercialAssistant events={visibleEvents} onOpenChange={setIsCommercialAssistantOpen} /></Suspense>}
       
       {/* Header Dashboard */}
       <header className="bg-[#111827] border-b border-slate-800 p-3 sm:p-4 shrink-0 z-30 flex justify-between items-center">

@@ -1,9 +1,9 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-import App from './App.jsx'
 import { isSupabaseConfigured } from './supabase.js'
 import AppErrorBoundary from './components/AppErrorBoundary.jsx'
+import AppLoader from './components/AppLoader.jsx'
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
@@ -15,7 +15,7 @@ const root = createRoot(document.getElementById('root'))
 
 root.render(
   <StrictMode>
-    <AppErrorBoundary>{isSupabaseConfigured ? <App /> : (
+    <AppErrorBoundary>{isSupabaseConfigured ? <AppLoader /> : (
       <main className="min-h-screen bg-slate-950 px-6 text-slate-100 grid place-items-center">
         <section className="max-w-lg rounded-2xl border border-indigo-500/30 bg-slate-900 p-8 text-center shadow-2xl">
           <h1 className="text-3xl font-extrabold text-white">ShowMap</h1>
