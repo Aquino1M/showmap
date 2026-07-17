@@ -1036,8 +1036,7 @@ export default function App() {
     TABS.push(
       { id: 'map', label: 'Mapa', icon: Map },
       { id: 'proposals', label: 'Propostas', icon: FileText },
-      { id: 'calendar', label: 'Calendário', icon: CalendarDays },
-      { id: 'contractors', label: 'Novo Evento', icon: UserPlus }
+      { id: 'calendar', label: 'Calendário', icon: CalendarDays }
     );
   }
 
@@ -1205,26 +1204,6 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB: CONTRATANTES */}
-        {activeTab === 'contractors' && authUser.role === 'agent' && (
-          <div className="max-w-7xl mx-auto">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-              <div>
-                <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2"><UserPlus className="text-indigo-400"/> Novo Evento</h2>
-                <p className="text-xs text-slate-400 mt-1">Registre uma nova proposta de espetáculo no sistema.</p>
-              </div>
-              <button onClick={() => setIsContractorModalOpen(true)} className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg">
-                <Plus size={16}/> Novo Evento
-              </button>
-            </div>
-            
-            <div className="bg-[#111827] border border-slate-800 rounded-2xl p-6 text-center">
-              <Users size={48} className="mx-auto text-slate-600 mb-4" />
-              <p className="text-slate-400 text-sm">Cadastre os dados do contratante e do evento para criar uma nova proposta.</p>
-            </div>
-          </div>
-        )}
-
         {/* TAB: GESTÃO DE AGENDA & PROPOSTAS */}
         {activeTab === 'proposals' && (
           <div className="max-w-7xl mx-auto">
@@ -1234,6 +1213,11 @@ export default function App() {
                  <button onClick={() => openEventModal()} className="bg-indigo-600 px-4 py-2 rounded-xl text-sm font-bold text-white flex items-center gap-2">
                    <Plus size={16}/> Data Livre
                  </button>
+              )}
+              {authUser.role === 'agent' && (
+                <button onClick={() => setIsContractorModalOpen(true)} className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 shadow-lg">
+                  <Plus size={16}/> Novo Evento
+                </button>
               )}
             </div>
             
