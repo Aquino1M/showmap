@@ -6,6 +6,17 @@ const isTourEvent = (event) => isSoldEvent(event) || isScheduledEvent(event);
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const atMidday = (date) => new Date(`${date}T12:00:00`);
 
+export const getEventDateKey = (value) => {
+  const dateValue = String(value || '').trim();
+  const isoDate = dateValue.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (isoDate) return isoDate[1];
+
+  const brazilianDate = dateValue.match(/^(\d{2})\/(\d{2})\/(\d{4})/);
+  if (brazilianDate) return `${brazilianDate[3]}-${brazilianDate[2]}-${brazilianDate[1]}`;
+
+  return '';
+};
+
 export const filterMapEvents = (events, user, mode, artistName = '') => {
   if (mode !== 'tour') return events.filter((event) => !isTourEvent(event));
 

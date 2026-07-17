@@ -12,7 +12,7 @@ import {
 } from './firebase';
 import { PLAN_DETAILS, getPlanDaysRemaining, isPlanExpired } from './lib/plans';
 import { DEFAULT_MAP_VIEWPORT, getCityCoordinateKey, getCityCoordinates, getPannedViewport, getZoomedViewport, resolveCityCoordinates } from './lib/map';
-import { filterMapEvents, getCalendarDayType, getEventStatusLabel, getShowProximityColor, getTourArtists, isCalendarEvent } from './lib/tour';
+import { filterMapEvents, getCalendarDayType, getEventDateKey, getEventStatusLabel, getShowProximityColor, getTourArtists, isCalendarEvent } from './lib/tour';
 import TourMapControls from './components/TourMapControls';
 import MapLegend from './components/MapLegend';
 import FloatingCommercialAssistant from './components/FloatingCommercialAssistant';
@@ -742,7 +742,7 @@ export default function App() {
 
   const calendarEvents = useMemo(() => visibleEvents.filter((event) =>
     isCalendarEvent(event) &&
-    (!selectedCalendarDate || event.date === selectedCalendarDate)
+    (!selectedCalendarDate || getEventDateKey(event.date) === selectedCalendarDate)
   ), [visibleEvents, selectedCalendarDate]);
 
   const zoomMap = (factor, focus) => setMapViewport((current) => getZoomedViewport(current, factor, focus));
@@ -1431,7 +1431,7 @@ export default function App() {
                 <div className="grid grid-cols-7 gap-1 sm:gap-2">
                   {calendarDays.map((item, index) => {
                     if (!item) return <div key={`empty-${index}`} />;
-                    const eventsOnDay = visibleEvents.filter((event) => event.date === item.date && isCalendarEvent(event));
+                    const eventsOnDay = visibleEvents.filter((event) => getEventDateKey(event.date) === item.date && isCalendarEvent(event));
                     const dayType = getCalendarDayType(eventsOnDay);
                     const selected = selectedCalendarDate === item.date;
                     const dayStyle = dayType === 'sold'
@@ -1674,7 +1674,7 @@ export default function App() {
             <form onSubmit={handleSaveContractor} className="p-4 sm:p-6 overflow-y-auto custom-scrollbar space-y-5">
               {contractorForm.date && (() => {
                 const eventsOnSelectedDate = visibleEvents
-                  .filter((event) => event.date === contractorForm.date && isCalendarEvent(event))
+                  .filter((event) => getEventDateKey(event.date) === contractorForm.date && isCalendarEvent(event))
                   .sort((a, b) => (['Vendido', 'Confirmado'].includes(a.status) ? -1 : 0) - (['Vendido', 'Confirmado'].includes(b.status) ? -1 : 0));
                 if (eventsOnSelectedDate.length === 0) return null;
                 return <section className="rounded-2xl border border-slate-700 bg-[#0B0F19] p-4">

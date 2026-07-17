@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { filterMapEvents, getCalendarDayType, getShowProximityColor, getTourArtists } from '../src/lib/tour.js';
+import { filterMapEvents, getCalendarDayType, getEventDateKey, getShowProximityColor, getTourArtists } from '../src/lib/tour.js';
 
 const events = [
   { id: '1', status: 'Disponível', artistName: '', agentId: null },
@@ -28,6 +28,11 @@ test('calendário diferencia data livre, agendada e vendida', () => {
   assert.equal(getCalendarDayType([{ status: 'Proposta' }]), 'proposal');
   assert.equal(getCalendarDayType([{ status: 'Agendado' }]), 'scheduled');
   assert.equal(getCalendarDayType([{ status: 'Disponível' }, { status: 'Vendido' }]), 'sold');
+});
+
+test('calendário normaliza datas legadas com horário ou formato brasileiro', () => {
+  assert.equal(getEventDateKey('2026-08-10T00:00:00.000Z'), '2026-08-10');
+  assert.equal(getEventDateKey('10/08/2026'), '2026-08-10');
 });
 
 test('cor do brilho da turnê segue a proximidade do show', () => {
