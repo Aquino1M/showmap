@@ -294,6 +294,7 @@ export default function App() {
   const [mapMode, setMapMode] = useState('tour');
   const [mapDisplay, setMapDisplay] = useState('svg');
   const [isArtistMenuOpen, setIsArtistMenuOpen] = useState(false);
+  const [realMapViewport, setRealMapViewport] = useState(null);
   const [selectedTourArtist, setSelectedTourArtist] = useState('');
   const [mapViewport, setMapViewport] = useState(DEFAULT_MAP_VIEWPORT);
   const [resolvedMapCoordinates, setResolvedMapCoordinates] = useState({});
@@ -1620,6 +1621,8 @@ export default function App() {
                       onSelectEvent={setSelectedMapEventId}
                       onSelectState={(stateId) => { setSelectedMapState(stateId); setSelectedMapEventId(null); }}
                       resetToken={mapResetToken}
+                      initialViewport={realMapViewport}
+                      onViewportChange={setRealMapViewport}
                     />
                   </Suspense>
                 </div>

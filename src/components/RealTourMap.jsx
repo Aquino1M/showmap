@@ -38,6 +38,17 @@ function StateClickHandler({ onSelectState }) {
   return null;
 }
 
+function ViewportTracker({ onViewportChange }) {
+  useMapEvents({
+    moveend: (event) => {
+      const map = event.target;
+      const center = map.getCenter();
+      onViewportChange?.({ center: [center.lat, center.lng], zoom: map.getZoom() });
+    },
+  });
+  return null;
+}
+
 function MapActions({ defaultZoom }) {
   const map = useMap();
   return (
@@ -49,7 +60,7 @@ function MapActions({ defaultZoom }) {
   );
 }
 
-export default function RealTourMap({ events, mapMode, selectedState, selectedEventId, onSelectEvent, onSelectState, resetToken }) {
+export default function RealTourMap({ events, mapMode, selectedState, selectedEventId, onSelectEvent, onSelectState, resetToken, initialViewport, onViewportChange }) {
   const [locations, setLocations] = useState({});
   const defaultZoom = useMemo(
     () => (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches ? MOBILE_BRAZIL_ZOOM : BRAZIL_ZOOM),
@@ -73,10 +84,11 @@ export default function RealTourMap({ events, mapMode, selectedState, selectedEv
 
   return (
     <div className="relative h-full w-full overflow-hidden rounded-xl">
-      <MapContainer center={BRAZIL_CENTER} zoom={defaultZoom} minZoom={defaultZoom} maxZoom={14} maxBounds={BRAZIL_BOUNDS} maxBoundsViscosity={0.25} dragging touchZoom doubleClickZoom zoomControl={false} attributionControl={false} scrollWheelZoom className="h-full w-full bg-[#101827]" aria-label="Mapa geográfico dos eventos">
+      <MapContainer center={initialViewport?.center || BRAZIL_CENTER} zoom={initialViewport?.zoom || defaultZoom} minZoom={defaultZoom} maxZoom={14} maxBounds={BRAZIL_BOUNDS} maxBoundsViscosity={0.25} dragging touchZoom doubleClickZoom zoomControl={false} attributionControl={false} scrollWheelZoom className="h-full w-full bg-[#101827]" aria-label="Mapa geográfico dos eventos">
         <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         <ResetMap resetToken={resetToken} defaultZoom={defaultZoom} />
         <StateClickHandler onSelectState={onSelectState} />
+        <ViewportTracker onViewportChange={onViewportChange} />
         <MapActions defaultZoom={defaultZoom} />
         {visibleEvents.map((event) => {
           const key = getCityCoordinateKey(event.stateId, event.city);
