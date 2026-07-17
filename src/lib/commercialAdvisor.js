@@ -4,6 +4,18 @@ const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const TOUR_STATUSES = new Set(['Reservado', 'Agendado', 'Vendido', 'Confirmado']);
 const OPPORTUNITY_STATUSES = new Set(['Disponível', 'Proposta']);
 
+const STATE_ALIASES = {
+  acre: 'AC', alagoas: 'AL', amapa: 'AP', amazonas: 'AM', bahia: 'BA', ceara: 'CE',
+  'distrito federal': 'DF', espirito: 'ES', goias: 'GO', maranhao: 'MA', 'mato grosso': 'MT',
+  'mato grosso do sul': 'MS', 'minas gerais': 'MG', para: 'PA', paraiba: 'PB', parana: 'PR',
+  pernambuco: 'PE', piaui: 'PI', 'rio de janeiro': 'RJ', 'rio grande do norte': 'RN',
+  'rio grande do sul': 'RS', rondonia: 'RO', roraima: 'RR', 'santa catarina': 'SC',
+  'sao paulo': 'SP', sergipe: 'SE', tocantins: 'TO', go: 'GO', df: 'DF', sp: 'SP',
+  rj: 'RJ', mg: 'MG', ba: 'BA', pr: 'PR', sc: 'SC', rs: 'RS', mt: 'MT', ms: 'MS',
+  pa: 'PA', am: 'AM', ro: 'RO', ac: 'AC', rr: 'RR', ap: 'AP', ma: 'MA', pi: 'PI',
+  ce: 'CE', rn: 'RN', pb: 'PB', pe: 'PE', al: 'AL', se: 'SE', to: 'TO', es: 'ES',
+};
+
 const toDate = (value) => new Date(`${value}T12:00:00`);
 
 const distanceInKm = (first, second) => {
@@ -18,6 +30,23 @@ const distanceInKm = (first, second) => {
 };
 
 const formatDate = (date) => toDate(date).toLocaleDateString('pt-BR');
+
+const normalize = (value = '') => String(value)
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .toLocaleLowerCase('pt-BR');
+
+const formatEvent = (event) => `${event.city} - ${event.stateId} (${formatDate(event.date)} · ${event.status})`;
+
+const listEvents = (events, emptyMessage) => events.length
+  ? events.slice(0, 6).map(formatEvent).join('; ')
+  : emptyMessage;
+
+const findStateInQuestion = (question) => Object.entries(STATE_ALIASES)
+  .filter(([name]) => name.length > 2 ? question.includes(name) : new RegExp(`(^|\\s)${name}(?=\\s|$)`).test(question))
+  .sort(([first], [second]) => second.length - first.length)[0]?.[1];
+
+const futureFirst = (events) => [...events].sort((first, second) => toDate(first.date) - toDate(second.date));
 
 export const buildCommercialSuggestion = (events, referenceDate = new Date()) => {
   const today = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), referenceDate.getDate());
@@ -49,10 +78,43 @@ export const buildCommercialSuggestion = (events, referenceDate = new Date()) =>
 };
 
 export const getSystemAnswer = (question, events) => {
-  const normalized = question.toLocaleLowerCase('pt-BR');
+  const normalized = normalize(question);
+  const today = new Date();
+  const stateId = findStateInQuestion(normalized);
+  const scopedEvents = stateId ? events.filter((event) => event.stateId === stateId) : events;
+  const futureEvents = futureFirst(scopedEvents.filter((event) => toDate(event.date) >= today));
+  const hasShowIntent = /show|turne|agenda|evento|eventos|tenho|tem/.test(normalized);
+
   if (/roteiro|sugest|viagem|km|distância|distancia/.test(normalized)) return buildCommercialSuggestion(events);
-  if (/proposta|propostas|cadastr/.test(normalized)) return 'Para criar uma proposta, abra o Calendário, clique no dia desejado e preencha a ficha. O registro nasce com status Proposta.';
-  if (/reserv|vend|agend/.test(normalized)) return 'Na Agenda e Propostas, o escritório pode marcar uma proposta como Reservado ou Vendido. O agente só altera as propostas assumidas por ele.';
-  if (/data livre|disponível|disponivel/.test(normalized)) return 'Cadastro cria uma data livre no banco, com status Disponível. Ele não altera uma proposta, reserva ou venda já existente.';
-  return 'Posso ajudar com propostas, datas livres, reservas, vendas e sugestões de roteiro. Experimente perguntar: “Sugira um roteiro para meus shows”.';
+  if (/datas? livres?|dispon[ií]veis?/.test(normalized)) {
+    const available = futureFirst(scopedEvents.filter((event) => event.status === 'Disponível' && toDate(event.date) >= today));
+    return `Datas livres${stateId ? ` em ${stateId}` : ''}: ${listEvents(available, 'nenhuma data livre futura cadastrada.')}`;
+  }
+  if (/proposta|propostas/.test(normalized)) {
+    const proposals = futureFirst(scopedEvents.filter((event) => event.status === 'Proposta' && toDate(event.date) >= today));
+    return `Propostas${stateId ? ` em ${stateId}` : ''}: ${listEvents(proposals, 'nenhuma proposta futura cadastrada.')}`;
+  }
+  if (/reserv|agend/.test(normalized)) {
+    const booked = futureFirst(scopedEvents.filter((event) => ['Reservado', 'Agendado', 'Confirmado'].includes(event.status) && toDate(event.date) >= today));
+    return `Shows agendados${stateId ? ` em ${stateId}` : ''}: ${listEvents(booked, 'nenhum show agendado futuro cadastrado.')}`;
+  }
+  if (/vend/.test(normalized)) {
+    const sold = futureFirst(scopedEvents.filter((event) => event.status === 'Vendido' && toDate(event.date) >= today));
+    return `Shows vendidos${stateId ? ` em ${stateId}` : ''}: ${listEvents(sold, 'nenhum show vendido futuro cadastrado.')}`;
+  }
+  if (/artista|cantor/.test(normalized)) {
+    const artists = [...new Set(events.map((event) => event.artistName).filter(Boolean))];
+    return artists.length ? `Artistas cadastrados neste escritório: ${artists.join(', ')}.` : 'Ainda não há artistas cadastrados nos eventos deste escritório.';
+  }
+  if (/contratante|prefeitura|cliente/.test(normalized)) {
+    const contractors = [...new Set(scopedEvents.map((event) => event.contractorName).filter(Boolean))];
+    return contractors.length ? `Contratantes${stateId ? ` em ${stateId}` : ''}: ${contractors.slice(0, 8).join(', ')}.` : 'Nenhum contratante encontrado para esta consulta.';
+  }
+  if (stateId && hasShowIntent) {
+    return `Agenda${stateId ? ` em ${stateId}` : ''}: ${listEvents(futureEvents.filter((event) => event.status !== 'Disponível'), 'nenhum show ou proposta futuro cadastrado.')}`;
+  }
+  if (/próximo|proximo|quando|qual show|meus shows/.test(normalized)) {
+    return `Próximos registros: ${listEvents(futureFirst(events.filter((event) => toDate(event.date) >= today && event.status !== 'Disponível')), 'nenhum show ou proposta futuro cadastrado.')}`;
+  }
+  return 'Posso consultar os dados deste escritório. Pergunte, por exemplo: “Qual show tenho em Goiás?”, “Quais datas livres eu tenho?”, “Mostre minhas propostas”, “Quais artistas estão cadastrados?” ou “Sugira um roteiro”.';
 };

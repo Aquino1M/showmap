@@ -1,5 +1,6 @@
 const isSoldEvent = (event) => event.status === 'Confirmado' || event.status === 'Vendido';
 const isScheduledEvent = (event) => event.status === 'Reservado' || event.status === 'Agendado';
+const isProposalEvent = (event) => event.status === 'Proposta';
 const isTourEvent = (event) => isSoldEvent(event) || isScheduledEvent(event);
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
@@ -34,11 +35,12 @@ export const getShowProximityColor = (date, now = new Date()) => {
 export const getCalendarDayType = (events) => {
   if (events.some(isSoldEvent)) return 'sold';
   if (events.some(isScheduledEvent)) return 'scheduled';
+  if (events.some(isProposalEvent)) return 'proposal';
   if (events.some((event) => event.status === 'Disponível')) return 'available';
   return 'empty';
 };
 
-export const isCalendarEvent = (event) => isTourEvent(event) || event.status === 'Disponível';
+export const isCalendarEvent = (event) => isTourEvent(event) || isProposalEvent(event) || event.status === 'Disponível';
 
 export const getEventStatusLabel = (status) => {
   if (status === 'Confirmado') return 'Vendido';

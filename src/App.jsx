@@ -1438,11 +1438,13 @@ export default function App() {
                       ? 'border-red-400 bg-red-500/10 hover:border-red-300'
                       : dayType === 'scheduled'
                         ? 'border-orange-400 bg-orange-500/10 hover:border-orange-300'
+                        : dayType === 'proposal'
+                          ? 'border-violet-400 bg-violet-500/10 hover:border-violet-300'
                         : dayType === 'available'
                           ? 'border-sky-400 bg-sky-500/10 hover:border-sky-300'
                           : 'border-slate-800 bg-[#0B0F19] hover:border-slate-600';
-                    const dayLabel = dayType === 'sold' ? 'Vendido' : dayType === 'scheduled' ? 'Agendado' : 'Livre';
-                    const dayLabelColor = dayType === 'sold' ? 'text-red-300' : dayType === 'scheduled' ? 'text-orange-300' : 'text-sky-300';
+                    const dayLabel = dayType === 'sold' ? 'Vendido' : dayType === 'scheduled' ? 'Agendado' : dayType === 'proposal' ? 'Proposta' : 'Livre';
+                    const dayLabelColor = dayType === 'sold' ? 'text-red-300' : dayType === 'scheduled' ? 'text-orange-300' : dayType === 'proposal' ? 'text-violet-300' : 'text-sky-300';
                     return <button key={item.date} onClick={() => { setSelectedCalendarDate(item.date); openProposalModal(item.date); }} className={`min-h-12 sm:min-h-16 rounded-lg border-2 p-1.5 text-left transition-colors ${selected ? 'ring-2 ring-indigo-400 ring-offset-1 ring-offset-[#111827]' : dayStyle}`}>
                       <span className="text-xs font-bold text-white">{item.day}</span>
                       {eventsOnDay.length > 0 && <span className={`mt-1 block text-[9px] font-semibold truncate ${dayLabelColor}`}>{dayLabel}</span>}
@@ -1452,6 +1454,7 @@ export default function App() {
                 <div className="mt-4 flex flex-wrap gap-3 text-[11px] font-semibold text-slate-300">
                   <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded border-2 border-red-400 bg-red-500/10"/> Vendido</span>
                   <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded border-2 border-orange-400 bg-orange-500/10"/> Agendado</span>
+                  <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded border-2 border-violet-400 bg-violet-500/10"/> Proposta</span>
                   <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded border-2 border-sky-400 bg-sky-500/10"/> Data livre</span>
                 </div>
                 {selectedCalendarDate && <button onClick={() => setSelectedCalendarDate('')} className="mt-3 text-xs text-indigo-300 hover:text-white">Limpar seleção</button>}
@@ -1482,7 +1485,7 @@ export default function App() {
                         </div>
                       </div>
                       <div>
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase ${ev.status === 'Disponível' ? 'bg-sky-500' : ['Confirmado', 'Vendido'].includes(ev.status) ? 'bg-red-500' : 'bg-orange-500'}`}>
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase ${ev.status === 'Disponível' ? 'bg-sky-500' : ev.status === 'Proposta' ? 'bg-violet-500' : ['Confirmado', 'Vendido'].includes(ev.status) ? 'bg-red-500' : 'bg-orange-500'}`}>
                           {getEventStatusLabel(ev.status)}
                         </span>
                       </div>

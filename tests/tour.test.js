@@ -25,6 +25,7 @@ test('lista artistas confirmados sem repetir nomes', () => {
 
 test('calendário diferencia data livre, agendada e vendida', () => {
   assert.equal(getCalendarDayType([{ status: 'Disponível' }]), 'available');
+  assert.equal(getCalendarDayType([{ status: 'Proposta' }]), 'proposal');
   assert.equal(getCalendarDayType([{ status: 'Agendado' }]), 'scheduled');
   assert.equal(getCalendarDayType([{ status: 'Disponível' }, { status: 'Vendido' }]), 'sold');
 });

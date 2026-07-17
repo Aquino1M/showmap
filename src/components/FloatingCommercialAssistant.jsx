@@ -7,6 +7,13 @@ const initialMessage = {
   text: 'Olá! Sou o assistente comercial do ShowMap. Posso tirar dúvidas do sistema e analisar oportunidades de roteiro com os dados do seu escritório.',
 };
 
+const suggestedQuestions = [
+  'Qual show tenho em Goiás?',
+  'Quais datas livres eu tenho?',
+  'Mostre minhas propostas',
+  'Quais artistas estão cadastrados?',
+];
+
 export default function FloatingCommercialAssistant({ events, onOpenChange }) {
   const [isOpen, setIsOpen] = useState(false);
   const [question, setQuestion] = useState('');
@@ -47,6 +54,9 @@ export default function FloatingCommercialAssistant({ events, onOpenChange }) {
       </div>
       <div className="border-t border-slate-800 p-3">
         <button onClick={suggestRoute} className="mb-2 w-full rounded-xl border border-cyan-500/40 bg-cyan-500/10 px-3 py-2 text-xs font-bold text-cyan-200 hover:bg-cyan-500/20">Analisar roteiro até 600 km</button>
+        <div className="mb-2 flex flex-wrap gap-1.5">
+          {suggestedQuestions.map((suggestion) => <button key={suggestion} onClick={() => answer(suggestion)} className="rounded-lg border border-slate-700 bg-[#0B0F19] px-2 py-1 text-[10px] text-slate-300 hover:border-indigo-400 hover:text-white">{suggestion}</button>)}
+        </div>
         <form onSubmit={(event) => { event.preventDefault(); answer(question); }} className="flex gap-2">
           <input value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Digite sua dúvida" className="min-w-0 flex-1 rounded-xl border border-slate-700 bg-[#0B0F19] px-3 py-2 text-xs text-white outline-none focus:border-indigo-400" />
           <button type="submit" aria-label="Enviar pergunta" className="rounded-xl bg-indigo-600 p-2 text-white hover:bg-indigo-500"><Send size={16} /></button>
