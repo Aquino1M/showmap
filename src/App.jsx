@@ -1029,6 +1029,7 @@ export default function App() {
       { id: 'stats', label: 'Resumo', icon: LayoutDashboard },
       { id: 'proposals', label: 'Agenda & Propostas', icon: FileText },
       { id: 'calendar', label: 'Calendário', icon: CalendarDays },
+      { id: 'registration', label: 'Cadastro', icon: UserPlus },
       { id: 'agents', label: 'Agentes', icon: Users },
       { id: 'finance', label: 'Financeiro', icon: Briefcase }
     );
@@ -1204,21 +1205,30 @@ export default function App() {
           </div>
         )}
 
+        {/* TAB: CADASTRO DO ESCRITÓRIO */}
+        {activeTab === 'registration' && authUser.role === 'company_admin' && (
+          <div className="max-w-7xl mx-auto">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+              <div>
+                <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2"><UserPlus className="text-indigo-400"/> Cadastro</h2>
+                <p className="mt-1 text-xs text-slate-400">Registre uma data livre sem alterar o status dos eventos já cadastrados.</p>
+              </div>
+              <button onClick={() => openEventModal()} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg">
+                <Plus size={16}/> Cadastrar Data Livre
+              </button>
+            </div>
+            <div className="bg-[#111827] border border-slate-800 rounded-2xl p-6 text-center">
+              <CalendarDays size={48} className="mx-auto mb-4 text-slate-600" />
+              <p className="text-sm text-slate-400">Use este espaço para cadastrar datas abertas. As negociações e os status ficam na Agenda e Propostas.</p>
+            </div>
+          </div>
+        )}
+
         {/* TAB: GESTÃO DE AGENDA & PROPOSTAS */}
         {activeTab === 'proposals' && (
           <div className="max-w-7xl mx-auto">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
               <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2"><Briefcase className="text-indigo-400"/> Agenda e Propostas</h2>
-              {authUser.role === 'company_admin' && (
-                 <button onClick={() => openEventModal()} className="bg-indigo-600 px-4 py-2 rounded-xl text-sm font-bold text-white flex items-center gap-2">
-                   <Plus size={16}/> Data Livre
-                 </button>
-              )}
-              {authUser.role === 'agent' && (
-                <button onClick={() => setIsContractorModalOpen(true)} className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 px-4 py-2 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-2 shadow-lg">
-                  <Plus size={16}/> Novo Evento
-                </button>
-              )}
             </div>
             
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
@@ -1296,7 +1306,7 @@ export default function App() {
                          {/* Agente muda o status da proposta assumida; o escritório pode mudar qualquer proposta. */}
                          {(authUser.role === 'company_admin' || (authUser.role === 'agent' && ev.agentId === authUser.id)) && ev.status === 'Proposta' && (
                            <div className="flex gap-2">
-                             <button onClick={() => handleUpdateStatus(ev.id, 'Agendado')} className="flex-1 bg-orange-600 hover:bg-orange-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Agendar</button>
+                             <button onClick={() => handleUpdateStatus(ev.id, 'Reservado')} className="flex-1 bg-orange-600 hover:bg-orange-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Reservar</button>
                              <button onClick={() => handleUpdateStatus(ev.id, 'Vendido')} className="flex-1 bg-red-600 hover:bg-red-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Vendido</button>
                            </div>
                          )}
