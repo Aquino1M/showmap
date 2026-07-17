@@ -549,6 +549,11 @@ export default function App() {
   };
 
   // --- CRUD Contratantes (Apenas Agente cria propostas para o próprio escritório) ---
+  const openProposalModal = (date = '') => {
+    setContractorForm({ contractorName: '', email: '', phone: '', instagram: '', eventName: '', artistName: '', date, time: '', city: '', stateId: 'GO', type: 'cache' });
+    setIsContractorModalOpen(true);
+  };
+
   const handleSaveContractor = async (e) => {
     e.preventDefault();
     const newEvent = {
@@ -565,7 +570,7 @@ export default function App() {
       artistName: contractorForm.artistName,
       status: 'Proposta',
       companyId: authUser.companyId,
-      agentId: authUser.id,
+      agentId: authUser.role === 'agent' ? authUser.id : null,
     };
     try {
       await saveDocument('events', newEvent);
@@ -578,10 +583,10 @@ export default function App() {
   };
 
   // --- CRUD Shows / Eventos Livres (Escritório) ---
-  const openEventModal = (ev = null, freeDateRegistration = false) => {
+  const openEventModal = (ev = null, freeDateRegistration = false, prefilledDate = '') => {
     setIsFreeDateRegistration(Boolean(freeDateRegistration && !ev));
     if (ev) setFormData({ id: ev.id, date: ev.date, time: ev.time || '', city: ev.city, stateId: ev.stateId, type: ev.type, contractorName: ev.contractorName || '', contractorEmail: ev.contractorEmail || '', contractorPhone: ev.contractorPhone || '', contractorInstagram: ev.contractorInstagram || '', eventName: ev.eventName || '', artistName: ev.artistName || '' });
-    else setFormData({ id: null, date: '', time: '', city: '', stateId: 'GO', type: 'cache', contractorName: '', contractorEmail: '', contractorPhone: '', contractorInstagram: '', eventName: '', artistName: '' });
+    else setFormData({ id: null, date: prefilledDate, time: '', city: '', stateId: 'GO', type: 'cache', contractorName: '', contractorEmail: '', contractorPhone: '', contractorInstagram: '', eventName: '', artistName: '' });
     setIsEventModalOpen(true);
   };
 
@@ -1231,6 +1236,11 @@ export default function App() {
           <div className="max-w-7xl mx-auto">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
               <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2"><Briefcase className="text-indigo-400"/> Agenda e Propostas</h2>
+              {authUser.role === 'company_admin' && (
+                <button onClick={() => openEventModal(null, true)} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg">
+                  <Plus size={16}/> Cadastro
+                </button>
+              )}
             </div>
             
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
@@ -1310,6 +1320,7 @@ export default function App() {
                            <div className="flex gap-2">
                              <button onClick={() => handleUpdateStatus(ev.id, 'Reservado')} className="flex-1 bg-orange-600 hover:bg-orange-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Reservar</button>
                              <button onClick={() => handleUpdateStatus(ev.id, 'Vendido')} className="flex-1 bg-red-600 hover:bg-red-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Vendido</button>
+                             {authUser.role === 'company_admin' && <button onClick={() => openEventModal(null, true, ev.date)} className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Cadastro</button>}
                            </div>
                          )}
 
@@ -1416,7 +1427,7 @@ export default function App() {
                           : 'border-slate-800 bg-[#0B0F19] hover:border-slate-600';
                     const dayLabel = dayType === 'sold' ? 'Vendido' : dayType === 'scheduled' ? 'Agendado' : 'Livre';
                     const dayLabelColor = dayType === 'sold' ? 'text-red-300' : dayType === 'scheduled' ? 'text-orange-300' : 'text-sky-300';
-                    return <button key={item.date} onClick={() => setSelectedCalendarDate(selected ? '' : item.date)} className={`min-h-12 sm:min-h-16 rounded-lg border-2 p-1.5 text-left transition-colors ${selected ? 'ring-2 ring-indigo-400 ring-offset-1 ring-offset-[#111827]' : dayStyle}`}>
+                    return <button key={item.date} onClick={() => { setSelectedCalendarDate(item.date); openProposalModal(item.date); }} className={`min-h-12 sm:min-h-16 rounded-lg border-2 p-1.5 text-left transition-colors ${selected ? 'ring-2 ring-indigo-400 ring-offset-1 ring-offset-[#111827]' : dayStyle}`}>
                       <span className="text-xs font-bold text-white">{item.day}</span>
                       {eventsOnDay.length > 0 && <span className={`mt-1 block text-[9px] font-semibold truncate ${dayLabelColor}`}>{dayLabel}</span>}
                     </button>;
@@ -1642,6 +1653,23 @@ export default function App() {
             </div>
             
             <form onSubmit={handleSaveContractor} className="p-4 sm:p-6 overflow-y-auto custom-scrollbar space-y-5">
+              {contractorForm.date && (() => {
+                const eventsOnSelectedDate = visibleEvents
+                  .filter((event) => event.date === contractorForm.date && isCalendarEvent(event))
+                  .sort((a, b) => (['Vendido', 'Confirmado'].includes(a.status) ? -1 : 0) - (['Vendido', 'Confirmado'].includes(b.status) ? -1 : 0));
+                if (eventsOnSelectedDate.length === 0) return null;
+                return <section className="rounded-2xl border border-slate-700 bg-[#0B0F19] p-4">
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Já existe nesta data</p>
+                  <div className="mt-3 space-y-2">
+                    {eventsOnSelectedDate.map((event) => <div key={event.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-800 bg-[#111827] px-3 py-2 text-xs">
+                      <div><p className="font-bold text-white">{event.city} - {event.stateId}</p><p className="text-slate-400">{event.contractorName || 'Data livre'} {event.artistName ? `· ${event.artistName}` : ''}</p></div>
+                      <span className={`shrink-0 rounded-full px-2 py-1 font-bold ${['Vendido', 'Confirmado'].includes(event.status) ? 'bg-red-500/20 text-red-300' : event.status === 'Reservado' || event.status === 'Agendado' ? 'bg-orange-500/20 text-orange-300' : 'bg-sky-500/20 text-sky-300'}`}>{getEventStatusLabel(event.status)}</span>
+                    </div>)}
+                  </div>
+                  <p className="mt-3 text-xs text-slate-400">Preencha a ficha abaixo para cadastrar uma nova proposta nesta data.</p>
+                </section>;
+              })()}
+              <p className="text-sm font-bold text-white">Ficha de cadastro da proposta</p>
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[10px] font-bold text-slate-500 uppercase mb-2">Nome do Contratante</label>

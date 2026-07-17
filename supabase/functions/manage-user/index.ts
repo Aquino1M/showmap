@@ -203,8 +203,8 @@ Deno.serve(async (request) => {
       if (!isMaster && eventCompanyId !== caller.company_id) {
         throw new Error('Você não pode salvar dados de outro escritório.')
       }
-      if (!isMaster && !isCompanyAdmin && !eventId) {
-        throw new Error('O agente não pode criar cadastros. Apenas o escritório cadastra datas livres.')
+      if (!isMaster && !isCompanyAdmin && !eventId && (safeEvent.status !== 'Proposta' || eventAgentId !== authData.user.id)) {
+        throw new Error('O agente só pode cadastrar propostas em seu próprio nome.')
       }
 
       let existing: any = null
