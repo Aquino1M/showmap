@@ -294,6 +294,7 @@ export default function App() {
   const [hoveredState, setHoveredState] = useState(null);
   const [mapMode, setMapMode] = useState('tour');
   const [mapDisplay, setMapDisplay] = useState('svg');
+  const [isCommercialAssistantOpen, setIsCommercialAssistantOpen] = useState(false);
   const [isArtistMenuOpen, setIsArtistMenuOpen] = useState(false);
   const [realMapViewport, setRealMapViewport] = useState(null);
   const [selectedTourArtist, setSelectedTourArtist] = useState('');
@@ -1055,7 +1056,7 @@ export default function App() {
   return (
     <div className="min-h-[100dvh] bg-[#0B0F19] text-slate-200 flex flex-col h-[100dvh] overflow-hidden">
       <ToastNotification toast={toast} />
-      {authUser.role === 'company_admin' && <FloatingCommercialAssistant events={visibleEvents} />}
+      {authUser.role === 'company_admin' && <FloatingCommercialAssistant events={visibleEvents} onOpenChange={setIsCommercialAssistantOpen} />}
       
       {/* Header Dashboard */}
       <header className="bg-[#111827] border-b border-slate-800 p-3 sm:p-4 shrink-0 z-30 flex justify-between items-center">
@@ -1589,11 +1590,11 @@ export default function App() {
                 </div>
                 }
 
-                {mapDisplay === 'svg' && <div className="flex h-full w-full max-w-[500px] items-center justify-center p-3 sm:p-8">
+                {mapDisplay === 'svg' && <div className="flex h-full min-h-0 w-full items-center justify-center p-3 sm:p-6">
                   <svg
                     viewBox={`${mapViewport.x} ${mapViewport.y} ${mapViewport.width} ${mapViewport.height}`}
                     preserveAspectRatio="xMidYMid meet"
-                    className="h-full w-full cursor-grab touch-none active:cursor-grabbing"
+                    className="block h-full w-full max-h-full max-w-full cursor-grab touch-none active:cursor-grabbing"
                     onWheel={handleMapWheel}
                     onPointerDown={handleMapPointerDown}
                     onPointerMove={handleMapPointerMove}
@@ -1632,7 +1633,7 @@ export default function App() {
                     })}
                   </svg>
                 </div>}
-                {mapDisplay === 'svg' && mapMode === 'tour' && <MapLegend />}
+                {mapDisplay === 'svg' && mapMode === 'tour' && !isCommercialAssistantOpen && <MapLegend />}
                 {mapDisplay === 'real' && <div className="absolute inset-4 z-10 overflow-hidden rounded-xl">
                   <Suspense fallback={<div className="grid h-full place-items-center bg-[#111827] text-sm text-slate-400">Carregando mapa real…</div>}>
                     <RealTourMap
