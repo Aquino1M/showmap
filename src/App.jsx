@@ -15,6 +15,7 @@ import { DEFAULT_MAP_VIEWPORT, getCityCoordinateKey, getCityCoordinates, getPann
 import { filterMapEvents, getCalendarDayType, getEventStatusLabel, getShowProximityColor, getTourArtists, isCalendarEvent } from './lib/tour';
 import TourMapControls from './components/TourMapControls';
 import MapLegend from './components/MapLegend';
+import FloatingCommercialAssistant from './components/FloatingCommercialAssistant';
 import { 
   Map, CalendarDays, MapPin, Plus, ChevronLeft, ChevronRight, Users,
   LayoutDashboard, X, Briefcase, FileText, Building, 
@@ -351,13 +352,14 @@ export default function App() {
           : null);
       if (!profile) return;
       const company = profile.companyId ? companies.find((item) => item.id === profile.companyId) : null;
-      if (profile.companyId && !companiesLoaded) return;
-      if (profile.companyId && (!company || !company.active)) {
+      // Não bloqueia a sessão enquanto a consulta de escritórios ainda está carregando.
+      // Sem isso, uma demora de rede deixava o usuário preso em “Restaurando sua sessão”.
+      if (profile.companyId && companiesLoaded && (!company || !company.active)) {
         showToast('O escritório deste usuário está inativo ou não existe.', 'error');
         setCurrentView('login');
         return;
       }
-      if (profile.companyId && company?.planExpiresAt && isPlanExpired(company.planExpiresAt)) {
+      if (profile.companyId && companiesLoaded && company?.planExpiresAt && isPlanExpired(company.planExpiresAt)) {
         const message = 'Plano vencido. Fale com o administrador para renovar seu plano.';
         setProfileError(message);
         setAuthUser(null);
@@ -1053,6 +1055,7 @@ export default function App() {
   return (
     <div className="min-h-[100dvh] bg-[#0B0F19] text-slate-200 flex flex-col h-[100dvh] overflow-hidden">
       <ToastNotification toast={toast} />
+      {authUser.role === 'company_admin' && <FloatingCommercialAssistant events={visibleEvents} />}
       
       {/* Header Dashboard */}
       <header className="bg-[#111827] border-b border-slate-800 p-3 sm:p-4 shrink-0 z-30 flex justify-between items-center">
