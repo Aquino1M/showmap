@@ -740,10 +740,14 @@ export default function App() {
     });
   }, [calendarCursor]);
 
-  const calendarEvents = useMemo(() => visibleEvents.filter((event) =>
-    isCalendarEvent(event) &&
-    (!selectedCalendarDate || getEventDateKey(event.date) === selectedCalendarDate)
-  ), [visibleEvents, selectedCalendarDate]);
+  const calendarEvents = useMemo(() => {
+    const monthKey = `${calendarCursor.getFullYear()}-${String(calendarCursor.getMonth() + 1).padStart(2, '0')}`;
+    return visibleEvents.filter((event) => {
+      const eventDate = getEventDateKey(event.date);
+      return isCalendarEvent(event)
+        && (selectedCalendarDate ? eventDate === selectedCalendarDate : eventDate.startsWith(monthKey));
+    });
+  }, [visibleEvents, selectedCalendarDate, calendarCursor]);
 
   const zoomMap = (factor, focus) => setMapViewport((current) => getZoomedViewport(current, factor, focus));
 
@@ -1457,6 +1461,7 @@ export default function App() {
                   <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded border-2 border-violet-400 bg-violet-500/10"/> Proposta</span>
                   <span className="flex items-center gap-1.5"><span className="h-3 w-3 rounded border-2 border-sky-400 bg-sky-500/10"/> Data livre</span>
                 </div>
+                {!selectedCalendarDate && <p className="mt-3 text-xs text-slate-500">A lista abaixo mostra somente os registros do mês aberto.</p>}
                 {selectedCalendarDate && <button onClick={() => setSelectedCalendarDate('')} className="mt-3 text-xs text-indigo-300 hover:text-white">Limpar seleção</button>}
               </div>
               <div className="space-y-4">
@@ -1469,7 +1474,7 @@ export default function App() {
                     <div key={ev.id} className="flex flex-col sm:flex-row sm:items-center justify-between bg-[#0B0F19] border border-slate-800 p-4 rounded-xl gap-4">
                       <div className="flex items-center gap-4">
                         <div className="bg-[#111827] px-3 py-2 sm:px-4 sm:py-2 rounded-lg border border-slate-800 text-center min-w-[70px] sm:min-w-[90px]">
-                          <p className="text-[10px] text-slate-500 uppercase font-bold">{new Date(ev.date + 'T12:00:00').toLocaleString('pt-BR', {month: 'short'})}</p>
+                          <p className="text-[10px] text-slate-500 uppercase font-bold">{new Date(ev.date + 'T12:00:00').toLocaleString('pt-BR', {month: 'short'})} {new Date(ev.date + 'T12:00:00').getFullYear()}</p>
                           <p className="text-base sm:text-lg font-bold text-white">{new Date(ev.date + 'T12:00:00').getDate()}</p>
                         </div>
                         <div>
