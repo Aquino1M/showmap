@@ -49,10 +49,11 @@ export const getShowProximityColor = (date, now = new Date()) => {
   const today = atMidday(now.toISOString().slice(0, 10));
   const daysUntilShow = Math.ceil((atMidday(date) - today) / DAY_IN_MS);
 
-  if (daysUntilShow < 0 || daysUntilShow > 180) return null;
-  if (daysUntilShow <= 60) return '#ef4444';
-  if (daysUntilShow <= 120) return '#f97316';
-  return '#22c55e';
+  if (daysUntilShow < 0) return '#94a3b8';        // passado - cinza
+  if (daysUntilShow <= 60) return '#ef4444';       // até 2 meses - vermelho
+  if (daysUntilShow <= 120) return '#f97316';      // 3 a 4 meses - laranja
+  if (daysUntilShow <= 180) return '#22c55e';      // 5 a 6 meses - verde
+  return '#94a3b8';                                 // mais de 6 meses - cinza
 };
 
 export const getCalendarDayType = (events) => {

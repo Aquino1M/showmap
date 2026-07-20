@@ -1888,7 +1888,6 @@ export default function App() {
                   >
                     {Object.entries(BRAZIL_STATES).map(([uf, data]) => {
                       const isHovered = hoveredState === uf;
-                      const stateEvents = mapEvents.filter(e => e.stateId === uf && (!selectedMapState || e.stateId === selectedMapState));
                       
                       // Paleta de Cores Reais no Dashboard
                       let fill = data.color;
@@ -1898,24 +1897,28 @@ export default function App() {
                       return (
                         <g key={uf} onMouseEnter={() => setHoveredState(uf)} onMouseLeave={() => setHoveredState(null)} className="cursor-pointer transition-all duration-300">
                           <path onClick={() => { setSelectedMapState((current) => current === uf ? null : uf); setSelectedMapEventId(null); }} d={data.path} fill={fill} stroke={selectedMapState === uf ? '#22d3ee' : stroke} strokeWidth={selectedMapState === uf ? '4' : strokeWidth} strokeLinejoin="round" className={`transition-all duration-300 ease-in-out ${isHovered ? 'brightness-110' : ''}`} />
-                          
-                          {stateEvents.map((ev) => {
-                            const coord = resolvedMapCoordinates[getCityCoordinateKey(uf, ev.city)] || getCityCoordinates(uf, ev.city);
-                            const recurringDate = getRecurringOccurrenceDate(ev);
-                            const proximityColor = mapMode === 'tour' || ev.isRecurring ? getShowProximityColor(recurringDate || ev.date) : null;
-                            const markerColor = proximityColor || (mapMode === 'tour' ? '#94a3b8' : ev.isRecurring ? '#94a3b8' : '#38bdf8');
-                            return (
-                              <g key={ev.id}>
-                                {proximityColor && (
-                                  <circle cx={coord.cx} cy={coord.cy} r={isHovered ? "28" : "23"} fill={proximityColor} opacity="0.32" className="animate-ping" style={{ animationDuration: '2.2s' }}/>
-                                )}
-                                <circle onClick={(event) => { event.stopPropagation(); setSelectedMapEventId(ev.id); }} className="cursor-pointer" cx={coord.cx} cy={coord.cy} r={isHovered ? "14" : "11"} fill="#f8fafc" stroke={markerColor} strokeWidth="3" />
-                                <circle onClick={(event) => { event.stopPropagation(); setSelectedMapEventId(ev.id); }} className="cursor-pointer" cx={coord.cx} cy={coord.cy} r={isHovered ? "6" : "4.5"} fill={markerColor} />
-                              </g>
-                            )
-                          })}
                         </g>
                       );
+                    })}
+                    {/* Marcadores em camada separada para ficarem ACIMA dos estados */}
+                    {Object.entries(BRAZIL_STATES).map(([uf]) => {
+                      const isHovered = hoveredState === uf;
+                      const stateEvents = mapEvents.filter(e => e.stateId === uf && (!selectedMapState || e.stateId === selectedMapState));
+                      return stateEvents.map((ev) => {
+                        const coord = resolvedMapCoordinates[getCityCoordinateKey(uf, ev.city)] || getCityCoordinates(uf, ev.city);
+                        const recurringDate = getRecurringOccurrenceDate(ev);
+                        const proximityColor = getShowProximityColor(recurringDate || ev.date);
+                        const markerColor = ev.status === 'Proposta' ? '#38bdf8' : proximityColor;
+                        return (
+                          <g key={ev.id}>
+                            {proximityColor && proximityColor !== '#94a3b8' && markerColor !== '#38bdf8' && (
+                              <circle cx={coord.cx} cy={coord.cy} r={isHovered ? "28" : "23"} fill={proximityColor} opacity="0.32" className="animate-ping" style={{ animationDuration: '2.2s' }}/>
+                            )}
+                            <circle onClick={(event) => { event.stopPropagation(); setSelectedMapEventId(ev.id); }} className="cursor-pointer" cx={coord.cx} cy={coord.cy} r={isHovered ? "14" : "11"} fill="#f8fafc" stroke={markerColor} strokeWidth="3" />
+                            <circle onClick={(event) => { event.stopPropagation(); setSelectedMapEventId(ev.id); }} className="cursor-pointer" cx={coord.cx} cy={coord.cy} r={isHovered ? "6" : "4.5"} fill={markerColor} />
+                          </g>
+                        );
+                      });
                     })}
                   </svg>
                 </div>}

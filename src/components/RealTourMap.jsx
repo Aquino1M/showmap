@@ -94,9 +94,7 @@ export default function RealTourMap({ events, mapMode, selectedState, selectedEv
           const key = getCityCoordinateKey(event.stateId, event.city);
           const position = locations[key] || getCityLatLng(event.stateId, event.city);
           const occurrenceDate = getRecurringOccurrenceDate(event);
-          const color = mapMode === 'tour' || event.isRecurring
-            ? (getShowProximityColor(occurrenceDate || event.date) || '#94a3b8')
-            : '#38bdf8';
+          const color = event.status === 'Proposta' ? '#38bdf8' : getShowProximityColor(occurrenceDate || event.date);
           const selected = selectedEventId === event.id;
           return (
             <CircleMarker key={event.id} center={position} radius={selected ? 12 : 9} pathOptions={{ color: '#fff', weight: 3, fillColor: color, fillOpacity: 1 }} eventHandlers={{ click: () => onSelectEvent(event.id) }}>

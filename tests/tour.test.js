@@ -37,10 +37,11 @@ test('calendário normaliza datas legadas com horário ou formato brasileiro', (
 
 test('cor do brilho da turnê segue a proximidade do show', () => {
   const today = new Date('2026-07-16T12:00:00');
-  assert.equal(getShowProximityColor('2026-08-15', today), '#ef4444');
-  assert.equal(getShowProximityColor('2026-10-24', today), '#f97316');
-  assert.equal(getShowProximityColor('2026-12-20', today), '#22c55e');
-  assert.equal(getShowProximityColor('2027-02-01', today), null);
+  assert.equal(getShowProximityColor('2026-08-15', today), '#ef4444');   // até 2 meses - vermelho
+  assert.equal(getShowProximityColor('2026-10-24', today), '#f97316');   // 3 a 4 meses - laranja
+  assert.equal(getShowProximityColor('2026-12-20', today), '#22c55e');   // 5 a 6 meses - verde
+  assert.equal(getShowProximityColor('2027-02-01', today), '#94a3b8');   // mais de 6 meses - cinza
+  assert.equal(getShowProximityColor('2026-06-01', today), '#94a3b8');   // passado - cinza
 });
 
 test('cadastro recorrente usa a proxima ocorrencia anual', () => {
