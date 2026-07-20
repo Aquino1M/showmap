@@ -1955,7 +1955,7 @@ export default function App() {
                         const coord = resolvedMapCoordinates[getCityCoordinateKey(uf, ev.city)] || getCityCoordinates(uf, ev.city);
                         const recurringDate = getRecurringOccurrenceDate(ev);
                         const proximityColor = getShowProximityColor(recurringDate || ev.date);
-                        const markerColor = ev.status === 'Proposta' ? '#38bdf8' : proximityColor;
+                        const markerColor = proximityColor;
                         return (
                           <g key={ev.id}>
                             {proximityColor && proximityColor !== '#94a3b8' && markerColor !== '#38bdf8' && (
