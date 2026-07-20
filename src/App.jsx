@@ -1779,7 +1779,7 @@ export default function App() {
                           : 'border-slate-800 bg-[#0B0F19] hover:border-slate-600';
                     const dayLabel = dayType === 'sold' ? 'Vendido' : dayType === 'scheduled' ? 'Agendado' : dayType === 'proposal' ? 'Proposta' : dayType === 'registration' ? 'Cadastro' : 'Livre';
                     const dayLabelColor = dayType === 'sold' ? 'text-red-300' : dayType === 'scheduled' ? 'text-orange-300' : dayType === 'proposal' ? 'text-violet-300' : dayType === 'registration' && recurringColor === '#ef4444' ? 'text-red-300' : dayType === 'registration' && recurringColor === '#f97316' ? 'text-orange-300' : dayType === 'registration' && recurringColor === '#22c55e' ? 'text-green-300' : dayType === 'registration' ? 'text-slate-300' : 'text-sky-300';
-                    return <button key={item.date} onClick={() => { if (selectedCalendarDate === item.date) { setSelectedCalendarDate(''); } else { setSelectedCalendarDate(item.date); openProposalModal(item.date); } }} className={`min-h-12 sm:min-h-16 rounded-lg border-2 p-1.5 text-left transition-colors ${selected ? 'ring-2 ring-indigo-400 ring-offset-1 ring-offset-[#111827]' : dayStyle}`}>
+                    return <button key={item.date} onClick={() => { if (selectedCalendarDate === item.date) { setSelectedCalendarDate(''); } else { setSelectedCalendarDate(item.date); } }} className={`min-h-12 sm:min-h-16 rounded-lg border-2 p-1.5 text-left transition-colors ${selected ? 'ring-2 ring-indigo-400 ring-offset-1 ring-offset-[#111827]' : dayStyle}`}>
                       <span className="text-xs font-bold text-white">{item.day}</span>
                       {eventsOnDay.length > 0 && <span className={`mt-1 block text-[9px] font-semibold truncate ${dayLabelColor}`}>{dayLabel}</span>}
                     </button>;
@@ -1796,19 +1796,29 @@ export default function App() {
                 {selectedCalendarDate && <button onClick={() => setSelectedCalendarDate('')} className="mt-3 text-xs text-indigo-300 hover:text-white">Limpar seleção</button>}
               </div>
               <div className="space-y-4">
+                {/* Botão de cadastro para a data selecionada */}
+                {selectedCalendarDate && (authUser.role === 'company_admin' || authUser.role === 'superadmin') && (
+                  <button
+                    onClick={() => openEventModal(null, 'recurring', selectedCalendarDate)}
+                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Plus size={16}/> Cadastro para {new Date(selectedCalendarDate + 'T12:00:00').toLocaleDateString('pt-BR')}
+                  </button>
+                )}
+
                 {/* Calendário mostra shows e datas livres. */}
                 {calendarEvents.sort((a,b) => new Date(a.calendarDate || a.date) - new Date(b.calendarDate || b.date)).map(ev => {
                   const comp = companies.find(c => c.id === ev.companyId);
                   const agent = users.find(u => u.id === ev.agentId);
                   
                   return (
-                    <div key={ev.id} className="flex flex-col sm:flex-row sm:items-center justify-between bg-[#0B0F19] border border-slate-800 p-4 rounded-xl gap-4">
+                    <div key={ev.id} className="flex flex-col bg-[#0B0F19] border border-slate-800 p-4 rounded-xl gap-3">
                       <div className="flex items-center gap-4">
                         <div className="bg-[#111827] px-3 py-2 sm:px-4 sm:py-2 rounded-lg border border-slate-800 text-center min-w-[70px] sm:min-w-[90px]">
                           <p className="text-[10px] text-slate-500 uppercase font-bold">{new Date((ev.calendarDate || ev.date) + 'T12:00:00').toLocaleString('pt-BR', {month: 'short'})} {new Date((ev.calendarDate || ev.date) + 'T12:00:00').getFullYear()}</p>
                           <p className="text-base sm:text-lg font-bold text-white">{new Date((ev.calendarDate || ev.date) + 'T12:00:00').getDate()}</p>
                         </div>
-                        <div>
+                        <div className="flex-1">
                           <h4 className="text-white font-bold text-sm sm:text-lg">{ev.city} - {ev.stateId} <span className="text-xs text-slate-400 ml-2 font-normal"><Clock size={12} className="inline mr-1 mb-0.5"/>{ev.time || '--:--'}</span></h4>
                           <p className="text-xs text-slate-400 mt-1 space-x-2">
                             <span className="text-indigo-300 font-semibold">{comp?.name}</span>
@@ -1819,12 +1829,31 @@ export default function App() {
                           </p>
                           {ev.contractorName && <p className="text-[10px] text-emerald-400 mt-1 uppercase font-bold">Contratante: {ev.contractorName}</p>}
                         </div>
-                      </div>
-                      <div>
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase ${ev.status === 'Disponível' ? 'bg-sky-500' : ev.status === 'Proposta' ? 'bg-violet-500' : ev.status === 'Cadastro' ? 'bg-emerald-600' : ['Confirmado', 'Vendido'].includes(ev.status) ? 'bg-red-500' : 'bg-orange-500'}`}>
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase shrink-0 ${ev.status === 'Disponível' ? 'bg-sky-500' : ev.status === 'Proposta' ? 'bg-violet-500' : ev.status === 'Cadastro' ? 'bg-emerald-600' : ['Confirmado', 'Vendido'].includes(ev.status) ? 'bg-red-500' : 'bg-orange-500'}`}>
                           {ev.status === 'Cadastro' ? 'Cadastro anual' : getEventStatusLabel(ev.status)}
                         </span>
                       </div>
+
+                      {/* Botões de ação no card do evento */}
+                      {(authUser.companyId === ev.companyId) && (
+                        <div className="flex flex-wrap gap-2 mt-1">
+                          {ev.status === 'Cadastro' && !ev.agentId && authUser.role === 'company_admin' && (
+                            <button onClick={() => handleUpdateStatus(ev.id, 'Proposta', authUser.id)} className="flex-1 bg-purple-600 hover:bg-purple-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Assumir</button>
+                          )}
+                          {ev.status === 'Proposta' && !ev.agentId && authUser.role === 'agent' && (
+                            <button onClick={() => handleUpdateStatus(ev.id, 'Proposta', authUser.id)} className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Assumir</button>
+                          )}
+                          {(authUser.role === 'company_admin' || (authUser.role === 'agent' && ev.agentId === authUser.id)) && ev.status === 'Proposta' && (
+                            <>
+                              <button onClick={() => handleUpdateStatus(ev.id, 'Reservado')} className="flex-1 bg-orange-600 hover:bg-orange-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Reservar</button>
+                              <button onClick={() => handleUpdateStatus(ev.id, 'Vendido')} className="flex-1 bg-red-600 hover:bg-red-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Vendido</button>
+                            </>
+                          )}
+                          {authUser.role === 'company_admin' && ev.status === 'Cadastro' && (
+                            <button onClick={() => openEventModal(ev)} className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg text-xs font-bold transition-colors">Editar</button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )
                 })}
