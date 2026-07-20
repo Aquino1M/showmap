@@ -1973,7 +1973,25 @@ export default function App() {
                               ['responsible', 'Responsável'], ['contact', 'Contato'], ['phone', 'Telefone'], ['instagram', 'Instagram'],
                             ].map(([field, label]) => (
                               <label key={field} className="text-slate-400">{label}
-                                <input value={opportunity[field] || ''} onChange={(event) => updateImportedOpportunity(opportunity.id, field, event.target.value)} className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs text-white outline-none focus:border-cyan-400" />
+                                <input
+                                  value={opportunity[field] || ''}
+                                  onChange={(event) => {
+                                    let val = event.target.value;
+                                    if (field === 'day') {
+                                      // Remove tudo que não for número
+                                      val = val.replace(/\D/g, '');
+                                      // Aplica máscara dd/mm/aaaa automaticamente
+                                      if (val.length > 2) val = val.slice(0, 2) + '/' + val.slice(2);
+                                      if (val.length > 5) val = val.slice(0, 5) + '/' + val.slice(5);
+                                      // Limita ao tamanho máximo dd/mm/aaaa (10 chars)
+                                      val = val.slice(0, 10);
+                                    }
+                                    updateImportedOpportunity(opportunity.id, field, val);
+                                  }}
+                                  placeholder={field === 'day' ? 'dd/mm/aaaa' : ''}
+                                  maxLength={field === 'day' ? 10 : undefined}
+                                  className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs text-white outline-none focus:border-cyan-400"
+                                />
                               </label>
                             ))}
                             <button type="button" onClick={() => setEditingImportId('')} className="mt-1 rounded-lg bg-indigo-600 py-2 text-xs font-bold text-white hover:bg-indigo-500">Concluir edição</button>
