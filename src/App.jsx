@@ -497,12 +497,17 @@ export default function App() {
     }
     setConfirmingImportId(opportunity.id);
     try {
+      // Mapeia o tipo da planilha para os valores válidos do banco
+      const validTypes = ['emenda', 'privado', 'cache', 'portaria'];
+      const rawType = String(opportunity.eventType || '').toLowerCase().trim();
+      const mappedType = validTypes.find((t) => rawType.includes(t)) || 'privado';
+
       await saveDocument('events', {
         date,
         time: '',
         city: opportunity.city,
         stateId: 'GO',
-        type: opportunity.eventType || 'Outro',
+        type: mappedType,
         status: 'Cadastro',
         companyId: authUser.companyId,
         agentId: null,
