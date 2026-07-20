@@ -1969,17 +1969,20 @@ export default function App() {
                   </div>}
                 </div>}
 
-                <div className={`absolute right-4 top-1/2 z-20 w-48 -translate-y-1/2 bg-[#0B0F19]/95 backdrop-blur-xl border border-slate-700/80 p-4 rounded-2xl shadow-2xl transition-all duration-200 sm:w-64 ${hoveredState && !selectedMapEvent ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'}`}>
-                  {hoveredState && (
+                <div className={`absolute right-4 top-1/2 z-20 w-48 -translate-y-1/2 bg-[#0B0F19]/95 backdrop-blur-xl border border-slate-700/80 p-4 rounded-2xl shadow-2xl transition-all duration-200 sm:w-64 pointer-events-auto ${selectedMapState && !selectedMapEvent ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'}`}>
+                  {selectedMapState && (
                     <>
-                      <h3 className="text-base sm:text-lg font-bold text-white mb-3 border-b border-slate-700 pb-2 flex items-center gap-2">
-                        <MapPin className="text-cyan-400" size={16}/> {BRAZIL_STATES[hoveredState].name}
-                      </h3>
+                      <div className="flex items-center justify-between mb-3 border-b border-slate-700 pb-2">
+                        <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
+                          <MapPin className="text-cyan-400" size={16}/> {BRAZIL_STATES[selectedMapState]?.name}
+                        </h3>
+                        <button onClick={() => setSelectedMapState(null)} className="text-slate-400 hover:text-white" aria-label="Fechar"><X size={16}/></button>
+                      </div>
                       <div className="space-y-2 max-h-[250px] overflow-y-auto custom-scrollbar pr-1">
-                        {mapEvents.filter(e => e.stateId === hoveredState).length === 0 ? (
+                        {mapEvents.filter(e => e.stateId === selectedMapState).length === 0 ? (
                           <p className="text-slate-400 text-xs">Nenhum evento nesta área.</p>
                         ) : (
-                          mapEvents.filter(e => e.stateId === hoveredState).map(ev => {
+                          mapEvents.filter(e => e.stateId === selectedMapState).map(ev => {
                             const comp = companies.find(c => c.id === ev.companyId);
                             return (
                               <div key={ev.id} className="bg-[#111827] p-2.5 rounded-lg border border-slate-800 flex flex-col">
