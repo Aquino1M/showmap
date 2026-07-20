@@ -20,7 +20,7 @@ export const getEventDateKey = (value) => {
 
 export const getRecurringOccurrenceDate = (event, referenceDate = new Date()) => {
   const baseDate = getEventDateKey(event.date);
-  if (!(event.isRecurring || event.status === 'Cadastro') || !baseDate) return baseDate;
+  if (!event.isRecurring || !baseDate) return baseDate;
 
   const [, month, day] = baseDate.split('-');
   const today = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), referenceDate.getDate());
