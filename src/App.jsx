@@ -1779,7 +1779,7 @@ export default function App() {
                           : 'border-slate-800 bg-[#0B0F19] hover:border-slate-600';
                     const dayLabel = dayType === 'sold' ? 'Vendido' : dayType === 'scheduled' ? 'Agendado' : dayType === 'proposal' ? 'Proposta' : dayType === 'registration' ? 'Cadastro' : 'Livre';
                     const dayLabelColor = dayType === 'sold' ? 'text-red-300' : dayType === 'scheduled' ? 'text-orange-300' : dayType === 'proposal' ? 'text-violet-300' : dayType === 'registration' && recurringColor === '#ef4444' ? 'text-red-300' : dayType === 'registration' && recurringColor === '#f97316' ? 'text-orange-300' : dayType === 'registration' && recurringColor === '#22c55e' ? 'text-green-300' : dayType === 'registration' ? 'text-slate-300' : 'text-sky-300';
-                    return <button key={item.date} onClick={() => { setSelectedCalendarDate(item.date); openProposalModal(item.date); }} className={`min-h-12 sm:min-h-16 rounded-lg border-2 p-1.5 text-left transition-colors ${selected ? 'ring-2 ring-indigo-400 ring-offset-1 ring-offset-[#111827]' : dayStyle}`}>
+                    return <button key={item.date} onClick={() => { if (selectedCalendarDate === item.date) { setSelectedCalendarDate(''); } else { setSelectedCalendarDate(item.date); openProposalModal(item.date); } }} className={`min-h-12 sm:min-h-16 rounded-lg border-2 p-1.5 text-left transition-colors ${selected ? 'ring-2 ring-indigo-400 ring-offset-1 ring-offset-[#111827]' : dayStyle}`}>
                       <span className="text-xs font-bold text-white">{item.day}</span>
                       {eventsOnDay.length > 0 && <span className={`mt-1 block text-[9px] font-semibold truncate ${dayLabelColor}`}>{dayLabel}</span>}
                     </button>;
