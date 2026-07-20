@@ -331,6 +331,7 @@ export default function App() {
   const [authUser, setAuthUser] = useState(null);
   const [activeTab, setActiveTab] = useState('map');
   const [proposalSubTab, setProposalSubTab] = useState('propostas'); // 'propostas' | 'banco'
+  const [expandedCalendarEventId, setExpandedCalendarEventId] = useState(null);
   const dashboardUserIdRef = useRef(null);
   const [calendarCursor, setCalendarCursor] = useState(() => new Date());
   const [selectedCalendarDate, setSelectedCalendarDate] = useState('');
@@ -1836,20 +1837,74 @@ export default function App() {
 
                       {/* Botões de ação no card do evento */}
                       {(authUser.companyId === ev.companyId) && (
-                        <div className="flex flex-wrap gap-2 mt-1">
-                          {(ev.status === 'Cadastro' || (ev.status === 'Proposta' && !ev.agentId)) && (
-                            <button onClick={() => { setActiveTab('proposals'); setProposalSubTab('propostas'); }} className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Ver</button>
+                        <>
+                          {expandedCalendarEventId === ev.id ? (
+                            <div className="mt-2 bg-[#111827] border border-slate-700 rounded-xl p-4 relative">
+                              <button onClick={() => setExpandedCalendarEventId(null)} className="absolute top-2 right-2 text-slate-400 hover:text-white" aria-label="Fechar"><X size={16}/></button>
+                              
+                              <div className="space-y-3">
+                                {ev.contractorName && (
+                                  <div>
+                                    <p className="text-[10px] text-slate-500 uppercase font-bold mb-1">Contratante</p>
+                                    <p className="text-sm text-white font-medium">{ev.contractorName}</p>
+                                    {ev.eventName && <p className="text-xs text-indigo-300 mt-0.5">Evento: {ev.eventName}</p>}
+                                    {ev.contractorPhone && <p className="text-xs text-slate-400 mt-0.5">WhatsApp: {ev.contractorPhone}</p>}
+                                    {ev.contractorEmail && <p className="text-xs text-slate-400">Email: {ev.contractorEmail}</p>}
+                                    {ev.contractorInstagram && <p className="text-xs text-slate-400">Instagram: {ev.contractorInstagram}</p>}
+                                  </div>
+                                )}
+
+                                <div className="border-t border-slate-800 pt-3">
+                                  <p className="text-[10px] text-slate-500 uppercase">Agente:</p>
+                                  {agent ? (
+                                    <p className="text-xs text-slate-300 mt-1">{agent.name}</p>
+                                  ) : (
+                                    <>
+                                      <p className="text-xs text-slate-500 italic mt-1">Não assumido</p>
+                                      {(authUser.role === 'company_admin' || authUser.role === 'superadmin') && (
+                                        <select
+                                          onChange={(e) => { if (e.target.value) handleUpdateStatus(ev.id, ev.status, e.target.value); }}
+                                          className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs text-white outline-none focus:border-indigo-400"
+                                          defaultValue=""
+                                        >
+                                          <option value="" disabled>Atribuir agente...</option>
+                                          {users.filter(u => u.role === 'agent' && u.companyId === ev.companyId).map(u => (
+                                            <option key={u.id} value={u.id}>{u.name}</option>
+                                          ))}
+                                        </select>
+                                      )}
+                                    </>
+                                  )}
+                                </div>
+
+                                <div className="flex flex-wrap gap-2 pt-2">
+                                  {ev.status === 'Cadastro' && !ev.agentId && authUser.role === 'company_admin' && (
+                                    <button onClick={() => handleUpdateStatus(ev.id, 'Proposta', authUser.id)} className="flex-1 bg-purple-600 hover:bg-purple-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Assumir Proposta</button>
+                                  )}
+                                  {(authUser.role === 'company_admin' || (authUser.role === 'agent' && ev.agentId === authUser.id)) && ev.status === 'Proposta' && (
+                                    <>
+                                      <button onClick={() => handleUpdateStatus(ev.id, 'Reservado')} className="flex-1 bg-orange-600 hover:bg-orange-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Reservar</button>
+                                      <button onClick={() => handleUpdateStatus(ev.id, 'Vendido')} className="flex-1 bg-red-600 hover:bg-red-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Vendido</button>
+                                    </>
+                                  )}
+                                  {authUser.role === 'company_admin' && (
+                                    <button onClick={() => openEventModal(ev)} className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg text-xs font-bold transition-colors">Editar</button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex flex-wrap gap-2 mt-1">
+                              <button onClick={() => setExpandedCalendarEventId(ev.id)} className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Ver</button>
+                              {(authUser.role === 'company_admin' || (authUser.role === 'agent' && ev.agentId === authUser.id)) && ev.status === 'Proposta' && (
+                                <>
+                                  <button onClick={() => handleUpdateStatus(ev.id, 'Reservado')} className="flex-1 bg-orange-600 hover:bg-orange-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Reservar</button>
+                                  <button onClick={() => handleUpdateStatus(ev.id, 'Vendido')} className="flex-1 bg-red-600 hover:bg-red-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Vendido</button>
+                                </>
+                              )}
+                            </div>
                           )}
-                          {(authUser.role === 'company_admin' || (authUser.role === 'agent' && ev.agentId === authUser.id)) && ev.status === 'Proposta' && (
-                            <>
-                              <button onClick={() => handleUpdateStatus(ev.id, 'Reservado')} className="flex-1 bg-orange-600 hover:bg-orange-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Reservar</button>
-                              <button onClick={() => handleUpdateStatus(ev.id, 'Vendido')} className="flex-1 bg-red-600 hover:bg-red-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Vendido</button>
-                            </>
-                          )}
-                          {authUser.role === 'company_admin' && (
-                            <button onClick={() => openEventModal(ev)} className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg text-xs font-bold transition-colors">Editar</button>
-                          )}
-                        </div>
+                        </>
                       )}
                     </div>
                   )
