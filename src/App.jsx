@@ -1821,18 +1821,13 @@ export default function App() {
                         </div>
                         <div className="flex-1">
                           <h4 className="text-white font-bold text-sm sm:text-lg">{ev.city} - {ev.stateId} <span className="text-xs text-slate-400 ml-2 font-normal"><Clock size={12} className="inline mr-1 mb-0.5"/>{ev.time || '--:--'}</span></h4>
-                          <p className="text-xs text-slate-400 mt-1 space-x-2">
-                            <span className="text-indigo-300 font-semibold">{comp?.name}</span>
-                            <span className="text-slate-600">|</span>
-                            <span>Agente: {agent ? agent.name : 'Nenhum'}</span>
-                            <span className="text-slate-600">|</span>
-                            <span>Tipo: {ev.type}</span>
+                          <p className="text-xs text-slate-400 mt-1">
+                            <span>Agente: {agent ? <span className="text-indigo-300 font-semibold">{agent.name}</span> : 'Nenhum'}</span>
+                            <span className="text-slate-600 mx-2">|</span>
+                            <span>Tipo: <span className="text-slate-200">{getEventStatusLabel(ev.status)}</span></span>
                           </p>
                           {ev.contractorName && <p className="text-[10px] text-emerald-400 mt-1 uppercase font-bold">Contratante: {ev.contractorName}</p>}
                         </div>
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase shrink-0 ${ev.status === 'Disponível' ? 'bg-sky-500' : ev.status === 'Proposta' ? 'bg-violet-500' : ev.status === 'Cadastro' ? 'bg-slate-600' : ['Confirmado', 'Vendido'].includes(ev.status) ? 'bg-red-500' : 'bg-orange-500'}`}>
-                          {getEventStatusLabel(ev.status)}
-                        </span>
                       </div>
 
                       {/* Botões de ação no card do evento */}
