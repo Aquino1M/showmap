@@ -2031,6 +2031,7 @@ export default function App() {
                       );
                     })}
                     {/* Marcadores em camada separada para ficarem ACIMA dos estados */}
+                    <g style={{ pointerEvents: 'none' }}>
                     {Object.entries(BRAZIL_STATES).map(([uf]) => {
                       const isHovered = hoveredState === uf;
                       const stateEvents = mapEvents.filter(e => e.stateId === uf && (!selectedMapState || e.stateId === selectedMapState));
@@ -2041,15 +2042,16 @@ export default function App() {
                         const markerColor = proximityColor;
                         return (
                           <g key={ev.id}>
-                            {proximityColor && proximityColor !== '#94a3b8' && markerColor !== '#38bdf8' && (
+                            {proximityColor && proximityColor !== '#94a3b8' && (
                               <circle cx={coord.cx} cy={coord.cy} r={isHovered ? "28" : "23"} fill={proximityColor} opacity="0.32" className="animate-ping" style={{ animationDuration: '2.2s' }}/>
                             )}
-                            <circle onClick={(event) => { event.stopPropagation(); setSelectedMapEventId(ev.id); }} className="cursor-pointer" cx={coord.cx} cy={coord.cy} r={isHovered ? "14" : "11"} fill="#f8fafc" stroke={markerColor} strokeWidth="3" />
-                            <circle onClick={(event) => { event.stopPropagation(); setSelectedMapEventId(ev.id); }} className="cursor-pointer" cx={coord.cx} cy={coord.cy} r={isHovered ? "6" : "4.5"} fill={markerColor} />
+                            <circle onClick={(event) => { event.stopPropagation(); setSelectedMapEventId(ev.id); }} style={{ pointerEvents: 'auto' }} className="cursor-pointer" cx={coord.cx} cy={coord.cy} r={isHovered ? "14" : "11"} fill="#f8fafc" stroke={markerColor} strokeWidth="3" />
+                            <circle onClick={(event) => { event.stopPropagation(); setSelectedMapEventId(ev.id); }} style={{ pointerEvents: 'auto' }} className="cursor-pointer" cx={coord.cx} cy={coord.cy} r={isHovered ? "6" : "4.5"} fill={markerColor} />
                           </g>
                         );
                       });
                     })}
+                    </g>
                   </svg>
                 </div>}
                 {mapDisplay === 'svg' && !isCommercialAssistantOpen && <MapLegend />}
