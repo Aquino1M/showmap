@@ -1648,6 +1648,13 @@ export default function App() {
                            </button>
                          )}
 
+                         {/* Escritório assume como proposta própria (para vender por conta) */}
+                         {authUser.role === 'company_admin' && ev.status === 'Cadastro' && !ev.agentId && (
+                           <button onClick={() => handleUpdateStatus(ev.id, 'Proposta', authUser.id)} className="w-full bg-purple-600 hover:bg-purple-500 text-white py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-center gap-2">
+                             <HandMetal size={14}/> Assumir Proposta
+                           </button>
+                         )}
+
                          {/* Escritório ou agente responsável registra reserva ou venda. */}
                          {(authUser.role === 'company_admin' || (authUser.role === 'agent' && ev.agentId === authUser.id)) && ev.status === 'Proposta' && (
                            <div className="flex gap-2">
