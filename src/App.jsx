@@ -330,6 +330,7 @@ export default function App() {
 
   const [authUser, setAuthUser] = useState(null);
   const [activeTab, setActiveTab] = useState('map');
+  const [proposalSubTab, setProposalSubTab] = useState('propostas'); // 'propostas' | 'banco'
   const dashboardUserIdRef = useRef(null);
   const [calendarCursor, setCalendarCursor] = useState(() => new Date());
   const [selectedCalendarDate, setSelectedCalendarDate] = useState('');
@@ -895,6 +896,10 @@ export default function App() {
   const visibleEvents = useMemo(() => {
     if (!authUser) return [];
     if (authUser.role === 'superadmin') return events; 
+    if (authUser.role === 'agent') {
+      // Agente só vê eventos que ele cadastrou ou que foram atribuídos a ele
+      return events.filter(e => e.companyId === authUser.companyId && e.agentId === authUser.id);
+    }
     return events.filter(e => e.companyId === authUser.companyId); 
   }, [events, authUser]);
 
@@ -1517,9 +1522,37 @@ export default function App() {
                 </div>
               )}
             </div>
+
+            {/* Sub-abas: Propostas / Banco de Dados */}
+            <div className="flex gap-2 mb-5">
+              <button
+                type="button"
+                onClick={() => setProposalSubTab('propostas')}
+                className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${proposalSubTab === 'propostas' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
+              >
+                Propostas
+              </button>
+              <button
+                type="button"
+                onClick={() => setProposalSubTab('banco')}
+                className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${proposalSubTab === 'banco' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
+              >
+                Banco de Dados
+              </button>
+            </div>
             
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-              {[...visibleEvents].sort((a, b) => new Date(`${a.date}T${a.time || '00:00'}`) - new Date(`${b.date}T${b.time || '00:00'}`)).map(ev => {
+              {[...visibleEvents]
+                .filter(ev => {
+                  const daysUntil = Math.ceil((new Date(`${ev.date}T12:00:00`) - new Date()) / (1000 * 60 * 60 * 24));
+                  if (proposalSubTab === 'propostas') {
+                    // Até 6 meses ou eventos com status diferente de Cadastro (Proposta, Reservado, Vendido)
+                    return daysUntil <= 180 || ev.status !== 'Cadastro';
+                  }
+                  // Banco de Dados: Cadastros com data > 6 meses
+                  return ev.status === 'Cadastro' && daysUntil > 180;
+                })
+                .sort((a, b) => new Date(`${a.date}T${a.time || '00:00'}`) - new Date(`${b.date}T${b.time || '00:00'}`)).map(ev => {
                 const agent = users.find(u => u.id === ev.agentId);
                 const company = companies.find(c => c.id === ev.companyId);
 
@@ -1587,7 +1620,21 @@ export default function App() {
                          {agent ? (
                             <p className="text-xs text-slate-300 flex items-center gap-1 mt-1"><Hand size={12}/> {agent.name}</p>
                          ) : (
-                            <p className="text-xs text-slate-500 italic mt-1">Não assumido</p>
+                            <>
+                              <p className="text-xs text-slate-500 italic mt-1">Não assumido</p>
+                              {(authUser.role === 'company_admin' || authUser.role === 'superadmin') && (
+                                <select
+                                  onChange={(e) => { if (e.target.value) handleUpdateStatus(ev.id, ev.status, e.target.value); }}
+                                  className="mt-2 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs text-white outline-none focus:border-indigo-400"
+                                  defaultValue=""
+                                >
+                                  <option value="" disabled>Atribuir agente...</option>
+                                  {users.filter(u => u.role === 'agent' && u.companyId === ev.companyId).map(u => (
+                                    <option key={u.id} value={u.id}>{u.name}</option>
+                                  ))}
+                                </select>
+                              )}
+                            </>
                          )}
                       </div>
                     </div>
