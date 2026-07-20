@@ -418,6 +418,22 @@ export default function App() {
     ? value.toLocaleDateString('pt-BR')
     : String(value ?? '').trim();
 
+  // Normaliza data para exibição dd/mm/aaaa
+  // Aceita: "10082026", "10/08/2026", "2026-08-10", Date serial do Excel
+  const normalizeDateDisplay = (value) => {
+    if (!value) return value;
+    const str = String(value).trim();
+    // Já está no formato dd/mm/aaaa
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(str)) return str;
+    // Formato ISO yyyy-mm-dd
+    const isoMatch = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (isoMatch) return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
+    // Só números ddmmaaaa (8 dígitos)
+    const numMatch = str.replace(/\D/g, '');
+    if (numMatch.length === 8) return `${numMatch.slice(0,2)}/${numMatch.slice(2,4)}/${numMatch.slice(4)}`;
+    return str;
+  };
+
   const handleOpportunityFile = async (file) => {
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
@@ -436,7 +452,7 @@ export default function App() {
       const rows = dataRows.map((values) => Object.fromEntries(headers.map((header, index) => [String(header || '').trim(), formatImportCell(values[index])])));
       setImportedOpportunities(rows.slice(0, 100).map((row, index) => ({
         id: `${index}-${Date.now()}`,
-        day: getImportedValue(row, ['dia', 'data', 'data do evento']),
+        day: normalizeDateDisplay(getImportedValue(row, ['dia', 'data', 'data do evento'])),
         city: getImportedValue(row, ['cidade', 'municipio', 'município']),
         eventType: getImportedValue(row, ['tipo de evento', 'tipo', 'evento']),
         organizer: getImportedValue(row, ['organizador', 'organizacao', 'organização']),
