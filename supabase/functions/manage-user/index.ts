@@ -204,8 +204,13 @@ Deno.serve(async (request) => {
       if (!isMaster && eventCompanyId !== caller.company_id) {
         throw new Error('Você não pode salvar dados de outro escritório.')
       }
-      if (!isMaster && !isCompanyAdmin && !eventId && (safeEvent.status !== 'Proposta' || eventAgentId !== authData.user.id)) {
-        throw new Error('O agente só pode cadastrar propostas em seu próprio nome.')
+      if (!isMaster && !isCompanyAdmin && !eventId) {
+        const isValidProposal = safeEvent.status === 'Proposta' && eventAgentId === authData.user.id
+        const isValidImportedOpportunity = safeEvent.status === 'Cadastro' && eventAgentId === null
+        
+        if (!isValidProposal && !isValidImportedOpportunity) {
+          throw new Error('O agente só pode cadastrar propostas em seu próprio nome ou oportunidades importadas.')
+        }
       }
 
       let existing: any = null
