@@ -1829,19 +1829,16 @@ export default function App() {
                           </p>
                           {ev.contractorName && <p className="text-[10px] text-emerald-400 mt-1 uppercase font-bold">Contratante: {ev.contractorName}</p>}
                         </div>
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase shrink-0 ${ev.status === 'Disponível' ? 'bg-sky-500' : ev.status === 'Proposta' ? 'bg-violet-500' : ev.status === 'Cadastro' ? 'bg-emerald-600' : ['Confirmado', 'Vendido'].includes(ev.status) ? 'bg-red-500' : 'bg-orange-500'}`}>
-                          {ev.status === 'Cadastro' ? 'Cadastro anual' : getEventStatusLabel(ev.status)}
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-bold text-white uppercase shrink-0 ${ev.status === 'Disponível' ? 'bg-sky-500' : ev.status === 'Proposta' ? 'bg-violet-500' : ev.status === 'Cadastro' ? 'bg-slate-600' : ['Confirmado', 'Vendido'].includes(ev.status) ? 'bg-red-500' : 'bg-orange-500'}`}>
+                          {getEventStatusLabel(ev.status)}
                         </span>
                       </div>
 
                       {/* Botões de ação no card do evento */}
                       {(authUser.companyId === ev.companyId) && (
                         <div className="flex flex-wrap gap-2 mt-1">
-                          {ev.status === 'Cadastro' && !ev.agentId && authUser.role === 'company_admin' && (
-                            <button onClick={() => handleUpdateStatus(ev.id, 'Proposta', authUser.id)} className="flex-1 bg-purple-600 hover:bg-purple-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Assumir</button>
-                          )}
-                          {ev.status === 'Proposta' && !ev.agentId && authUser.role === 'agent' && (
-                            <button onClick={() => handleUpdateStatus(ev.id, 'Proposta', authUser.id)} className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Assumir</button>
+                          {(ev.status === 'Cadastro' || (ev.status === 'Proposta' && !ev.agentId)) && (
+                            <button onClick={() => { setActiveTab('proposals'); setProposalSubTab('propostas'); }} className="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Ver</button>
                           )}
                           {(authUser.role === 'company_admin' || (authUser.role === 'agent' && ev.agentId === authUser.id)) && ev.status === 'Proposta' && (
                             <>
@@ -1849,7 +1846,7 @@ export default function App() {
                               <button onClick={() => handleUpdateStatus(ev.id, 'Vendido')} className="flex-1 bg-red-600 hover:bg-red-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Vendido</button>
                             </>
                           )}
-                          {authUser.role === 'company_admin' && ev.status === 'Cadastro' && (
+                          {authUser.role === 'company_admin' && (
                             <button onClick={() => openEventModal(ev)} className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-2 rounded-lg text-xs font-bold transition-colors">Editar</button>
                           )}
                         </div>
