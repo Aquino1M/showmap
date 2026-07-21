@@ -16,7 +16,7 @@ export default function TourMapControls({ mapMode, setMapMode, mapDisplay, setMa
   return (
     <div className="absolute top-4 left-4 right-4 z-20 grid grid-cols-[1.35fr_repeat(3,minmax(0,1fr))] items-stretch gap-1.5 sm:right-auto sm:w-[392px] sm:gap-2">
       <div className="h-14 min-w-0 bg-[#0B0F19]/90 backdrop-blur border border-slate-800 p-2 rounded-xl shadow-lg">
-        <h4 className="mb-2 truncate text-[10px] font-bold uppercase text-slate-400">{mapMode === 'tour' ? 'Minha turnê' : 'Disponibilidade'}</h4>
+        <h4 className="mb-2 truncate text-[10px] font-bold uppercase text-slate-400">Minha turnê</h4>
         <div className="flex min-w-0 items-center gap-1.5 sm:gap-2"><span className={`h-2.5 w-2.5 shrink-0 rounded-full ${mapMode === 'tour' ? 'bg-cyan-400' : 'bg-white'}`}></span><span className="truncate text-[10px] text-white sm:text-xs">{mapMode === 'tour' ? 'Shows da turnê' : 'Datas abertas'}</span></div>
       </div>
       <button onClick={() => setMapMode((mode) => mode === 'tour' ? 'available' : 'tour')} aria-pressed={mapMode === 'tour'} className={`h-14 w-full rounded-xl border px-1 text-[10px] font-bold shadow-lg backdrop-blur transition-colors sm:text-xs ${mapMode === 'tour' ? 'border-cyan-400 bg-cyan-500 text-slate-950' : 'border-slate-700 bg-[#0B0F19]/90 text-indigo-300 hover:bg-indigo-600 hover:text-white'}`}>
