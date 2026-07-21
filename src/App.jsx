@@ -2051,7 +2051,7 @@ export default function App() {
                   </div>
                 </>}
 
-                {selectedMapEvent && <div className="absolute top-4 right-4 z-40 w-56 sm:w-64 rounded-2xl border border-cyan-500/50 bg-[#0B0F19]/95 p-4 shadow-2xl backdrop-blur-xl">
+                {selectedMapEvent && mapDisplay === 'svg' && <div className="absolute top-4 right-4 z-40 w-56 sm:w-64 rounded-2xl border border-cyan-500/50 bg-[#0B0F19]/95 p-4 shadow-2xl backdrop-blur-xl">
                   <div className="mb-3 flex items-start justify-between gap-2 border-b border-slate-700 pb-2">
                     <div><p className="text-[10px] font-bold uppercase tracking-wide text-cyan-300">Evento selecionado</p><h3 className="mt-1 text-base font-bold text-white">{selectedMapEvent.city} · {selectedMapEvent.stateId}</h3></div>
                     <button onClick={() => setSelectedMapEventId(null)} aria-label="Fechar detalhes do evento" className="text-slate-400 hover:text-white"><X size={17}/></button>
