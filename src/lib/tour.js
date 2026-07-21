@@ -26,6 +26,12 @@ export const getRecurringOccurrenceDate = (event, referenceDate = new Date()) =>
   const today = new Date(referenceDate.getFullYear(), referenceDate.getMonth(), referenceDate.getDate());
   let occurrence = new Date(`${referenceDate.getFullYear()}-${month}-${day}T12:00:00`);
   if (occurrence < today) occurrence = new Date(`${referenceDate.getFullYear() + 1}-${month}-${day}T12:00:00`);
+
+  // Stop showing recurring events more than 3 years from their base date
+  const base = new Date(`${baseDate}T12:00:00`);
+  const threeYearsMs = 3 * 365.25 * 24 * 60 * 60 * 1000;
+  if (occurrence.getTime() - base.getTime() > threeYearsMs) return null;
+
   return occurrence.toISOString().slice(0, 10);
 };
 

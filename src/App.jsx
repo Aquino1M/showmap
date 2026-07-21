@@ -332,6 +332,7 @@ export default function App() {
   const [authUser, setAuthUser] = useState(null);
   const [activeTab, setActiveTab] = useState('map');
   const [proposalSubTab, setProposalSubTab] = useState('propostas'); // 'propostas' | 'banco'
+  const [proposalSearch, setProposalSearch] = useState('');
   const [expandedCalendarEventId, setExpandedCalendarEventId] = useState(null);
   const [newArtistName, setNewArtistName] = useState('');
   const [calendarViewMode, setCalendarViewMode] = useState('mine'); // 'mine' | 'company'
@@ -375,6 +376,7 @@ export default function App() {
     showToast(`Artista "${name}" adicionado ao escritório.`);
   };
   const dashboardUserIdRef = useRef(null);
+  const calendarTouchStartRef = useRef(null);
   const [calendarCursor, setCalendarCursor] = useState(() => new Date());
   const [selectedCalendarDate, setSelectedCalendarDate] = useState('');
   const [hoveredState, setHoveredState] = useState(null);
@@ -397,7 +399,7 @@ export default function App() {
   // Estados para Modais & Formulários
   const [isEventModalOpen, setIsEventModalOpen] = useState(false);
   const [registrationMode, setRegistrationMode] = useState('available');
-  const [formData, setFormData] = useState({ id: null, date: '', time: '', city: '', stateId: 'GO', type: 'cache', contractorName: '', contractorEmail: '', contractorPhone: '', contractorInstagram: '', eventName: '', artistName: '', isRecurring: false });
+  const [formData, setFormData] = useState({ id: null, date: '', time: '', city: '', stateId: 'GO', type: 'cache', contractorName: '', contractorEmail: '', contractorPhone: '', contractorInstagram: '', eventName: '', artistName: '', isRecurring: false, value: '' });
   const [authForm, setAuthForm] = useState({ email: '', password: '' });
   
   const [agentForm, setAgentForm] = useState({ id: null, name: '', email: '', password: '', companyId: '' });
@@ -504,6 +506,7 @@ export default function App() {
         contact: getImportedValue(row, ['contato 1', 'contato', 'nome']),
         phone: getImportedValue(row, ['telefone', 'whatsapp', 'contato telefone']),
         instagram: getImportedValue(row, ['instagram', 'insta']),
+        uf: getImportedValue(row, ['uf', 'estado', 'state', 'sigla']),
         source: row,
       })));
     } catch (error) {
@@ -539,6 +542,18 @@ export default function App() {
       showToast('Informe a cidade da oportunidade antes de confirmar.', 'error');
       return;
     }
+
+    // Improvement #4: Duplicate detection - warn if same date + city already exists
+    const duplicate = events.find(ev => ev.date === date && ev.city.toLowerCase().trim() === opportunity.city.toLowerCase().trim());
+    if (duplicate) {
+      showToast(`Já existe um evento em ${opportunity.city} no dia ${new Date(date + 'T12:00:00').toLocaleDateString('pt-BR')}`, 'error');
+    }
+
+    // Improvement #1: Extract state from imported data, default to 'GO'
+    const VALID_UFS = ['AC','AL','AP','AM','BA','CE','DF','ES','GO','MA','MT','MS','MG','PA','PB','PR','PE','PI','RJ','RN','RS','RO','RR','SC','SP','SE','TO'];
+    const rawUf = String(opportunity.uf || '').trim().toUpperCase();
+    const resolvedState = VALID_UFS.includes(rawUf) ? rawUf : 'GO';
+
     setConfirmingImportId(opportunity.id);
     try {
       // Mapeia o tipo da planilha para os valores válidos do banco
@@ -550,7 +565,7 @@ export default function App() {
         date,
         time: '',
         city: opportunity.city,
-        stateId: 'GO',
+        stateId: resolvedState,
         type: mappedType,
         status: 'Cadastro',
         companyId: authUser.companyId,
@@ -828,8 +843,8 @@ export default function App() {
   // --- CRUD Shows / Eventos Livres (Escritório) ---
   const openEventModal = (ev = null, mode = 'available', prefilledDate = '') => {
     setRegistrationMode(ev?.isRecurring || ev?.status === 'Cadastro' ? 'recurring' : mode);
-    if (ev) setFormData({ id: ev.id, date: ev.date, time: ev.time || '', city: ev.city, stateId: ev.stateId, type: ev.type, contractorName: ev.contractorName || '', contractorEmail: ev.contractorEmail || '', contractorPhone: ev.contractorPhone || '', contractorInstagram: ev.contractorInstagram || '', eventName: ev.eventName || '', artistName: ev.artistName || '', isRecurring: Boolean(ev.isRecurring || ev.status === 'Cadastro') });
-    else setFormData({ id: null, date: prefilledDate, time: '', city: '', stateId: 'GO', type: 'cache', contractorName: '', contractorEmail: '', contractorPhone: '', contractorInstagram: '', eventName: '', artistName: '', isRecurring: mode === 'recurring' });
+    if (ev) setFormData({ id: ev.id, date: ev.date, time: ev.time || '', city: ev.city, stateId: ev.stateId, type: ev.type, contractorName: ev.contractorName || '', contractorEmail: ev.contractorEmail || '', contractorPhone: ev.contractorPhone || '', contractorInstagram: ev.contractorInstagram || '', eventName: ev.eventName || '', artistName: ev.artistName || '', isRecurring: Boolean(ev.isRecurring || ev.status === 'Cadastro'), value: ev.value || '' });
+    else setFormData({ id: null, date: prefilledDate, time: '', city: '', stateId: 'GO', type: 'cache', contractorName: '', contractorEmail: '', contractorPhone: '', contractorInstagram: '', eventName: '', artistName: '', isRecurring: mode === 'recurring', value: '' });
     setIsEventModalOpen(true);
   };
 
@@ -852,7 +867,8 @@ export default function App() {
       contractorInstagram: formData.contractorInstagram,
       eventName: formData.eventName,
       artistName: formData.artistName,
-      isRecurring: registrationMode === 'recurring' || formData.isRecurring
+      isRecurring: registrationMode === 'recurring' || formData.isRecurring,
+      value: formData.value ? Number(formData.value) : 0,
     };
     try {
       await saveDocument('events', eventToSave);
@@ -921,6 +937,19 @@ export default function App() {
       showToast('Registros selecionados foram cancelados e excluídos.');
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Não foi possível excluir todos os registros selecionados.', 'error');
+    }
+  };
+
+  const handleBatchStatusUpdate = async (status) => {
+    if (!selectedAgendaEventIds.length) return;
+    if (!window.confirm(`Atualizar ${selectedAgendaEventIds.length} registro(s) para "${status}"?`)) return;
+    try {
+      await Promise.all(selectedAgendaEventIds.map((eventId) => handleUpdateStatus(eventId, status)));
+      setSelectedAgendaEventIds([]);
+      setIsAgendaSelectionMode(false);
+      showToast(`${selectedAgendaEventIds.length} registro(s) atualizado(s) para ${status}.`);
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Não foi possível atualizar todos os registros.', 'error');
     }
   };
 
@@ -1631,6 +1660,16 @@ export default function App() {
                       <Trash2 size={16}/> Cancelar selecionados ({selectedAgendaEventIds.length})
                     </button>
                   )}
+                  {isAgendaSelectionMode && selectedAgendaEventIds.length > 0 && (
+                    <>
+                      <button onClick={() => handleBatchStatusUpdate('Reservado')} className="w-full sm:w-auto bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg">
+                        Marcar como Reservado ({selectedAgendaEventIds.length})
+                      </button>
+                      <button onClick={() => handleBatchStatusUpdate('Vendido')} className="w-full sm:w-auto bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg">
+                        Marcar como Vendido ({selectedAgendaEventIds.length})
+                      </button>
+                    </>
+                  )}
                   {authUser.role === 'company_admin' && (
                     <button onClick={() => openEventModal(null, 'recurring')} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg">
                       <Plus size={16}/> Cadastro
@@ -1664,6 +1703,17 @@ export default function App() {
                 </button>
               )}
             </div>
+
+            {/* Busca/filtro de propostas */}
+            <div className="mb-4">
+              <input
+                type="text"
+                value={proposalSearch}
+                onChange={(e) => setProposalSearch(e.target.value)}
+                placeholder="Buscar por cidade, contratante ou evento..."
+                className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-indigo-400 placeholder:text-slate-500"
+              />
+            </div>
             
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
               {[...visibleEvents]
@@ -1675,6 +1725,13 @@ export default function App() {
                   }
                   // Banco de Dados: Cadastros com data > 6 meses
                   return ev.status === 'Cadastro' && daysUntil > 180;
+                })
+                .filter(ev => {
+                  if (!proposalSearch.trim()) return true;
+                  const search = proposalSearch.trim().toLowerCase();
+                  return (ev.city || '').toLowerCase().includes(search)
+                    || (ev.contractorName || '').toLowerCase().includes(search)
+                    || (ev.eventName || '').toLowerCase().includes(search);
                 })
                 .sort((a, b) => new Date(`${a.date}T${a.time || '00:00'}`) - new Date(`${b.date}T${b.time || '00:00'}`)).map(ev => {
                 const agent = users.find(u => u.id === ev.agentId);
@@ -1902,7 +1959,7 @@ export default function App() {
                 <div className="grid grid-cols-7 gap-1 text-center text-[10px] sm:text-xs text-slate-500 font-bold mb-1">
                   {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => <span key={day}>{day}</span>)}
                 </div>
-                <div className="grid grid-cols-7 gap-1 sm:gap-2">
+                <div className="grid grid-cols-7 gap-1 sm:gap-2" onTouchStart={(e) => { calendarTouchStartRef.current = e.touches[0].clientX; }} onTouchEnd={(e) => { if (calendarTouchStartRef.current != null) { const deltaX = e.changedTouches[0].clientX - calendarTouchStartRef.current; if (deltaX < -50) setCalendarCursor((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1)); else if (deltaX > 50) setCalendarCursor((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1)); calendarTouchStartRef.current = null; } }}>
                   {calendarDays.map((item, index) => {
                     if (!item) return <div key={`empty-${index}`} />;
                     const eventsOnDay = (authUser?.role === 'agent' && calendarViewMode === 'company'
@@ -2617,6 +2674,12 @@ export default function App() {
                   <option value="portaria">Portaria</option>
                 </select>
               </div>
+              {(authUser.role === 'company_admin' || authUser.role === 'superadmin') && (
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase mb-2">Valor (R$)</label>
+                  <input type="number" min="0" step="0.01" value={formData.value} onChange={e => setFormData({...formData, value: e.target.value})} placeholder="0,00" className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" />
+                </div>
+              )}
               <button type="submit" className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3.5 rounded-xl font-bold flex justify-center gap-2 mt-4"><Save size={18}/> Salvar</button>
             </form>
           </div>

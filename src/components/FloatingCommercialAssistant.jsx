@@ -61,7 +61,7 @@ export default function FloatingCommercialAssistant({ events, onOpenChange }) {
     onOpenChange?.(false);
   };
 
-  return <div className="fixed bottom-6 right-6 z-[70] hidden lg:block">
+  return <div className="fixed bottom-6 right-6 z-[70] block">
     {isOpen && <section className="mb-3 flex w-[calc(100vw-2rem)] max-w-sm flex-col overflow-hidden rounded-2xl border border-indigo-500/40 bg-[#111827] shadow-2xl shadow-indigo-950/50">
       <header className="flex items-center justify-between border-b border-slate-800 bg-[#0B0F19] px-4 py-3">
         <div className="flex items-center gap-2"><Sparkles size={18} className="text-cyan-400" /><div><h2 className="text-sm font-bold text-white">Assistente Comercial</h2><p className="text-[10px] text-slate-400">Dados do seu escritório</p></div></div>

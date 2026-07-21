@@ -89,6 +89,7 @@ const toEvent = (row) => ({
   eventName: row.event_name || '',
   artistName: row.artist_name || '',
   isRecurring: Boolean(row.is_recurring),
+  value: row.value != null ? Number(row.value) : 0,
 });
 
 const fromCompany = (data) => ({
@@ -118,6 +119,7 @@ const fromEvent = (data) => ({
   event_name: data.eventName?.trim() || null,
   artist_name: data.artistName?.trim() || null,
   is_recurring: Boolean(data.isRecurring),
+  value: data.value != null ? Number(data.value) : 0,
 });
 
 const throwIfError = (error) => {
