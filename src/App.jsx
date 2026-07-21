@@ -1,5 +1,6 @@
 import { lazy, Suspense, useState, useMemo, useEffect, useRef } from 'react';
 import { readSheet } from 'read-excel-file/browser';
+import { supabase } from './supabase';
 import {
   initAuth,
   subscribeCollection,
@@ -20,7 +21,7 @@ import {
   Map, CalendarDays, MapPin, Plus, ChevronLeft, ChevronRight, Users,
   LayoutDashboard, X, Briefcase, FileText, Building, 
   UserPlus, Trash2, Edit, Save, HandMetal, Hand, LogOut, Clock,
-  Globe2, ArrowRight, Menu, Minus, RotateCcw, Upload, Download
+  Globe2, ArrowRight, Menu, Minus, RotateCcw, Upload, Download, Music
 } from 'lucide-react';
 
 const RealTourMap = lazy(() => import('./components/RealTourMap'));
@@ -332,6 +333,35 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('map');
   const [proposalSubTab, setProposalSubTab] = useState('propostas'); // 'propostas' | 'banco'
   const [expandedCalendarEventId, setExpandedCalendarEventId] = useState(null);
+  const [newArtistName, setNewArtistName] = useState('');
+  const [artists, setArtists] = useState([]);
+
+  // Carregar artistas da tabela
+  useEffect(() => {
+    if (!supabase) return;
+    const loadArtists = async () => {
+      const { data } = await supabase.from('artists').select('*').order('name');
+      if (data) setArtists(data);
+    };
+    loadArtists();
+  }, []);
+
+  const handleAddArtist = async () => {
+    const name = newArtistName.trim();
+    if (!name) return;
+    const { data, error } = await supabase.from('artists').insert({ name }).select().single();
+    if (error) { showToast(error.message.includes('duplicate') ? 'Artista já cadastrado.' : error.message, 'error'); return; }
+    setArtists(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')));
+    setNewArtistName('');
+    showToast(`Artista "${name}" cadastrado.`);
+  };
+
+  const handleDeleteArtist = async (id, name) => {
+    if (!window.confirm(`Remover artista "${name}"? Os eventos já cadastrados não serão alterados.`)) return;
+    await supabase.from('artists').delete().eq('id', id);
+    setArtists(prev => prev.filter(a => a.id !== id));
+    showToast('Artista removido.');
+  };
   const dashboardUserIdRef = useRef(null);
   const [calendarCursor, setCalendarCursor] = useState(() => new Date());
   const [selectedCalendarDate, setSelectedCalendarDate] = useState('');
@@ -916,8 +946,11 @@ export default function App() {
 
   // Lista global de artistas únicos (para dropdown de seleção)
   const allArtistNames = useMemo(() => {
+    // Prioriza tabela artists, fallback para nomes nos eventos
+    const fromTable = artists.map(a => a.name);
+    if (fromTable.length > 0) return fromTable;
     return [...new Set(events.map(e => e.artistName).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
-  }, [events]);
+  }, [events, artists]);
 
   const selectedMapEvent = useMemo(() => mapEvents.find((event) => event.id === selectedMapEventId) || null, [mapEvents, selectedMapEventId]);
 
@@ -1423,10 +1456,40 @@ export default function App() {
                 </div>
               ))}
             </div>
+
+            {/* Gerenciamento de Artistas */}
+            <div className="mt-8">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2 mb-4"><Music className="text-cyan-400" size={20}/> Artistas Cadastrados</h3>
+              <div className="flex gap-2 mb-4">
+                <input
+                  type="text"
+                  value={newArtistName}
+                  onChange={e => setNewArtistName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleAddArtist(); }}
+                  placeholder="Nome do novo artista..."
+                  className="flex-1 bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-indigo-400"
+                />
+                <button onClick={handleAddArtist} className="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2.5 rounded-xl text-sm font-bold flex items-center gap-2">
+                  <Plus size={16}/> Adicionar
+                </button>
+              </div>
+              <div className="bg-[#111827] border border-slate-800 rounded-2xl p-4">
+                {artists.length === 0 ? (
+                  <p className="text-sm text-slate-500 text-center py-4">Nenhum artista cadastrado. Rode o SQL de migração primeiro.</p>
+                ) : (
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {artists.map(artist => (
+                      <div key={artist.id} className="flex items-center justify-between bg-[#0B0F19] border border-slate-800 px-3 py-2 rounded-lg">
+                        <span className="text-sm text-white font-medium">{artist.name}</span>
+                        <button onClick={() => handleDeleteArtist(artist.id, artist.name)} className="text-red-400 hover:text-red-300 p-1"><Trash2 size={14}/></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
-
-        {/* TAB: AGENTES */}
         {activeTab === 'agents' && (authUser.role === 'superadmin' || authUser.role === 'company_admin') && (
           <div className="max-w-7xl mx-auto">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
