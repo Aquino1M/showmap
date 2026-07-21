@@ -914,6 +914,11 @@ export default function App() {
     return getTourArtists(eventSource, authUser);
   }, [authUser, events, visibleEvents]);
 
+  // Lista global de artistas únicos (para dropdown de seleção)
+  const allArtistNames = useMemo(() => {
+    return [...new Set(events.map(e => e.artistName).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [events]);
+
   const selectedMapEvent = useMemo(() => mapEvents.find((event) => event.id === selectedMapEventId) || null, [mapEvents, selectedMapEventId]);
 
   useEffect(() => {
@@ -2319,7 +2324,21 @@ export default function App() {
                   <div><label className="block text-[10px] font-bold text-slate-500 uppercase mb-2">Nome do Contratante</label><input type="text" value={formData.contractorName} onChange={e => setFormData({...formData, contractorName: e.target.value})} className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" /></div>
                   <div><label className="block text-[10px] font-bold text-slate-500 uppercase mb-2">Nome do Evento</label><input type="text" value={formData.eventName} onChange={e => setFormData({...formData, eventName: e.target.value})} className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" /></div>
                 </div>
-                <div><label className="block text-[10px] font-bold text-slate-500 uppercase mb-2">Artista / Cantor</label><input type="text" value={formData.artistName} onChange={e => setFormData({...formData, artistName: e.target.value})} placeholder="Nome do artista desta apresentação" className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" /></div>
+                <div><label className="block text-[10px] font-bold text-slate-500 uppercase mb-2">Artista / Cantor</label>
+                  {authUser.role === 'superadmin' ? (
+                    <>
+                      <input type="text" list="artist-list" value={formData.artistName} onChange={e => setFormData({...formData, artistName: e.target.value})} placeholder="Selecione ou digite novo artista" className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" />
+                      <datalist id="artist-list">
+                        {allArtistNames.map(name => <option key={name} value={name} />)}
+                      </datalist>
+                    </>
+                  ) : (
+                    <select value={formData.artistName} onChange={e => setFormData({...formData, artistName: e.target.value})} className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none">
+                      <option value="">Selecionar artista...</option>
+                      {allArtistNames.map(name => <option key={name} value={name}>{name}</option>)}
+                    </select>
+                  )}
+                </div>
                 <div className="grid sm:grid-cols-2 gap-4">
                   <div><label className="block text-[10px] font-bold text-slate-500 uppercase mb-2">E-mail</label><input type="email" value={formData.contractorEmail} onChange={e => setFormData({...formData, contractorEmail: e.target.value})} className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" /></div>
                   <div><label className="block text-[10px] font-bold text-slate-500 uppercase mb-2">Telefone / WhatsApp</label><input type="text" value={formData.contractorPhone} onChange={e => setFormData({...formData, contractorPhone: e.target.value})} className="w-full bg-[#1F2937] border border-slate-700 rounded-xl px-4 py-3 text-white text-sm outline-none" /></div>
