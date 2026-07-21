@@ -1321,7 +1321,6 @@ export default function App() {
   const TABS = [];
   if (authUser.role === 'superadmin') {
     TABS.push(
-      { id: 'map', label: 'Mapa', icon: Map },
       { id: 'stats', label: 'Estatísticas', icon: LayoutDashboard },
       { id: 'offices', label: 'Escritórios e Acessos', icon: Building },
       { id: 'agents', label: 'Todos Agentes', icon: Users },
@@ -1349,6 +1348,11 @@ export default function App() {
   }
 
   const userCompanyName = authUser.companyId ? companies.find(c => c.id === authUser.companyId)?.name : '';
+
+  // Garantir que a tab ativa existe na lista de tabs disponíveis
+  if (TABS.length && !TABS.find(t => t.id === activeTab)) {
+    setActiveTab(TABS[0].id);
+  }
 
   return (
     <div className="min-h-[100dvh] bg-[#0B0F19] text-slate-200 flex flex-col h-[100dvh] overflow-hidden">
@@ -1447,6 +1451,21 @@ export default function App() {
                  </div>
                )}
             </div>
+
+            {/* Navegação mobile para superadmin */}
+            {authUser.role === 'superadmin' && (
+              <div className="lg:hidden grid grid-cols-3 sm:grid-cols-4 gap-2 mt-4">
+                {TABS.filter(tab => tab.id !== 'stats').map(tab => {
+                  const Icon = tab.icon;
+                  return (
+                    <button key={tab.id} onClick={() => setActiveTab(tab.id)} className="flex flex-col items-center justify-center gap-1 bg-[#111827] border border-slate-800 rounded-xl p-3 text-indigo-300 hover:bg-indigo-600 hover:text-white transition-colors">
+                      <Icon size={20} />
+                      <span className="text-[9px] font-bold truncate w-full text-center">{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
@@ -2052,7 +2071,7 @@ export default function App() {
              </div>
              
              <div className="bg-[#111827] border border-slate-800 rounded-2xl flex-1 relative overflow-hidden flex items-center justify-center p-4">
-                {<TourMapControls
+                {authUser.role !== 'superadmin' && <TourMapControls
                   mapMode={mapMode}
                   setMapMode={(value) => { setSelectedMapEventId(null); setMapMode(value); }}
                   mapDisplay={mapDisplay}
