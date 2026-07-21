@@ -362,6 +362,16 @@ export default function App() {
     setArtists(prev => prev.filter(a => a.id !== id));
     showToast('Artista removido.');
   };
+
+  const handleAddArtistToCompany = async (companyId) => {
+    const name = newArtistName.trim();
+    if (!name) return;
+    const { data, error } = await supabase.from('artists').insert({ name, company_id: companyId }).select().single();
+    if (error) { showToast(error.message.includes('duplicate') ? 'Artista já cadastrado.' : error.message, 'error'); return; }
+    setArtists(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name, 'pt-BR')));
+    setNewArtistName('');
+    showToast(`Artista "${name}" adicionado ao escritório.`);
+  };
   const dashboardUserIdRef = useRef(null);
   const [calendarCursor, setCalendarCursor] = useState(() => new Date());
   const [selectedCalendarDate, setSelectedCalendarDate] = useState('');
@@ -946,11 +956,16 @@ export default function App() {
 
   // Lista global de artistas únicos (para dropdown de seleção)
   const allArtistNames = useMemo(() => {
-    // Prioriza tabela artists, fallback para nomes nos eventos
-    const fromTable = artists.map(a => a.name);
-    if (fromTable.length > 0) return fromTable;
+    // Superadmin vê todos, escritório/agente vê só os da sua empresa
+    if (artists.length > 0) {
+      const filtered = authUser?.role === 'superadmin'
+        ? artists
+        : artists.filter(a => a.company_id === authUser?.companyId || !a.company_id);
+      if (filtered.length > 0) return filtered.map(a => a.name);
+    }
+    // Fallback para nomes nos eventos
     return [...new Set(events.map(e => e.artistName).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
-  }, [events, artists]);
+  }, [events, artists, authUser]);
 
   const selectedMapEvent = useMemo(() => mapEvents.find((event) => event.id === selectedMapEventId) || null, [mapEvents, selectedMapEventId]);
 
@@ -2542,6 +2557,38 @@ export default function App() {
                 <input type="checkbox" id="activeCompany" checked={companyForm.active} onChange={e=>setCompanyForm({...companyForm, active: e.target.checked})} className="w-4 h-4 rounded text-indigo-600 bg-gray-700 border-gray-600 focus:ring-indigo-600 focus:ring-2" />
                 <label htmlFor="activeCompany" className="text-sm text-slate-300 font-bold">Escritório Ativo (Acesso Liberado)</label>
               </div>
+
+              {/* Seção de Artistas do Escritório */}
+              {companyForm.id && (
+                <div className="border-t border-slate-800 pt-4 space-y-3">
+                  <h4 className="text-sm font-bold text-white flex items-center gap-2"><Music size={14} className="text-cyan-400"/> Artistas deste escritório</h4>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newArtistName}
+                      onChange={e => setNewArtistName(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleAddArtistToCompany(companyForm.id); } }}
+                      placeholder="Nome do artista..."
+                      className="flex-1 bg-[#1F2937] border border-slate-700 rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-indigo-400"
+                    />
+                    <button type="button" onClick={() => handleAddArtistToCompany(companyForm.id)} className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1">
+                      <Plus size={14}/> Add
+                    </button>
+                  </div>
+                  <div className="space-y-1 max-h-32 overflow-y-auto">
+                    {artists.filter(a => a.company_id === companyForm.id).length === 0 ? (
+                      <p className="text-xs text-slate-500 italic">Nenhum artista vinculado.</p>
+                    ) : (
+                      artists.filter(a => a.company_id === companyForm.id).map(artist => (
+                        <div key={artist.id} className="flex items-center justify-between bg-[#0B0F19] border border-slate-800 px-3 py-1.5 rounded-lg">
+                          <span className="text-xs text-white">{artist.name}</span>
+                          <button type="button" onClick={() => handleDeleteArtist(artist.id, artist.name)} className="text-red-400 hover:text-red-300"><Trash2 size={12}/></button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
               <button type="submit" disabled={isSavingCompany} className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60 text-white py-3.5 rounded-xl font-bold mt-4 flex justify-center items-center gap-2">
                  <Save size={18} /> {isSavingCompany ? 'Salvando...' : 'Salvar Empresa'}
               </button>
