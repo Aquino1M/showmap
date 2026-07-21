@@ -1321,6 +1321,7 @@ export default function App() {
   const TABS = [];
   if (authUser.role === 'superadmin') {
     TABS.push(
+      { id: 'map', label: 'Mapa', icon: Map },
       { id: 'stats', label: 'Estatísticas', icon: LayoutDashboard },
       { id: 'offices', label: 'Escritórios e Acessos', icon: Building },
       { id: 'agents', label: 'Todos Agentes', icon: Users },
@@ -1380,7 +1381,7 @@ export default function App() {
 
       <div className="flex flex-1 min-h-0 flex-col lg:flex-row">
       {/* Navegação: horizontal no celular e lateral no computador */}
-      <aside className={`${authUser.role === 'superadmin' ? 'block' : 'hidden lg:block'} bg-[#111827]/50 border-b border-slate-800 shrink-0 lg:w-60 lg:border-b-0 lg:border-r`}>
+      <aside className="hidden lg:block bg-[#111827]/50 border-b border-slate-800 shrink-0 lg:w-60 lg:border-b-0 lg:border-r">
         <div className="flex gap-2 p-2 sm:p-3 overflow-x-auto custom-scrollbar whitespace-nowrap lg:flex-col lg:overflow-y-auto lg:overflow-x-hidden lg:p-4">
           {TABS.map(tab => {
             const Icon = tab.icon;
@@ -2051,7 +2052,7 @@ export default function App() {
              </div>
              
              <div className="bg-[#111827] border border-slate-800 rounded-2xl flex-1 relative overflow-hidden flex items-center justify-center p-4">
-                {authUser.role !== 'superadmin' && <TourMapControls
+                {<TourMapControls
                   mapMode={mapMode}
                   setMapMode={(value) => { setSelectedMapEventId(null); setMapMode(value); }}
                   mapDisplay={mapDisplay}
@@ -2076,15 +2077,13 @@ export default function App() {
                   {BRAZIL_STATES[selectedMapState].name} · Limpar filtro
                 </button>}
 
-                {/* No celular e tablet, três atalhos ficam no alto e dois embaixo. */}
-                {authUser.role !== 'superadmin' && <>
-                  <div className="lg:hidden absolute bottom-14 left-1/2 z-30 flex -translate-x-1/2 gap-2 rounded-2xl border border-slate-700 bg-[#0B0F19]/90 p-2 shadow-xl backdrop-blur">
-                    {TABS.filter((tab) => tab.id !== 'map').map((tab) => {
-                      const Icon = tab.icon;
-                      return <button key={tab.id} onClick={() => setActiveTab(tab.id)} title={tab.label} aria-label={tab.label} className="h-10 w-10 rounded-lg border border-slate-700 bg-[#111827] text-indigo-300 hover:bg-indigo-600 hover:text-white flex items-center justify-center transition-colors"><Icon size={18} /></button>;
-                    })}
-                  </div>
-                </>}
+                {/* No celular e tablet, atalhos ficam embaixo do mapa. */}
+                <div className="lg:hidden absolute bottom-14 left-1/2 z-30 flex -translate-x-1/2 gap-2 rounded-2xl border border-slate-700 bg-[#0B0F19]/90 p-2 shadow-xl backdrop-blur">
+                  {TABS.filter((tab) => tab.id !== 'map').map((tab) => {
+                    const Icon = tab.icon;
+                    return <button key={tab.id} onClick={() => setActiveTab(tab.id)} title={tab.label} aria-label={tab.label} className="h-10 w-10 rounded-lg border border-slate-700 bg-[#111827] text-indigo-300 hover:bg-indigo-600 hover:text-white flex items-center justify-center transition-colors"><Icon size={18} /></button>;
+                  })}
+                </div>
 
                 {selectedMapEvent && mapDisplay === 'svg' && <div className="absolute top-4 right-4 z-40 w-56 sm:w-64 rounded-2xl border border-cyan-500/50 bg-[#0B0F19]/95 p-4 shadow-2xl backdrop-blur-xl">
                   <div className="mb-3 flex items-start justify-between gap-2 border-b border-slate-700 pb-2">
