@@ -1419,6 +1419,13 @@ export default function App() {
             </button>
           </div>
         )}
+        {authUser.role === 'superadmin' && activeTab !== 'stats' && (
+          <div className="lg:hidden flex justify-end mb-4">
+            <button onClick={() => setActiveTab('stats')} className="flex items-center gap-2 rounded-xl border border-indigo-500/50 bg-indigo-500/10 px-3 py-2 text-xs font-bold text-indigo-200 hover:bg-indigo-600 hover:text-white transition-colors">
+              <ChevronLeft size={16} /> Voltar
+            </button>
+          </div>
+        )}
         
         {/* TAB: ESTATÍSTICAS */}
         {activeTab === 'stats' && (
