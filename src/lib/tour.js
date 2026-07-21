@@ -39,11 +39,18 @@ export const filterMapEvents = (events, user, mode, artistName = '') => {
   );
 };
 
-export const getTourArtists = (events, user) => [...new Set(events
-  .filter((event) => isTourEvent(event) && (user?.role !== 'agent' || event.agentId === user.id))
-  .map((event) => event.artistName)
-  .filter(Boolean))]
-  .sort((first, second) => first.localeCompare(second, 'pt-BR'));
+export const getTourArtists = (events, user) => {
+  const seen = new Map();
+  events
+    .filter((event) => isTourEvent(event) && (user?.role !== 'agent' || event.agentId === user.id))
+    .forEach((event) => {
+      if (event.artistName) {
+        const key = event.artistName.toLowerCase().trim();
+        if (!seen.has(key)) seen.set(key, event.artistName);
+      }
+    });
+  return [...seen.values()].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+};
 
 export const getShowProximityColor = (date, now = new Date()) => {
   const today = atMidday(now.toISOString().slice(0, 10));
