@@ -334,6 +334,7 @@ export default function App() {
   const [proposalSubTab, setProposalSubTab] = useState('propostas'); // 'propostas' | 'banco'
   const [expandedCalendarEventId, setExpandedCalendarEventId] = useState(null);
   const [newArtistName, setNewArtistName] = useState('');
+  const [calendarViewMode, setCalendarViewMode] = useState('mine'); // 'mine' | 'company'
   const [viewedMapEvent, setViewedMapEvent] = useState(null);
   const [artists, setArtists] = useState([]);
 
@@ -1018,7 +1019,11 @@ export default function App() {
 
   const calendarEvents = useMemo(() => {
     const monthKey = `${calendarCursor.getFullYear()}-${String(calendarCursor.getMonth() + 1).padStart(2, '0')}`;
-    return visibleEvents.map((event) => ({
+    // Agente no modo empresa vê todos os eventos da empresa
+    const sourceEvents = (authUser?.role === 'agent' && calendarViewMode === 'company')
+      ? events.filter(e => e.companyId === authUser.companyId)
+      : visibleEvents;
+    return sourceEvents.map((event) => ({
       ...event,
       calendarDate: getRecurringOccurrenceDate(event) || getEventDateKey(event.date),
     })).filter((event) => {
@@ -1026,7 +1031,7 @@ export default function App() {
       return isCalendarEvent(event)
         && (selectedCalendarDate ? eventDate === selectedCalendarDate : eventDate.startsWith(monthKey));
     });
-  }, [visibleEvents, selectedCalendarDate, calendarCursor]);
+  }, [visibleEvents, events, authUser, calendarViewMode, selectedCalendarDate, calendarCursor]);
 
   const zoomMap = (factor, focus) => setMapViewport((current) => getZoomedViewport(current, factor, focus));
 
@@ -1761,6 +1766,12 @@ export default function App() {
                               Excluir Registo / Cancelar
                            </button>
                          )}
+                         {authUser.role === 'agent' && ev.agentId === authUser.id && (
+                           <div className="flex gap-2 mt-1">
+                             <button onClick={() => openEventModal(ev)} className="flex-1 bg-slate-700 hover:bg-slate-600 text-white py-1.5 rounded-lg text-[10px] font-bold transition-colors">Editar</button>
+                             <button onClick={() => handleDeleteEvent(ev.id)} className="flex-1 text-red-400 hover:bg-red-900/30 border border-slate-700 py-1.5 rounded-lg text-[10px] font-bold transition-colors">Cancelar</button>
+                           </div>
+                         )}
                       </div>
                     )}
                   </div>
@@ -1832,7 +1843,27 @@ export default function App() {
 
         {activeTab === 'calendar' && (
           <div className="max-w-7xl mx-auto">
-            <h2 className="text-xl sm:text-2xl font-bold text-white mb-6 flex items-center gap-2"><CalendarDays className="text-indigo-400"/> Calendário {authUser.role === 'superadmin' ? 'Global' : 'do Escritório'}</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-white mb-4 flex items-center gap-2"><CalendarDays className="text-indigo-400"/> Calendário {authUser.role === 'superadmin' ? 'Global' : authUser.role === 'agent' ? '' : 'do Escritório'}</h2>
+            
+            {/* Abas do calendário para agente */}
+            {authUser.role === 'agent' && (
+              <div className="flex gap-2 mb-5">
+                <button
+                  type="button"
+                  onClick={() => setCalendarViewMode('mine')}
+                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${calendarViewMode === 'mine' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
+                >
+                  Minha Agenda
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCalendarViewMode('company')}
+                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${calendarViewMode === 'company' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
+                >
+                  Agenda da Empresa
+                </button>
+              </div>
+            )}
             
             <div className="bg-[#111827] border border-slate-800 rounded-2xl p-4 sm:p-6">
               <div className="mb-6">
@@ -1847,7 +1878,10 @@ export default function App() {
                 <div className="grid grid-cols-7 gap-1 sm:gap-2">
                   {calendarDays.map((item, index) => {
                     if (!item) return <div key={`empty-${index}`} />;
-                    const eventsOnDay = visibleEvents.filter((event) => (getRecurringOccurrenceDate(event) || getEventDateKey(event.date)) === item.date && isCalendarEvent(event));
+                    const eventsOnDay = (authUser?.role === 'agent' && calendarViewMode === 'company'
+                      ? events.filter(e => e.companyId === authUser.companyId)
+                      : visibleEvents
+                    ).filter((event) => (getRecurringOccurrenceDate(event) || getEventDateKey(event.date)) === item.date && isCalendarEvent(event));
                     const dayType = getCalendarDayType(eventsOnDay);
                     const recurringDate = eventsOnDay.find((event) => event.isRecurring)?.date;
                     const recurringColor = recurringDate ? getShowProximityColor(getRecurringOccurrenceDate(eventsOnDay.find((event) => event.isRecurring))) : null;
@@ -2196,6 +2230,7 @@ export default function App() {
                       selectedEventId={selectedMapEventId}
                       onSelectEvent={setSelectedMapEventId}
                       onSelectState={(stateId) => { setSelectedMapState(stateId); setSelectedMapEventId(null); }}
+                      onViewEvent={setViewedMapEvent}
                       resetToken={mapResetToken}
                       initialViewport={realMapViewport}
                       onViewportChange={setRealMapViewport}
@@ -2205,37 +2240,61 @@ export default function App() {
                 }
 
                 {/* Card expandido do evento selecionado no mapa real */}
-                {mapDisplay === 'real' && selectedMapEvent && (
-                  <div className="absolute bottom-4 left-4 right-4 z-30 bg-[#111827] border border-slate-700 rounded-xl p-4 shadow-2xl">
-                    <button onClick={() => setSelectedMapEventId(null)} className="absolute top-2 right-2 text-slate-400 hover:text-white" aria-label="Fechar"><X size={16}/></button>
-                    <h4 className="text-white font-bold text-sm">{selectedMapEvent.city} · {selectedMapEvent.stateId} <span className="text-xs text-slate-400 font-normal ml-2">{new Date(`${selectedMapEvent.date}T12:00:00`).toLocaleDateString('pt-BR')}</span></h4>
-                    {selectedMapEvent.contractorName && (
+                {mapDisplay === 'real' && viewedMapEvent && (() => {
+                  const ev = events.find(e => e.id === viewedMapEvent.id) || viewedMapEvent;
+                  const agent = users.find(u => u.id === ev.agentId);
+                  return (
+                  <div className="absolute bottom-4 left-4 right-4 z-[600] bg-[#111827] border border-slate-700 rounded-xl p-4 shadow-2xl max-h-[60vh] overflow-y-auto">
+                    <button onClick={() => setViewedMapEvent(null)} className="absolute top-2 right-2 text-slate-400 hover:text-white" aria-label="Fechar"><X size={16}/></button>
+                    <h4 className="text-white font-bold text-sm">{ev.city} · {ev.stateId} <span className="text-xs text-slate-400 font-normal ml-2">{new Date(`${ev.date}T12:00:00`).toLocaleDateString('pt-BR')}</span></h4>
+                    {ev.contractorName && (
                       <div className="mt-2">
                         <p className="text-[10px] text-slate-500 uppercase font-bold">Contratante</p>
-                        <p className="text-xs text-white mt-0.5">{selectedMapEvent.contractorName}</p>
-                        {selectedMapEvent.eventName && <p className="text-[10px] text-indigo-300 mt-0.5">Evento: {selectedMapEvent.eventName}</p>}
-                        {selectedMapEvent.contractorPhone && <p className="text-[10px] text-slate-400">WhatsApp: {selectedMapEvent.contractorPhone}</p>}
-                        {selectedMapEvent.contractorInstagram && <p className="text-[10px] text-slate-400">Instagram: {selectedMapEvent.contractorInstagram}</p>}
+                        <p className="text-xs text-white mt-0.5">{ev.contractorName}</p>
+                        {ev.eventName && <p className="text-[10px] text-indigo-300 mt-0.5">Evento: {ev.eventName}</p>}
+                        {ev.contractorPhone && <p className="text-[10px] text-slate-400">WhatsApp: {ev.contractorPhone}</p>}
+                        {ev.contractorEmail && <p className="text-[10px] text-slate-400">Email: {ev.contractorEmail}</p>}
+                        {ev.contractorInstagram && <p className="text-[10px] text-slate-400">Instagram: {ev.contractorInstagram}</p>}
                       </div>
                     )}
                     <div className="mt-2 pt-2 border-t border-slate-800">
-                      <p className="text-[10px] text-slate-500 uppercase">Agente: <span className="text-slate-300">{users.find(u => u.id === selectedMapEvent.agentId)?.name || 'Não assumido'}</span></p>
+                      <p className="text-[10px] text-slate-500 uppercase">Agente:</p>
+                      {agent ? (
+                        <p className="text-xs text-slate-300 mt-0.5">{agent.name}</p>
+                      ) : (
+                        <>
+                          <p className="text-xs text-slate-500 italic mt-0.5">Não assumido</p>
+                          {(authUser.role === 'company_admin' || authUser.role === 'superadmin') && (
+                            <select
+                              onChange={(e) => { if (e.target.value) { handleUpdateStatus(ev.id, ev.status, e.target.value); setViewedMapEvent(null); } }}
+                              className="mt-1 w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs text-white outline-none focus:border-indigo-400"
+                              defaultValue=""
+                            >
+                              <option value="" disabled>Atribuir agente...</option>
+                              {users.filter(u => u.role === 'agent' && u.companyId === ev.companyId).map(u => (
+                                <option key={u.id} value={u.id}>{u.name}</option>
+                              ))}
+                            </select>
+                          )}
+                        </>
+                      )}
                     </div>
-                    {(authUser.companyId === selectedMapEvent.companyId) && (
+                    {(authUser.companyId === ev.companyId) && (
                       <div className="flex flex-wrap gap-2 mt-3">
-                        {selectedMapEvent.status === 'Cadastro' && !selectedMapEvent.agentId && authUser.role === 'company_admin' && (
-                          <button onClick={() => handleUpdateStatus(selectedMapEvent.id, 'Proposta', authUser.id)} className="flex-1 bg-purple-600 hover:bg-purple-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Assumir Proposta</button>
+                        {ev.status === 'Cadastro' && !ev.agentId && authUser.role === 'company_admin' && (
+                          <button onClick={() => { handleUpdateStatus(ev.id, 'Proposta', authUser.id); setViewedMapEvent(null); }} className="flex-1 bg-purple-600 hover:bg-purple-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Assumir Proposta</button>
                         )}
-                        {(authUser.role === 'company_admin' || (authUser.role === 'agent' && selectedMapEvent.agentId === authUser.id)) && selectedMapEvent.status === 'Proposta' && (
+                        {(authUser.role === 'company_admin' || (authUser.role === 'agent' && ev.agentId === authUser.id)) && ev.status === 'Proposta' && (
                           <>
-                            <button onClick={() => handleUpdateStatus(selectedMapEvent.id, 'Reservado')} className="flex-1 bg-orange-600 hover:bg-orange-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Reservar</button>
-                            <button onClick={() => handleUpdateStatus(selectedMapEvent.id, 'Vendido')} className="flex-1 bg-red-600 hover:bg-red-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Vendido</button>
+                            <button onClick={() => { handleUpdateStatus(ev.id, 'Reservado'); setViewedMapEvent(null); }} className="flex-1 bg-orange-600 hover:bg-orange-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Reservar</button>
+                            <button onClick={() => { handleUpdateStatus(ev.id, 'Vendido'); setViewedMapEvent(null); }} className="flex-1 bg-red-600 hover:bg-red-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Vendido</button>
                           </>
                         )}
                       </div>
                     )}
                   </div>
-                )}
+                  );
+                })()}
              </div>
           </div>
         )}
