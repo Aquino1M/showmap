@@ -334,6 +334,7 @@ export default function App() {
   const [proposalSubTab, setProposalSubTab] = useState('propostas'); // 'propostas' | 'banco'
   const [expandedCalendarEventId, setExpandedCalendarEventId] = useState(null);
   const [newArtistName, setNewArtistName] = useState('');
+  const [viewedMapEvent, setViewedMapEvent] = useState(null);
   const [artists, setArtists] = useState([]);
 
   // Carregar artistas da tabela
@@ -2059,6 +2060,36 @@ export default function App() {
                   <p className="text-sm font-semibold text-white">{new Date(`${selectedMapEvent.date}T12:00:00`).toLocaleDateString('pt-BR')}</p>
                   {selectedMapEvent.artistName && <p className="mt-1 text-xs text-cyan-300">Artista: {selectedMapEvent.artistName}</p>}
                   <p className="mt-1 text-xs text-slate-300">Status: <span className="font-bold text-white">{getEventStatusLabel(selectedMapEvent.status)}</span></p>
+
+                  {/* Card expandido com ações */}
+                  {expandedCalendarEventId === selectedMapEvent.id ? (
+                    <div className="mt-3 border-t border-slate-700 pt-3 space-y-3">
+                      {selectedMapEvent.contractorName && (
+                        <div>
+                          <p className="text-[10px] text-slate-500 uppercase font-bold mb-1">Contratante</p>
+                          <p className="text-xs text-white">{selectedMapEvent.contractorName}</p>
+                          {selectedMapEvent.eventName && <p className="text-[10px] text-indigo-300 mt-0.5">Evento: {selectedMapEvent.eventName}</p>}
+                          {selectedMapEvent.contractorPhone && <p className="text-[10px] text-slate-400">WhatsApp: {selectedMapEvent.contractorPhone}</p>}
+                          {selectedMapEvent.contractorInstagram && <p className="text-[10px] text-slate-400">Instagram: {selectedMapEvent.contractorInstagram}</p>}
+                        </div>
+                      )}
+                      <div className="flex flex-wrap gap-2">
+                        {selectedMapEvent.status === 'Cadastro' && !selectedMapEvent.agentId && authUser.role === 'company_admin' && (
+                          <button onClick={() => handleUpdateStatus(selectedMapEvent.id, 'Proposta', authUser.id)} className="flex-1 bg-purple-600 hover:bg-purple-500 text-white py-1.5 rounded-lg text-[10px] font-bold">Assumir</button>
+                        )}
+                        {(authUser.role === 'company_admin' || (authUser.role === 'agent' && selectedMapEvent.agentId === authUser.id)) && selectedMapEvent.status === 'Proposta' && (
+                          <>
+                            <button onClick={() => handleUpdateStatus(selectedMapEvent.id, 'Reservado')} className="flex-1 bg-orange-600 hover:bg-orange-500 text-white py-1.5 rounded-lg text-[10px] font-bold">Reservar</button>
+                            <button onClick={() => handleUpdateStatus(selectedMapEvent.id, 'Vendido')} className="flex-1 bg-red-600 hover:bg-red-500 text-white py-1.5 rounded-lg text-[10px] font-bold">Vendido</button>
+                          </>
+                        )}
+                      </div>
+                      <button onClick={() => setExpandedCalendarEventId(null)} className="w-full text-xs text-slate-400 hover:text-white mt-1">Fechar detalhes</button>
+                    </div>
+                  ) : (
+                    <button onClick={() => setExpandedCalendarEventId(selectedMapEvent.id)} className="w-full mt-3 bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Ver</button>
+                  )}
+
                   {mapMode === 'tour' && <div className="mt-3 space-y-1.5 border-t border-slate-700 pt-3 text-[10px] text-slate-300">
                     <p className="font-bold uppercase tracking-wide text-slate-400">Índice de proximidade</p>
                     <p className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-red-500"/> Hoje até 2 meses</p>
@@ -2172,6 +2203,39 @@ export default function App() {
                   </Suspense>
                 </div>
                 }
+
+                {/* Card expandido do evento selecionado no mapa real */}
+                {mapDisplay === 'real' && selectedMapEvent && (
+                  <div className="absolute bottom-4 left-4 right-4 z-30 bg-[#111827] border border-slate-700 rounded-xl p-4 shadow-2xl">
+                    <button onClick={() => setSelectedMapEventId(null)} className="absolute top-2 right-2 text-slate-400 hover:text-white" aria-label="Fechar"><X size={16}/></button>
+                    <h4 className="text-white font-bold text-sm">{selectedMapEvent.city} · {selectedMapEvent.stateId} <span className="text-xs text-slate-400 font-normal ml-2">{new Date(`${selectedMapEvent.date}T12:00:00`).toLocaleDateString('pt-BR')}</span></h4>
+                    {selectedMapEvent.contractorName && (
+                      <div className="mt-2">
+                        <p className="text-[10px] text-slate-500 uppercase font-bold">Contratante</p>
+                        <p className="text-xs text-white mt-0.5">{selectedMapEvent.contractorName}</p>
+                        {selectedMapEvent.eventName && <p className="text-[10px] text-indigo-300 mt-0.5">Evento: {selectedMapEvent.eventName}</p>}
+                        {selectedMapEvent.contractorPhone && <p className="text-[10px] text-slate-400">WhatsApp: {selectedMapEvent.contractorPhone}</p>}
+                        {selectedMapEvent.contractorInstagram && <p className="text-[10px] text-slate-400">Instagram: {selectedMapEvent.contractorInstagram}</p>}
+                      </div>
+                    )}
+                    <div className="mt-2 pt-2 border-t border-slate-800">
+                      <p className="text-[10px] text-slate-500 uppercase">Agente: <span className="text-slate-300">{users.find(u => u.id === selectedMapEvent.agentId)?.name || 'Não assumido'}</span></p>
+                    </div>
+                    {(authUser.companyId === selectedMapEvent.companyId) && (
+                      <div className="flex flex-wrap gap-2 mt-3">
+                        {selectedMapEvent.status === 'Cadastro' && !selectedMapEvent.agentId && authUser.role === 'company_admin' && (
+                          <button onClick={() => handleUpdateStatus(selectedMapEvent.id, 'Proposta', authUser.id)} className="flex-1 bg-purple-600 hover:bg-purple-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Assumir Proposta</button>
+                        )}
+                        {(authUser.role === 'company_admin' || (authUser.role === 'agent' && selectedMapEvent.agentId === authUser.id)) && selectedMapEvent.status === 'Proposta' && (
+                          <>
+                            <button onClick={() => handleUpdateStatus(selectedMapEvent.id, 'Reservado')} className="flex-1 bg-orange-600 hover:bg-orange-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Reservar</button>
+                            <button onClick={() => handleUpdateStatus(selectedMapEvent.id, 'Vendido')} className="flex-1 bg-red-600 hover:bg-red-500 text-white py-2 rounded-lg text-xs font-bold transition-colors">Vendido</button>
+                          </>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
              </div>
           </div>
         )}

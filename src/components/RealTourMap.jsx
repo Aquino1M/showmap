@@ -60,7 +60,7 @@ function MapActions({ defaultZoom }) {
   );
 }
 
-export default function RealTourMap({ events, mapMode, selectedState, selectedEventId, onSelectEvent, onSelectState, resetToken, initialViewport, onViewportChange }) {
+export default function RealTourMap({ events, mapMode, selectedState, selectedEventId, onSelectEvent, onSelectState, onViewEvent, resetToken, initialViewport, onViewportChange }) {
   const [locations, setLocations] = useState({});
   const defaultZoom = useMemo(
     () => (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches ? MOBILE_BRAZIL_ZOOM : BRAZIL_ZOOM),
@@ -97,9 +97,14 @@ export default function RealTourMap({ events, mapMode, selectedState, selectedEv
           const color = getShowProximityColor(occurrenceDate || event.date);
           const selected = selectedEventId === event.id;
           return (
-            <CircleMarker key={event.id} center={position} radius={selected ? 12 : 9} pathOptions={{ color: '#fff', weight: 3, fillColor: color, fillOpacity: 1 }} eventHandlers={{ click: () => onSelectEvent(event.id) }}>
+            <CircleMarker key={event.id} center={position} radius={selected ? 12 : 9} pathOptions={{ color: '#fff', weight: 3, fillColor: color, fillOpacity: 1 }} eventHandlers={{ click: () => { onSelectEvent(event.id); if (onViewEvent) onViewEvent(event); } }}>
               <Popup>
-                <div className="min-w-40 text-sm text-slate-900"><strong>{event.city} · {event.stateId}</strong><br />{new Date(`${event.date}T12:00:00`).toLocaleDateString('pt-BR')}<br />{event.artistName && <>Artista: {event.artistName}<br /></>}Status: {getEventStatusLabel(event.status)}</div>
+                <div className="min-w-40 text-sm text-slate-900">
+                  <strong>{event.city} · {event.stateId}</strong><br />
+                  {new Date(`${event.date}T12:00:00`).toLocaleDateString('pt-BR')}<br />
+                  {event.artistName && <>Artista: {event.artistName}<br /></>}
+                  Status: {getEventStatusLabel(event.status)}
+                </div>
               </Popup>
             </CircleMarker>
           );
