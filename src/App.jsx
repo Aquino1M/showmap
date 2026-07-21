@@ -841,9 +841,9 @@ export default function App() {
       city: formData.city,
       stateId: formData.stateId,
       type: formData.type,
-      status: existing ? existing.status : (registrationMode === 'recurring' ? 'Cadastro' : 'Disponível'),
+      status: existing ? existing.status : (registrationMode === 'recurring' ? 'Cadastro' : registrationMode === 'proposal' ? 'Proposta' : 'Disponível'),
       companyId: authUser.companyId,
-      agentId: existing ? existing.agentId : null,
+      agentId: existing ? existing.agentId : (registrationMode === 'proposal' ? authUser.id : null),
       contractorName: formData.contractorName,
       contractorEmail: formData.contractorEmail,
       contractorPhone: formData.contractorPhone,
@@ -854,7 +854,7 @@ export default function App() {
     };
     try {
       await saveDocument('events', eventToSave);
-      showToast(formData.id ? 'Cadastro atualizado com sucesso!' : registrationMode === 'recurring' ? 'Oportunidade anual cadastrada com sucesso!' : 'Data livre registrada com sucesso!');
+      showToast(formData.id ? 'Cadastro atualizado com sucesso!' : registrationMode === 'recurring' ? 'Oportunidade anual cadastrada com sucesso!' : registrationMode === 'proposal' ? 'Proposta cadastrada com sucesso!' : 'Data livre registrada com sucesso!');
       setIsEventModalOpen(false);
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Não foi possível salvar a agenda.', 'error');
@@ -1605,6 +1605,11 @@ export default function App() {
                   )}
                 </div>
               )}
+              {authUser.role === 'agent' && (
+                <button onClick={() => openEventModal(null, 'proposal')} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-lg">
+                  <Plus size={16}/> Nova Proposta
+                </button>
+              )}
             </div>
 
             {/* Sub-abas: Propostas / Banco de Dados */}
@@ -1616,13 +1621,15 @@ export default function App() {
               >
                 Propostas
               </button>
-              <button
-                type="button"
-                onClick={() => setProposalSubTab('banco')}
-                className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${proposalSubTab === 'banco' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
-              >
-                Banco de Dados
-              </button>
+              {authUser.role !== 'agent' && (
+                <button
+                  type="button"
+                  onClick={() => setProposalSubTab('banco')}
+                  className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${proposalSubTab === 'banco' ? 'bg-indigo-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}
+                >
+                  Banco de Dados
+                </button>
+              )}
             </div>
             
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
@@ -1887,6 +1894,14 @@ export default function App() {
                     className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2"
                   >
                     <Plus size={16}/> Cadastro para {new Date(selectedCalendarDate + 'T12:00:00').toLocaleDateString('pt-BR')}
+                  </button>
+                )}
+                {selectedCalendarDate && authUser.role === 'agent' && (
+                  <button
+                    onClick={() => openEventModal(null, 'proposal', selectedCalendarDate)}
+                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Plus size={16}/> Proposta para {new Date(selectedCalendarDate + 'T12:00:00').toLocaleDateString('pt-BR')}
                   </button>
                 )}
 
