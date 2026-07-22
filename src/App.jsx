@@ -956,14 +956,66 @@ export default function App() {
   };
 
   const handleExportTourPDF = () => {
-    const tourEvents = events
-      .filter(ev => ['Vendido', 'Reservado'].includes(ev.status))
-      .sort((a, b) => a.date.localeCompare(b.date));
-    if (!tourEvents.length) { showToast('Nenhum show Vendido/Reservado para exportar.', 'error'); return; }
+    // Pega os eventos que estão visíveis no calendário (agenda aberta)
+    const exportEvents = calendarEvents
+      .sort((a, b) => (a.calendarDate || a.date).localeCompare(b.calendarDate || b.date));
+    if (!exportEvents.length) { showToast('Nenhum evento no calendário para exportar.', 'error'); return; }
+    const artistLabel = selectedTourArtist || exportEvents.find(e => e.artistName)?.artistName || userCompanyName || 'ShowMap';
     const monthLabel = calendarCursor.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-    const artistLabel = selectedTourArtist || tourEvents[0]?.artistName || 'Artista';
-    const rows = tourEvents.map(ev => `<tr><td style="padding:8px;border:1px solid #ddd">${new Date(ev.date + 'T12:00:00').toLocaleDateString('pt-BR')}</td><td style="padding:8px;border:1px solid #ddd">${ev.city}</td><td style="padding:8px;border:1px solid #ddd">${ev.stateId}</td><td style="padding:8px;border:1px solid #ddd">${ev.status}</td><td style="padding:8px;border:1px solid #ddd">${ev.contractorName || '-'}</td><td style="padding:8px;border:1px solid #ddd">${ev.type}</td></tr>`).join('');
-    const html = `<!DOCTYPE html><html><head><title>Roteiro de Turnê</title><style>body{font-family:Arial,sans-serif;padding:40px;background:#fff;color:#000}h1{font-size:20px;margin-bottom:4px}h2{font-size:14px;color:#555;margin-bottom:20px}table{width:100%;border-collapse:collapse;font-size:13px}th{background:#f0f0f0;padding:8px;border:1px solid #ddd;text-align:left}@media print{body{padding:20px}}</style></head><body><h1>Roteiro de Turnê - ${artistLabel}</h1><h2>${monthLabel}</h2><table><thead><tr><th>Data</th><th>Cidade</th><th>UF</th><th>Status</th><th>Contratante</th><th>Tipo</th></tr></thead><tbody>${rows}</tbody></table><script>window.onload=function(){window.print()}</script></body></html>`;
+    const today = new Date().toLocaleDateString('pt-BR');
+    
+    const statusColors = { 'Vendido': '#dc2626', 'Confirmado': '#dc2626', 'Reservado': '#ea580c', 'Agendado': '#ea580c', 'Proposta': '#7c3aed', 'Cadastro': '#475569', 'Disponível': '#0ea5e9' };
+    
+    const rows = exportEvents.map(ev => {
+      const statusColor = statusColors[ev.status] || '#475569';
+      const date = new Date((ev.calendarDate || ev.date) + 'T12:00:00').toLocaleDateString('pt-BR');
+      return `<tr>
+        <td style="padding:12px 16px;border-bottom:1px solid #1e293b;color:#e2e8f0;font-weight:600">${date}</td>
+        <td style="padding:12px 16px;border-bottom:1px solid #1e293b;color:#fff;font-weight:700">${ev.city}</td>
+        <td style="padding:12px 16px;border-bottom:1px solid #1e293b;color:#94a3b8">${ev.stateId}</td>
+        <td style="padding:12px 16px;border-bottom:1px solid #1e293b"><span style="background:${statusColor};color:#fff;padding:3px 10px;border-radius:12px;font-size:10px;font-weight:700;text-transform:uppercase">${getEventStatusLabel(ev.status)}</span></td>
+        <td style="padding:12px 16px;border-bottom:1px solid #1e293b;color:#cbd5e1">${ev.contractorName || '—'}</td>
+        <td style="padding:12px 16px;border-bottom:1px solid #1e293b;color:#67e8f9;font-size:11px">${ev.contractorPhone || ''}</td>
+      </tr>`;
+    }).join('');
+
+    const totalVendidos = exportEvents.filter(e => ['Vendido', 'Confirmado'].includes(e.status)).length;
+    const totalReservados = exportEvents.filter(e => ['Reservado', 'Agendado'].includes(e.status)).length;
+    const totalPropostas = exportEvents.filter(e => e.status === 'Proposta').length;
+    const totalCadastros = exportEvents.filter(e => e.status === 'Cadastro').length;
+
+    const html = `<!DOCTYPE html><html><head><title>Roteiro - ${artistLabel}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#0B0F19;color:#e2e8f0;padding:40px}
+.header{text-align:center;margin-bottom:32px;padding-bottom:24px;border-bottom:2px solid #1e293b}
+.logo{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#67e8f9;margin-bottom:8px}
+h1{font-size:28px;font-weight:800;color:#fff;margin-bottom:4px}
+.subtitle{font-size:14px;color:#94a3b8}
+.stats{display:flex;justify-content:center;gap:24px;margin:20px 0}
+.stat{text-align:center}
+.stat-number{font-size:24px;font-weight:800}
+.stat-label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#64748b;margin-top:2px}
+table{width:100%;border-collapse:collapse;margin-top:16px;background:#111827;border-radius:12px;overflow:hidden}
+th{padding:14px 16px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#64748b;background:#0f172a;border-bottom:2px solid #1e293b}
+.footer{text-align:center;margin-top:32px;padding-top:16px;border-top:1px solid #1e293b;font-size:11px;color:#475569}
+@media print{body{padding:20px;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+</style></head><body>
+<div class="header">
+<p class="logo">◉ ShowMap</p>
+<h1>${artistLabel}</h1>
+<p class="subtitle">Roteiro de Turnê · ${monthLabel}</p>
+<div class="stats">
+<div class="stat"><div class="stat-number" style="color:#dc2626">${totalVendidos}</div><div class="stat-label">Vendidos</div></div>
+<div class="stat"><div class="stat-number" style="color:#ea580c">${totalReservados}</div><div class="stat-label">Reservados</div></div>
+<div class="stat"><div class="stat-number" style="color:#7c3aed">${totalPropostas}</div><div class="stat-label">Propostas</div></div>
+<div class="stat"><div class="stat-number" style="color:#475569">${totalCadastros}</div><div class="stat-label">Cadastros</div></div>
+</div>
+</div>
+<table><thead><tr><th>Data</th><th>Cidade</th><th>UF</th><th>Status</th><th>Contratante</th><th>Telefone</th></tr></thead><tbody>${rows}</tbody></table>
+<div class="footer">Gerado em ${today} via ShowMap · showmap.vercel.app</div>
+<script>window.onload=function(){window.print()}</script>
+</body></html>`;
     const win = window.open('', '_blank');
     if (win) { win.document.write(html); win.document.close(); }
   };
@@ -2051,9 +2103,9 @@ export default function App() {
           <div className="max-w-7xl mx-auto">
             <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
               <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2"><CalendarDays className="text-indigo-400"/> Calendário {authUser.role === 'superadmin' ? 'Global' : authUser.role === 'agent' ? '' : 'do Escritório'}</h2>
-              {(authUser.role === 'company_admin' || authUser.role === 'superadmin') && (
+              {(authUser.role === 'company_admin' || authUser.role === 'superadmin' || authUser.role === 'agent') && (
                 <button onClick={handleExportTourPDF} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-xl text-xs font-bold transition-colors">
-                  <Download size={14}/> Exportar Roteiro PDF
+                  <Download size={14}/> Exportar PDF
                 </button>
               )}
             </div>
