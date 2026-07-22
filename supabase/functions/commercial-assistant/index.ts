@@ -19,6 +19,7 @@ const getCorsHeaders = (request: Request) => {
 }
 
 type EventRow = {
+  id: string
   city: string
   state_id: string
   date: string
@@ -28,19 +29,27 @@ type EventRow = {
   contractor_name: string | null
   event_name: string | null
   artist_name: string | null
+  agent_id: string | null
   is_recurring: boolean
 }
 
-const toAiEvent = (event: EventRow) => ({
+type ProfileRow = {
+  id: string
+  name: string
+  role: string
+}
+
+const toAiEvent = (event: EventRow, agents: Map<string, string>) => ({
   cidade: event.city,
   uf: event.state_id,
   data: event.date,
-  horario: event.time,
+  horario: event.time || 'sem horário',
   tipo: event.type,
   status: event.status,
-  contratante: event.contractor_name,
-  evento: event.event_name,
-  artista: event.artist_name,
+  contratante: event.contractor_name || 'sem contratante',
+  evento: event.event_name || '',
+  artista: event.artist_name || '',
+  agente: event.agent_id ? (agents.get(event.agent_id) || 'atribuído') : 'não atribuído',
   recorrente_anual: event.is_recurring,
 })
 
@@ -52,9 +61,14 @@ const normalizeQuestion = (value: string) => value
   .replace(/\s+/g, ' ')
   .trim()
 
-// Apenas dúvidas estáveis podem reutilizar uma resposta antiga. Perguntas sobre
-// agenda, datas, propostas e artistas sempre precisam consultar os dados atuais.
-const isReusableQuestion = (question: string) => /\b(como|o que|funciona|cadastro|calendario|mapa|agente|plano|financeiro|proposta)\b/.test(question)
+// Perguntas sobre roteiro, datas, cidades e agenda NUNCA devem usar cache
+const isReusableQuestion = (question: string) => {
+  const normalized = normalizeQuestion(question)
+  // Se menciona cidade, data, roteiro, dia, agenda → sempre consultar dados frescos
+  if (/\b(roteiro|rota|dia|data|antes|depois|proximo|proxima|agenda|cidade|km|quilometro)\b/.test(normalized)) return false
+  // Apenas perguntas genéricas sobre o sistema podem ser cacheadas
+  return /\b(como|o que|funciona|cadastro|calendario|mapa|plano|financeiro)\b/.test(normalized)
+}
 
 Deno.serve(async (request) => {
   const corsHeaders = getCorsHeaders(request)
@@ -116,16 +130,65 @@ Deno.serve(async (request) => {
       }
     }
 
+    // Buscar TODOS os eventos do escritório (sem limite artificial)
     const { data: events, error: eventsError } = await admin
       .from('events')
-      .select('city, state_id, date, time, type, status, contractor_name, event_name, artist_name, is_recurring')
+      .select('id, city, state_id, date, time, type, status, contractor_name, event_name, artist_name, agent_id, is_recurring')
       .eq('company_id', caller.company_id)
       .order('date', { ascending: true })
-      .limit(150)
     if (eventsError) throw eventsError
 
-    const context = JSON.stringify((events || []).map(toAiEvent))
-    const systemPrompt = `Você é o Assistente Comercial do ShowMap para o escritório ${company.name}. Fale em português do Brasil, de forma natural, amigável e direta, como um assistente da equipe comercial. Use frases curtas e explique a conclusão antes dos detalhes. Não use Markdown, asteriscos, títulos técnicos, tabelas, JSON ou linguagem de sistema. Se precisar listar opções, use no máximo três itens simples com o símbolo •. Use apenas os eventos no contexto abaixo. Não invente dados, cidades, contratantes ou resultados. Não mostre e-mail, telefone, senha ou qualquer dado pessoal que não esteja no contexto. Você não pode criar, reservar, vender, excluir ou alterar registros: apenas sugere e explica. Cadastros recorrentes são oportunidades anuais e não bloqueiam a data. Ao sugerir roteiro, priorize datas livres e propostas próximas de shows agendados ou vendidos; deixe claro quando faltarem dados.\n\nContexto autorizado do escritório:\n${context}`
+    // Buscar agentes do escritório para identificar nomes
+    const { data: agents } = await admin
+      .from('profiles')
+      .select('id, name, role')
+      .eq('company_id', caller.company_id)
+    const agentMap = new Map<string, string>()
+    ;(agents || []).forEach((a: ProfileRow) => agentMap.set(a.id, a.name))
+
+    const context = JSON.stringify((events || []).map((e: EventRow) => toAiEvent(e, agentMap)))
+    const today = new Date().toISOString().slice(0, 10)
+    const totalEvents = (events || []).length
+
+    const systemPrompt = `Você é o Assistente Comercial do ShowMap para o escritório "${company.name}".
+
+REGRAS DE COMPORTAMENTO:
+• Fale em português do Brasil, de forma natural, amigável e direta.
+• Use frases curtas. Explique a conclusão antes dos detalhes.
+• Não use Markdown, asteriscos, títulos técnicos, tabelas, JSON.
+• Se precisar listar, use no máximo 5 itens com o símbolo •.
+• Não invente dados. Se não encontrar nos dados, diga "não encontrei nos registros".
+• Não mostre e-mail, telefone, senha ou dados pessoais.
+• Você não pode criar, reservar, vender, excluir ou alterar registros: apenas sugere.
+
+HOJE É: ${today}
+
+GLOSSÁRIO DE STATUS:
+• "Vendido" ou "Confirmado" = show FECHADO, data ocupada, já tem contrato
+• "Reservado" ou "Agendado" = data reservada, quase fechada
+• "Proposta" = em negociação, agente trabalhando
+• "Cadastro" = oportunidade importada, ainda não trabalhada (data LIVRE para roteiro)
+• "Disponível" = data completamente livre
+
+COMO SUGERIR ROTEIROS:
+Quando o usuário pedir sugestão de roteiro ou "datas antes/depois" de um show:
+1. Identifique o show referência (cidade + data)
+2. Procure NOS DADOS eventos com datas 1-3 dias antes OU depois
+3. Considere cidades no mesmo estado ou estados vizinhos como potenciais
+4. Shows com status "Vendido"/"Reservado" já estão OCUPADOS - não sugira essas datas
+5. Cadastros e propostas são oportunidades LIVRES que podem ser trabalhadas
+6. Se não encontrar nada próximo, diga claramente e sugira o que há disponível
+
+ESTADOS VIZINHOS (para roteiro):
+GO vizinhos: MG, MS, MT, TO, BA, DF
+SP vizinhos: MG, RJ, PR, MS
+MG vizinhos: SP, RJ, ES, BA, GO, DF, MS
+BA vizinhos: SE, AL, PE, PI, TO, GO, MG, ES
+
+O escritório tem ${totalEvents} eventos cadastrados no total.
+
+DADOS COMPLETOS DO ESCRITÓRIO (todos os eventos):
+${context}`
 
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
@@ -141,8 +204,8 @@ Deno.serve(async (request) => {
           { role: 'system', content: systemPrompt },
           { role: 'user', content: question },
         ],
-        temperature: 0.2,
-        max_tokens: 500,
+        temperature: 0.3,
+        max_tokens: 800,
       }),
     })
     if (!response.ok) {
