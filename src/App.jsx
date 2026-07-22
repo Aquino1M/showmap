@@ -1652,7 +1652,10 @@ export default function App() {
               </div>
               <div className="bg-[#111827] border border-slate-800 rounded-2xl p-4">
                 {artists.length === 0 ? (
-                  <p className="text-sm text-slate-500 text-center py-4">Nenhum artista cadastrado. Rode o SQL de migração primeiro.</p>
+                  <div className="text-center py-4">
+                    <p className="text-sm text-slate-500 mb-3">Nenhum artista cadastrado.</p>
+                    <p className="text-xs text-slate-600">Use o campo acima para adicionar artistas, ou rode o SQL de migração no Supabase.</p>
+                  </div>
                 ) : (
                   <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                     {artists.map(artist => (
@@ -1964,9 +1967,9 @@ export default function App() {
               {visibleEvents.length === 0 && <p className="text-slate-500 col-span-full">Nenhum registo encontrado.</p>}
             </div>
 
-            {/* Histórico de Auditoria */}
+            {/* Histórico de Auditoria - só desktop */}
             {(authUser.role === 'company_admin' || authUser.role === 'superadmin') && auditLog.length > 0 && (
-              <div className="mt-8">
+              <div className="mt-8 hidden lg:block">
                 <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><Clock className="text-indigo-400" size={18}/> Histórico</h3>
                 <div className="bg-[#111827] border border-slate-800 rounded-2xl p-4 space-y-3 max-h-64 overflow-y-auto">
                   {auditLog.map(entry => (
