@@ -999,7 +999,7 @@ h1{font-size:28px;font-weight:800;color:#fff;margin-bottom:4px}
 table{width:100%;border-collapse:collapse;margin-top:16px;background:#111827;border-radius:12px;overflow:hidden}
 th{padding:14px 16px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#64748b;background:#0f172a;border-bottom:2px solid #1e293b}
 .footer{text-align:center;margin-top:32px;padding-top:16px;border-top:1px solid #1e293b;font-size:11px;color:#475569}
-@media print{body{padding:20px;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+@media print{body{padding:0;margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{margin:0;size:A4 landscape}}
 </style></head><body>
 <div class="header">
 <p class="logo">◉ ShowMap</p>
