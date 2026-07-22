@@ -21,7 +21,7 @@ import {
   Map, CalendarDays, MapPin, Plus, ChevronLeft, ChevronRight, Users,
   LayoutDashboard, X, Briefcase, FileText, Building, 
   UserPlus, Trash2, Edit, Save, HandMetal, Hand, LogOut, Clock,
-  Globe2, ArrowRight, Menu, Minus, RotateCcw, Upload, Download, Music
+  Globe2, ArrowRight, Menu, Minus, RotateCcw, Upload, Download, Music, Bell
 } from 'lucide-react';
 
 const RealTourMap = lazy(() => import('./components/RealTourMap'));
@@ -349,6 +349,26 @@ export default function App() {
     loadArtists();
   }, []);
 
+  // Carregar notificações do usuário
+  useEffect(() => {
+    if (!authUser?.id) return;
+    const loadNotifications = async () => {
+      const { data } = await supabase.from('notifications').select('*').eq('user_id', authUser.id).order('created_at', { ascending: false }).limit(20);
+      if (data) setNotifications(data);
+    };
+    loadNotifications();
+  }, [authUser?.id]);
+
+  // Carregar histórico de auditoria (company_admin e superadmin)
+  useEffect(() => {
+    if (!authUser?.id || (authUser.role !== 'company_admin' && authUser.role !== 'superadmin')) return;
+    const loadAuditLog = async () => {
+      const { data } = await supabase.from('audit_log').select('*').order('created_at', { ascending: false }).limit(20);
+      if (data) setAuditLog(data);
+    };
+    loadAuditLog();
+  }, [authUser?.id, authUser?.role]);
+
   const handleAddArtist = async () => {
     const name = newArtistName.trim();
     if (!name) return;
@@ -422,6 +442,9 @@ export default function App() {
   const [editingImportId, setEditingImportId] = useState('');
 
   const [toast, setToast] = useState(null);
+  const [notifications, setNotifications] = useState([]);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [auditLog, setAuditLog] = useState([]);
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
@@ -888,11 +911,61 @@ export default function App() {
           status: newStatus,
           agentId: assignedAgentId || ev.agentId
         });
+
+        // Audit log (company_admin and superadmin)
+        if (authUser.role === 'company_admin' || authUser.role === 'superadmin') {
+          const auditEntry = {
+            event_id: eventId,
+            user_id: authUser.id,
+            user_name: authUser.name,
+            action: `Status alterado para ${newStatus}`,
+            details: `${ev.city} - ${ev.stateId} (${ev.date})`,
+            company_id: authUser.companyId
+          };
+          await supabase.from('audit_log').insert(auditEntry);
+          setAuditLog(prev => [{ ...auditEntry, id: crypto.randomUUID(), created_at: new Date().toISOString() }, ...prev].slice(0, 20));
+        }
+
+        // In-app notification for agent (if assigned and status is relevant)
+        if (['Proposta', 'Reservado', 'Vendido'].includes(newStatus) && (assignedAgentId || ev.agentId)) {
+          const targetUserId = assignedAgentId || ev.agentId;
+          if (targetUserId !== authUser.id) {
+            const notif = {
+              user_id: targetUserId,
+              company_id: ev.companyId,
+              title: `Status: ${newStatus}`,
+              message: `${ev.city} - ${ev.stateId} (${ev.date}) foi atualizado para ${newStatus}.`
+            };
+            await supabase.from('notifications').insert(notif);
+          }
+        }
+
         showToast(`Status atualizado para ${newStatus}`);
       } catch (error) {
         showToast(error instanceof Error ? error.message : 'Não foi possível atualizar o status.', 'error');
       }
     }
+  };
+
+  const handleMarkNotificationsRead = async () => {
+    const unreadIds = notifications.filter(n => !n.read).map(n => n.id);
+    if (!unreadIds.length) return;
+    await supabase.from('notifications').update({ read: true }).in('id', unreadIds);
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    showToast('Notificações marcadas como lidas.');
+  };
+
+  const handleExportTourPDF = () => {
+    const tourEvents = events
+      .filter(ev => ['Vendido', 'Reservado'].includes(ev.status))
+      .sort((a, b) => a.date.localeCompare(b.date));
+    if (!tourEvents.length) { showToast('Nenhum show Vendido/Reservado para exportar.', 'error'); return; }
+    const monthLabel = calendarCursor.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+    const artistLabel = selectedTourArtist || tourEvents[0]?.artistName || 'Artista';
+    const rows = tourEvents.map(ev => `<tr><td style="padding:8px;border:1px solid #ddd">${new Date(ev.date + 'T12:00:00').toLocaleDateString('pt-BR')}</td><td style="padding:8px;border:1px solid #ddd">${ev.city}</td><td style="padding:8px;border:1px solid #ddd">${ev.stateId}</td><td style="padding:8px;border:1px solid #ddd">${ev.status}</td><td style="padding:8px;border:1px solid #ddd">${ev.contractorName || '-'}</td><td style="padding:8px;border:1px solid #ddd">${ev.type}</td></tr>`).join('');
+    const html = `<!DOCTYPE html><html><head><title>Roteiro de Turnê</title><style>body{font-family:Arial,sans-serif;padding:40px;background:#fff;color:#000}h1{font-size:20px;margin-bottom:4px}h2{font-size:14px;color:#555;margin-bottom:20px}table{width:100%;border-collapse:collapse;font-size:13px}th{background:#f0f0f0;padding:8px;border:1px solid #ddd;text-align:left}@media print{body{padding:20px}}</style></head><body><h1>Roteiro de Turnê - ${artistLabel}</h1><h2>${monthLabel}</h2><table><thead><tr><th>Data</th><th>Cidade</th><th>UF</th><th>Status</th><th>Contratante</th><th>Tipo</th></tr></thead><tbody>${rows}</tbody></table><script>window.onload=function(){window.print()}</script></body></html>`;
+    const win = window.open('', '_blank');
+    if (win) { win.document.write(html); win.document.close(); }
   };
 
   const handleDeleteEvent = async (eventId) => {
@@ -1406,6 +1479,33 @@ export default function App() {
           <div className="text-right hidden sm:block">
             <p className="text-sm font-bold text-white">{authUser.name}</p>
           </div>
+          <div className="relative">
+            <button onClick={() => setIsNotificationsOpen(!isNotificationsOpen)} className="p-2 text-slate-500 hover:text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-colors relative" title="Notificações">
+              <Bell size={20} />
+              {notifications.filter(n => !n.read).length > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full w-4 h-4 flex items-center justify-center">{notifications.filter(n => !n.read).length}</span>
+              )}
+            </button>
+            {isNotificationsOpen && (
+              <div className="absolute right-0 top-full mt-2 w-80 max-h-96 overflow-y-auto bg-[#1F2937] border border-slate-700 rounded-xl shadow-2xl z-50">
+                <div className="p-3 border-b border-slate-700 flex justify-between items-center">
+                  <span className="text-sm font-bold text-white">Notificações</span>
+                  <button onClick={handleMarkNotificationsRead} className="text-[10px] text-indigo-400 hover:text-indigo-300 font-bold">Marcar como lidas</button>
+                </div>
+                <div className="divide-y divide-slate-800">
+                  {notifications.length === 0 ? (
+                    <p className="p-4 text-xs text-slate-500 text-center">Nenhuma notificação.</p>
+                  ) : notifications.map(n => (
+                    <div key={n.id} className={`p-3 ${n.read ? 'opacity-60' : ''}`}>
+                      <p className="text-xs font-bold text-white">{n.title}</p>
+                      <p className="text-[11px] text-slate-400 mt-0.5">{n.message}</p>
+                      <p className="text-[9px] text-slate-600 mt-1">{new Date(n.created_at).toLocaleString('pt-BR')}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
           <button onClick={handleLogout} className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors" title="Sair">
             <LogOut size={20} />
           </button>
@@ -1863,6 +1963,25 @@ export default function App() {
               })}
               {visibleEvents.length === 0 && <p className="text-slate-500 col-span-full">Nenhum registo encontrado.</p>}
             </div>
+
+            {/* Histórico de Auditoria */}
+            {(authUser.role === 'company_admin' || authUser.role === 'superadmin') && auditLog.length > 0 && (
+              <div className="mt-8">
+                <h3 className="text-lg font-bold text-white mb-4 flex items-center gap-2"><Clock className="text-indigo-400" size={18}/> Histórico</h3>
+                <div className="bg-[#111827] border border-slate-800 rounded-2xl p-4 space-y-3 max-h-64 overflow-y-auto">
+                  {auditLog.map(entry => (
+                    <div key={entry.id} className="flex items-start gap-3 border-b border-slate-800/50 pb-3 last:border-0 last:pb-0">
+                      <div className="w-2 h-2 rounded-full bg-indigo-500 mt-1.5 shrink-0"></div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-white font-bold">{entry.action}</p>
+                        {entry.details && <p className="text-[11px] text-slate-400 mt-0.5">{entry.details}</p>}
+                        <p className="text-[9px] text-slate-600 mt-1">{entry.user_name} · {new Date(entry.created_at).toLocaleString('pt-BR')}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -1927,7 +2046,14 @@ export default function App() {
 
         {activeTab === 'calendar' && (
           <div className="max-w-7xl mx-auto">
-            <h2 className="text-xl sm:text-2xl font-bold text-white mb-4 flex items-center gap-2"><CalendarDays className="text-indigo-400"/> Calendário {authUser.role === 'superadmin' ? 'Global' : authUser.role === 'agent' ? '' : 'do Escritório'}</h2>
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+              <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2"><CalendarDays className="text-indigo-400"/> Calendário {authUser.role === 'superadmin' ? 'Global' : authUser.role === 'agent' ? '' : 'do Escritório'}</h2>
+              {(authUser.role === 'company_admin' || authUser.role === 'superadmin') && (
+                <button onClick={handleExportTourPDF} className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-xl text-xs font-bold transition-colors">
+                  <Download size={14}/> Exportar Roteiro PDF
+                </button>
+              )}
+            </div>
             
             {/* Abas do calendário para agente */}
             {authUser.role === 'agent' && (
