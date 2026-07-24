@@ -12,19 +12,53 @@ create index if not exists artists_name_idx on public.artists(name);
 
 alter table public.artists enable row level security;
 
--- Todos autenticados podem ver os artistas
-create policy "artists_select" on public.artists for select to authenticated
-  using (true);
+drop policy if exists "artists_select" on public.artists;
+drop policy if exists "artists_insert" on public.artists;
+drop policy if exists "artists_update" on public.artists;
+drop policy if exists "artists_delete" on public.artists;
 
--- Apenas superadmin pode inserir, editar e deletar artistas
+-- Cada escritório acessa apenas seus artistas. Registros globais antigos
+-- continuam visíveis até serem vinculados a uma empresa.
+create policy "artists_select" on public.artists for select to authenticated
+  using (
+    public.is_superadmin()
+    or company_id = public.current_company_id()
+    or company_id is null
+  );
+
 create policy "artists_insert" on public.artists for insert to authenticated
-  with check (public.is_superadmin());
+  with check (
+    public.is_superadmin()
+    or (
+      public.current_user_role() = 'company_admin'
+      and company_id = public.current_company_id()
+    )
+  );
 
 create policy "artists_update" on public.artists for update to authenticated
-  using (public.is_superadmin()) with check (public.is_superadmin());
+  using (
+    public.is_superadmin()
+    or (
+      public.current_user_role() = 'company_admin'
+      and company_id = public.current_company_id()
+    )
+  )
+  with check (
+    public.is_superadmin()
+    or (
+      public.current_user_role() = 'company_admin'
+      and company_id = public.current_company_id()
+    )
+  );
 
 create policy "artists_delete" on public.artists for delete to authenticated
-  using (public.is_superadmin());
+  using (
+    public.is_superadmin()
+    or (
+      public.current_user_role() = 'company_admin'
+      and company_id = public.current_company_id()
+    )
+  );
 
 -- Migrar artistas existentes dos eventos para a tabela (evita duplicados)
 insert into public.artists (name)

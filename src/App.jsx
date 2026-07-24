@@ -338,6 +338,9 @@ export default function App() {
   const [calendarViewMode, setCalendarViewMode] = useState('mine'); // 'mine' | 'company'
   const [viewedMapEvent, setViewedMapEvent] = useState(null);
   const [artists, setArtists] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [auditLog, setAuditLog] = useState([]);
 
   // Carregar artistas da tabela
   useEffect(() => {
@@ -442,9 +445,6 @@ export default function App() {
   const [editingImportId, setEditingImportId] = useState('');
 
   const [toast, setToast] = useState(null);
-  const [notifications, setNotifications] = useState([]);
-  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const [auditLog, setAuditLog] = useState([]);
 
   const showToast = (msg, type = 'success') => {
     setToast({ msg, type });
@@ -829,12 +829,6 @@ export default function App() {
     showToast('Agente removido do sistema.', 'error');
   };
 
-  // --- CRUD Contratantes (Apenas Agente cria propostas para o próprio escritório) ---
-  const openProposalModal = (date = '') => {
-    setContractorForm({ contractorName: '', email: '', phone: '', instagram: '', eventName: '', artistName: '', date, time: '', city: '', stateId: 'GO', type: 'cache' });
-    setIsContractorModalOpen(true);
-  };
-
   const handleSaveContractor = async (e) => {
     e.preventDefault();
     const newEvent = {
@@ -1127,14 +1121,30 @@ th{padding:14px 16px;text-align:left;font-size:10px;text-transform:uppercase;let
 
   useEffect(() => {
     let active = true;
-    mapEvents.forEach(async (event) => {
-      const key = getCityCoordinateKey(event.stateId, event.city);
-      if (resolvedMapCoordinates[key]) return;
-      const coordinates = await resolveCityCoordinates(event.stateId, event.city);
-      if (active && coordinates) setResolvedMapCoordinates((current) => ({ ...current, [key]: coordinates }));
+    const cities = [...new globalThis.Map(mapEvents.map((event) => [
+      getCityCoordinateKey(event.stateId, event.city),
+      { stateId: event.stateId, city: event.city },
+    ])).entries()];
+
+    Promise.all(cities.map(async ([key, location]) => [
+      key,
+      await resolveCityCoordinates(location.stateId, location.city),
+    ])).then((entries) => {
+      if (!active) return;
+      setResolvedMapCoordinates((current) => {
+        let changed = false;
+        const next = { ...current };
+        entries.forEach(([key, coordinates]) => {
+          if (coordinates && (current[key]?.cx !== coordinates.cx || current[key]?.cy !== coordinates.cy)) {
+            next[key] = coordinates;
+            changed = true;
+          }
+        });
+        return changed ? next : current;
+      });
     });
     return () => { active = false; };
-  }, [mapEvents, resolvedMapCoordinates]);
+  }, [mapEvents]);
 
   const globalStats = useMemo(() => ({
     offices: companies.filter((company) => company.active).length,
@@ -1171,7 +1181,7 @@ th{padding:14px 16px;text-align:left;font-size:10px;text-transform:uppercase;let
     });
   }, [calendarCursor]);
 
-  const calendarEvents = useMemo(() => {
+  const calendarEvents = (() => {
     const monthKey = `${calendarCursor.getFullYear()}-${String(calendarCursor.getMonth() + 1).padStart(2, '0')}`;
     // Agente no modo empresa vê todos os eventos da empresa
     const sourceEvents = (authUser?.role === 'agent' && calendarViewMode === 'company')
@@ -1185,7 +1195,7 @@ th{padding:14px 16px;text-align:left;font-size:10px;text-transform:uppercase;let
       return isCalendarEvent(event)
         && (selectedCalendarDate ? eventDate === selectedCalendarDate : eventDate.startsWith(monthKey));
     });
-  }, [visibleEvents, events, authUser, calendarViewMode, selectedCalendarDate, calendarCursor]);
+  })();
 
   const zoomMap = (factor, focus) => setMapViewport((current) => getZoomedViewport(current, factor, focus));
 
@@ -1501,12 +1511,9 @@ th{padding:14px 16px;text-align:left;font-size:10px;text-transform:uppercase;let
     );
   }
 
-  const userCompanyName = authUser.companyId ? companies.find(c => c.id === authUser.companyId)?.name : '';
-
-  // Garantir que a tab ativa existe na lista de tabs disponíveis
-  if (TABS.length && !TABS.find(t => t.id === activeTab)) {
-    setActiveTab(TABS[0].id);
-  }
+  const userCompanyName = authUser.companyId
+    ? companies.find((company) => company.id === authUser.companyId)?.name || 'Seu escritório'
+    : '';
 
   return (
     <div className="min-h-[100dvh] bg-[#0B0F19] text-slate-200 flex flex-col h-[100dvh] overflow-hidden">
@@ -2207,7 +2214,6 @@ th{padding:14px 16px;text-align:left;font-size:10px;text-transform:uppercase;let
 
                 {/* Calendário mostra shows e datas livres. */}
                 {calendarEvents.sort((a,b) => new Date(a.calendarDate || a.date) - new Date(b.calendarDate || b.date)).map(ev => {
-                  const comp = companies.find(c => c.id === ev.companyId);
                   const agent = users.find(u => u.id === ev.agentId);
                   
                   return (
@@ -2497,6 +2503,7 @@ th{padding:14px 16px;text-align:left;font-size:10px;text-transform:uppercase;let
                       resetToken={mapResetToken}
                       initialViewport={realMapViewport}
                       onViewportChange={setRealMapViewport}
+                      hideLegend={isCommercialAssistantOpen}
                     />
                   </Suspense>
                 </div>

@@ -60,7 +60,7 @@ function MapActions({ defaultZoom }) {
   );
 }
 
-export default function RealTourMap({ events, mapMode, selectedState, selectedEventId, onSelectEvent, onSelectState, onViewEvent, resetToken, initialViewport, onViewportChange }) {
+export default function RealTourMap({ events, selectedState, selectedEventId, onSelectEvent, onSelectState, onViewEvent, resetToken, initialViewport, onViewportChange, hideLegend = false }) {
   const [locations, setLocations] = useState({});
   const defaultZoom = useMemo(
     () => (typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches ? MOBILE_BRAZIL_ZOOM : BRAZIL_ZOOM),
@@ -73,14 +73,30 @@ export default function RealTourMap({ events, mapMode, selectedState, selectedEv
 
   useEffect(() => {
     let active = true;
-    visibleEvents.forEach(async (event) => {
-      const key = getCityCoordinateKey(event.stateId, event.city);
-      if (locations[key]) return;
-      const coordinates = await resolveCityLatLng(event.stateId, event.city);
-      if (active && coordinates) setLocations((current) => ({ ...current, [key]: coordinates }));
+    const cities = [...new globalThis.Map(visibleEvents.map((event) => [
+      getCityCoordinateKey(event.stateId, event.city),
+      { stateId: event.stateId, city: event.city },
+    ])).entries()];
+
+    Promise.all(cities.map(async ([key, location]) => [
+      key,
+      await resolveCityLatLng(location.stateId, location.city),
+    ])).then((entries) => {
+      if (!active) return;
+      setLocations((current) => {
+        let changed = false;
+        const next = { ...current };
+        entries.forEach(([key, coordinates]) => {
+          if (coordinates && (current[key]?.[0] !== coordinates[0] || current[key]?.[1] !== coordinates[1])) {
+            next[key] = coordinates;
+            changed = true;
+          }
+        });
+        return changed ? next : current;
+      });
     });
     return () => { active = false; };
-  }, [visibleEvents, locations]);
+  }, [visibleEvents]);
 
   return (
     <div className="relative h-full w-full overflow-hidden rounded-xl">
@@ -110,7 +126,7 @@ export default function RealTourMap({ events, mapMode, selectedState, selectedEv
           );
         })}
       </MapContainer>
-      <MapLegend mobileBottom="bottom-[7rem]" />
+      {!hideLegend && <MapLegend mobileBottom="bottom-[7rem]" />}
     </div>
   );
 }

@@ -23,48 +23,6 @@ import assert from 'node:assert/strict';
  * Expected after fix: Success with event ID returned
  */
 
-// Mock Supabase client for testing
-function createMockSupabaseClient(mockBehavior) {
-  return {
-    auth: {
-      getUser: mockBehavior.getUser,
-      admin: {
-        createUser: mockBehavior.createUser,
-        updateUserById: mockBehavior.updateUserById,
-        deleteUser: mockBehavior.deleteUser,
-        listUsers: mockBehavior.listUsers,
-      }
-    },
-    from: (table) => ({
-      select: (columns) => ({
-        eq: (col, val) => ({
-          single: mockBehavior.queries?.[table]?.single,
-          maybeSingle: mockBehavior.queries?.[table]?.maybeSingle,
-        }),
-        ilike: (col, val) => ({
-          maybeSingle: mockBehavior.queries?.[table]?.maybeSingle,
-        }),
-        order: (col, opts) => mockBehavior.queries?.[table]?.list || { data: [], error: null },
-      }),
-      upsert: (data, opts) => ({
-        select: (cols) => ({
-          single: mockBehavior.queries?.[table]?.upsertSingle,
-        }),
-      }),
-      update: (data) => ({
-        eq: (col, val) => ({
-          select: (cols) => ({
-            single: mockBehavior.queries?.[table]?.updateSingle,
-          }),
-        }),
-      }),
-      delete: () => ({
-        eq: (col, val) => mockBehavior.queries?.[table]?.delete,
-      }),
-    }),
-  };
-}
-
 // Simulate the FIXED save_event validation logic from manage-user/index.ts
 // This mirrors the actual code AFTER the fix is applied.
 function simulateSaveEventValidation(caller, event, isMaster, isCompanyAdmin) {
@@ -160,7 +118,7 @@ test('Bug Condition: Agent creating imported opportunity (status Cadastro, agent
     );
     
     // Re-throw so test fails and surfaces the problem
-    throw new Error(`FIX NOT APPLIED: ${error.message}`);
+    throw new Error(`FIX NOT APPLIED: ${error.message}`, { cause: error });
   }
 });
 
