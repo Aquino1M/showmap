@@ -70,6 +70,15 @@ const isReusableQuestion = (question: string) => {
   return /\b(como|o que|funciona|cadastro|calendario|mapa|plano|financeiro)\b/.test(normalized)
 }
 
+const requestHistory = new Map<string, number[]>()
+const assertWithinRateLimit = (userId: string) => {
+  const now = Date.now()
+  const recent = (requestHistory.get(userId) || []).filter((timestamp) => now - timestamp < 60_000)
+  if (recent.length >= 20) throw new Error('Muitas perguntas em pouco tempo. Aguarde um minuto e tente novamente.')
+  recent.push(now)
+  requestHistory.set(userId, recent)
+}
+
 Deno.serve(async (request) => {
   const corsHeaders = getCorsHeaders(request)
   if (!corsHeaders) return Response.json({ error: 'Origem não autorizada.' }, { status: 403 })
@@ -88,6 +97,7 @@ Deno.serve(async (request) => {
     const token = authHeader.replace('Bearer ', '')
     const { data: authData, error: authError } = await admin.auth.getUser(token)
     if (authError || !authData.user) throw new Error('Sessão inválida.')
+    assertWithinRateLimit(authData.user.id)
 
     const body = await request.json() as { question?: string }
     const question = String(body.question || '').trim()

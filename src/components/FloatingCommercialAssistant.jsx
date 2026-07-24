@@ -61,13 +61,13 @@ export default function FloatingCommercialAssistant({ events, onOpenChange }) {
     onOpenChange?.(false);
   };
 
-  return <div className="fixed bottom-6 right-6 z-[70] hidden xl:block">
-    {isOpen && <section className="mb-3 flex w-[calc(100vw-2rem)] max-w-sm flex-col overflow-hidden rounded-2xl border border-indigo-500/40 bg-[#111827] shadow-2xl shadow-indigo-950/50">
+  return <div className="fixed bottom-20 right-3 z-[70] block sm:bottom-6 sm:right-6">
+    {isOpen && <section className="mb-3 flex max-h-[calc(100dvh-7rem)] w-[calc(100vw-1.5rem)] max-w-sm flex-col overflow-hidden rounded-2xl border border-indigo-500/40 bg-[#111827] shadow-2xl shadow-indigo-950/50 sm:w-[calc(100vw-2rem)]">
       <header className="flex items-center justify-between border-b border-slate-800 bg-[#0B0F19] px-4 py-3">
         <div className="flex items-center gap-2"><Sparkles size={18} className="text-cyan-400" /><div><h2 className="text-sm font-bold text-white">Assistente Comercial</h2><p className="text-[10px] text-slate-400">Dados do seu escritório</p></div></div>
         <button onClick={closeAssistant} aria-label="Fechar assistente" className="rounded-lg p-1 text-slate-400 hover:bg-slate-800 hover:text-white"><X size={18} /></button>
       </header>
-      <div onWheel={(event) => { event.preventDefault(); event.stopPropagation(); event.currentTarget.scrollTop += event.deltaY; }} className="max-h-72 space-y-3 overflow-y-auto overscroll-contain p-4 custom-scrollbar">
+      <div onWheel={(event) => { event.preventDefault(); event.stopPropagation(); event.currentTarget.scrollTop += event.deltaY; }} className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain p-4 custom-scrollbar">
         {messages.map((message, index) => <div key={`${message.role}-${index}`} className={`whitespace-pre-line max-w-[92%] rounded-2xl px-3 py-2 text-xs leading-relaxed ${message.role === 'user' ? 'ml-auto bg-indigo-600 text-white' : 'bg-[#0B0F19] text-slate-300 border border-slate-800'}`}>{message.text}</div>)}
         {isLoading && <div className="w-fit rounded-2xl border border-slate-800 bg-[#0B0F19] px-3 py-2 text-xs text-slate-400">Analisando os dados do escritório…</div>}
       </div>

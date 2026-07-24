@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CircleMarker, MapContainer, Popup, TileLayer, useMap, useMapEvents } from 'react-leaflet';
+import { CircleMarker, MapContainer, TileLayer, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Minus, Plus, RotateCcw } from 'lucide-react';
 import MapLegend from './MapLegend';
 import { getCityCoordinateKey, getCityLatLng, resolveCityLatLng } from '../lib/map';
-import { getEventStatusLabel, getRecurringOccurrenceDate, getShowProximityColor } from '../lib/tour';
+import { getRecurringOccurrenceDate, getShowProximityColor } from '../lib/tour';
 
 const BRAZIL_CENTER = [-14.235, -51.925];
 const BRAZIL_ZOOM = 5;
@@ -113,16 +113,7 @@ export default function RealTourMap({ events, selectedState, selectedEventId, on
           const color = getShowProximityColor(occurrenceDate || event.date);
           const selected = selectedEventId === event.id;
           return (
-            <CircleMarker key={event.id} center={position} radius={selected ? 12 : 9} pathOptions={{ color: '#fff', weight: 3, fillColor: color, fillOpacity: 1 }} eventHandlers={{ click: () => { onSelectEvent(event.id); if (onViewEvent) onViewEvent(event); } }}>
-              <Popup>
-                <div className="min-w-40 text-sm text-slate-900">
-                  <strong>{event.city} · {event.stateId}</strong><br />
-                  {new Date(`${event.date}T12:00:00`).toLocaleDateString('pt-BR')}<br />
-                  {event.artistName && <>Artista: {event.artistName}<br /></>}
-                  Status: {getEventStatusLabel(event.status)}
-                </div>
-              </Popup>
-            </CircleMarker>
+            <CircleMarker key={event.id} center={position} radius={selected ? 12 : 9} pathOptions={{ color: '#fff', weight: 3, fillColor: color, fillOpacity: 1 }} eventHandlers={{ click: () => { onSelectEvent(event.id); if (onViewEvent) onViewEvent(event); } }} />
           );
         })}
       </MapContainer>

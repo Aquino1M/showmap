@@ -1,4 +1,5 @@
 import { Component } from 'react';
+import { recordClientError } from '../lib/telemetry';
 
 export default class AppErrorBoundary extends Component {
   state = { hasError: false };
@@ -8,6 +9,7 @@ export default class AppErrorBoundary extends Component {
   }
 
   componentDidCatch(error, info) {
+    recordClientError(error, info?.componentStack || 'error-boundary');
     console.error('Erro inesperado na interface do ShowMap:', error, info);
   }
 

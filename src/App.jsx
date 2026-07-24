@@ -1,5 +1,4 @@
 import { lazy, Suspense, useState, useMemo, useEffect, useRef } from 'react';
-import { readSheet } from 'read-excel-file/browser';
 import { supabase } from './supabase';
 import {
   initAuth,
@@ -443,6 +442,7 @@ export default function App() {
   const [importError, setImportError] = useState('');
   const [confirmingImportId, setConfirmingImportId] = useState('');
   const [editingImportId, setEditingImportId] = useState('');
+  const [importPreviewPage, setImportPreviewPage] = useState(1);
 
   const [toast, setToast] = useState(null);
 
@@ -505,6 +505,11 @@ export default function App() {
 
   const handleOpportunityFile = async (file) => {
     if (!file) return;
+    const extension = file.name.toLowerCase().split('.').pop();
+    if (!['xlsx', 'csv'].includes(extension)) {
+      setImportError('Envie uma planilha no formato XLSX ou CSV.');
+      return;
+    }
     if (file.size > 5 * 1024 * 1024) {
       setImportError('A planilha deve ter no máximo 5 MB.');
       return;
@@ -515,11 +520,15 @@ export default function App() {
       const isCsv = file.name.toLowerCase().endsWith('.csv');
       // `readSheet` returns the rows from the first worksheet. The package default
       // export returns an array of worksheets, which made valid Excel files look empty.
-      const sheetRows = isCsv ? parseCsvRows(await file.text()) : await readSheet(file);
+      const sheetRows = isCsv
+        ? parseCsvRows(await file.text())
+        : await import('read-excel-file/browser').then(({ readSheet }) => readSheet(file));
       const [headers, ...dataRows] = sheetRows;
       if (!headers?.length || !dataRows.length) throw new Error('A planilha não possui linhas para importar.');
+      if (dataRows.length > 1000) throw new Error('A planilha deve ter no máximo 1.000 linhas por importação.');
       const rows = dataRows.map((values) => Object.fromEntries(headers.map((header, index) => [String(header || '').trim(), formatImportCell(values[index])])));
-      setImportedOpportunities(rows.slice(0, 100).map((row, index) => ({
+      setImportPreviewPage(1);
+      setImportedOpportunities(rows.map((row, index) => ({
         id: `${index}-${Date.now()}`,
         day: normalizeDateDisplay(getImportedValue(row, ['dia', 'data', 'data do evento'])),
         city: getImportedValue(row, ['cidade', 'municipio', 'município']),
@@ -950,26 +959,34 @@ export default function App() {
   };
 
   const handleExportTourPDF = () => {
-    // Pega os eventos que estão visíveis no calendário (agenda aberta)
-    const exportEvents = calendarEvents
+    const exportEvents = [...calendarEvents]
       .sort((a, b) => (a.calendarDate || a.date).localeCompare(b.calendarDate || b.date));
     if (!exportEvents.length) { showToast('Nenhum evento no calendário para exportar.', 'error'); return; }
     const artistLabel = selectedTourArtist || exportEvents.find(e => e.artistName)?.artistName || userCompanyName || 'ShowMap';
     const monthLabel = calendarCursor.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
     const today = new Date().toLocaleDateString('pt-BR');
-    
+
+    const escapeHtml = (value) => String(value ?? '')
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;')
+      .replaceAll("'", '&#039;');
+
     const statusColors = { 'Vendido': '#dc2626', 'Confirmado': '#dc2626', 'Reservado': '#ea580c', 'Agendado': '#ea580c', 'Proposta': '#7c3aed', 'Cadastro': '#475569', 'Disponível': '#0ea5e9' };
-    
+
     const rows = exportEvents.map(ev => {
       const statusColor = statusColors[ev.status] || '#475569';
       const date = new Date((ev.calendarDate || ev.date) + 'T12:00:00').toLocaleDateString('pt-BR');
+      const contractor = escapeHtml(ev.contractorName || 'Não informado');
+      const eventName = ev.eventName ? `<span class="secondary">${escapeHtml(ev.eventName)}</span>` : '';
       return `<tr>
-        <td style="padding:12px 16px;border-bottom:1px solid #1e293b;color:#e2e8f0;font-weight:600">${date}</td>
-        <td style="padding:12px 16px;border-bottom:1px solid #1e293b;color:#fff;font-weight:700">${ev.city}</td>
-        <td style="padding:12px 16px;border-bottom:1px solid #1e293b;color:#94a3b8">${ev.stateId}</td>
-        <td style="padding:12px 16px;border-bottom:1px solid #1e293b"><span style="background:${statusColor};color:#fff;padding:3px 10px;border-radius:12px;font-size:10px;font-weight:700;text-transform:uppercase">${getEventStatusLabel(ev.status)}</span></td>
-        <td style="padding:12px 16px;border-bottom:1px solid #1e293b;color:#cbd5e1">${ev.contractorName || '—'}</td>
-        <td style="padding:12px 16px;border-bottom:1px solid #1e293b;color:#67e8f9;font-size:11px">${ev.contractorPhone || ''}</td>
+        <td class="date-cell">${date}</td>
+        <td class="city-cell">${escapeHtml(ev.city || 'Não informada')}</td>
+        <td class="state-cell">${escapeHtml(ev.stateId || '—')}</td>
+        <td><span class="status" style="background:${statusColor}">${escapeHtml(getEventStatusLabel(ev.status))}</span></td>
+        <td><span class="primary">${contractor}</span>${eventName}</td>
+        <td class="contact-cell">${escapeHtml(ev.contractorPhone || '—')}</td>
       </tr>`;
     }).join('');
 
@@ -978,37 +995,91 @@ export default function App() {
     const totalPropostas = exportEvents.filter(e => e.status === 'Proposta').length;
     const totalCadastros = exportEvents.filter(e => e.status === 'Cadastro').length;
 
-    const html = `<!DOCTYPE html><html><head><title>Roteiro - ${artistLabel}</title>
+    const html = `<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Roteiro - ${escapeHtml(artistLabel)}</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#0B0F19;color:#e2e8f0;padding:40px}
-.header{text-align:center;margin-bottom:32px;padding-bottom:24px;border-bottom:2px solid #1e293b}
-.logo{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#67e8f9;margin-bottom:8px}
-h1{font-size:28px;font-weight:800;color:#fff;margin-bottom:4px}
-.subtitle{font-size:14px;color:#94a3b8}
-.stats{display:flex;justify-content:center;gap:24px;margin:20px 0}
-.stat{text-align:center}
-.stat-number{font-size:24px;font-weight:800}
-.stat-label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#64748b;margin-top:2px}
-table{width:100%;border-collapse:collapse;margin-top:16px;background:#111827;border-radius:12px;overflow:hidden}
-th{padding:14px 16px;text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#64748b;background:#0f172a;border-bottom:2px solid #1e293b}
-.footer{text-align:center;margin-top:32px;padding-top:16px;border-top:1px solid #1e293b;font-size:11px;color:#475569}
-@media print{body{padding:0;margin:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{margin:0;size:A4 landscape}}
+@page{size:210mm 297mm;margin:7mm 7mm 10mm}
+html{background:#e2e8f0}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#fff;color:#172033;font-size:9pt;line-height:1.35}
+.document{width:100%;background:#fff}
+.header{background:linear-gradient(135deg,#111a32 0%,#172554 62%,#312e81 100%);color:#fff;border-radius:3mm;padding:4.5mm 6mm 4mm;margin-bottom:3mm}
+.brand-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:2.5mm}
+.brand{display:flex;align-items:center;gap:2.5mm}
+.brand-mark{display:grid;place-items:center;width:7.5mm;height:7.5mm;border-radius:2mm;background:linear-gradient(135deg,#6366f1,#06b6d4);font-size:11pt;font-weight:900}
+.logo{font-size:8pt;letter-spacing:2px;text-transform:uppercase;font-weight:800}
+.generated{font-size:6.5pt;color:#cbd5e1;text-align:right}
+.title-row{display:flex;justify-content:space-between;align-items:flex-end;gap:5mm}
+.eyebrow{font-size:6.3pt;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:#67e8f9;margin-bottom:1mm}
+h1{font-size:17pt;line-height:1.03;font-weight:800;letter-spacing:-.3px}
+.subtitle{font-size:7.5pt;color:#cbd5e1;margin-top:1mm;text-transform:capitalize}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:1.4mm;min-width:65mm}
+.stat{background:rgba(15,23,42,.5);border:1px solid rgba(255,255,255,.13);border-radius:1.6mm;padding:1.8mm;text-align:center}
+.stat-number{font-size:11pt;line-height:1;font-weight:800}
+.stat-label{font-size:5.5pt;text-transform:uppercase;letter-spacing:.5px;color:#cbd5e1;margin-top:.8mm}
+.section-heading{display:flex;align-items:center;justify-content:space-between;margin:0 0 1.5mm}
+.section-heading h2{font-size:10.5pt;color:#172033}
+.section-heading p{font-size:7.5pt;color:#64748b}
+.table-shell{border:1px solid #cbd5e1;border-radius:3mm;overflow:hidden}
+table{width:100%;border-collapse:collapse;table-layout:fixed}
+col.date{width:14%}col.city{width:16%}col.state{width:7%}col.status-col{width:15%}col.contractor{width:30%}col.contact{width:18%}
+thead{display:table-header-group}
+th{padding:2mm 2.2mm;text-align:left;font-size:6.2pt;text-transform:uppercase;letter-spacing:.55px;color:#fff;background:#172554;border-right:1px solid rgba(255,255,255,.12)}
+th:last-child{border-right:0}
+tbody tr{break-inside:avoid;page-break-inside:avoid}
+tbody tr:nth-child(even){background:#f8fafc}
+td{padding:1.55mm 2.2mm;border-bottom:1px solid #e2e8f0;vertical-align:middle;font-size:7.2pt;line-height:1.2;overflow-wrap:anywhere}
+tbody tr:last-child td{border-bottom:0}
+.date-cell{font-weight:700;color:#334155;white-space:nowrap}
+.city-cell{font-weight:800;color:#0f172a}
+.state-cell{font-weight:700;color:#64748b}
+.status{display:inline-block;color:#fff;padding:.9mm 1.6mm;border-radius:99px;font-size:5.4pt;font-weight:800;letter-spacing:.2px;text-transform:uppercase;white-space:nowrap}
+.primary{display:block;font-weight:700;color:#1e293b}
+.secondary{display:block;margin-top:.35mm;color:#64748b;font-size:6.2pt}
+.contact-cell{color:#0369a1;font-size:6.7pt;white-space:nowrap}
+.footer{position:fixed;left:0;right:0;bottom:-6.5mm;border-top:1px solid #cbd5e1;padding-top:1.4mm;display:flex;justify-content:space-between;color:#64748b;font-size:6.3pt}
+@media screen{body{max-width:210mm;min-height:297mm;margin:12mm auto;padding:12mm;box-shadow:0 5mm 15mm rgba(15,23,42,.18)}}
+@media print{
+  html,body{background:#fff}
+  body{margin:0;padding:0;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .document{width:auto}
+  .header{break-inside:avoid;page-break-inside:avoid}
+  .table-shell{overflow:visible}
+}
 </style></head><body>
+<main class="document">
 <div class="header">
-<p class="logo">◉ ShowMap</p>
-<h1>${artistLabel}</h1>
-<p class="subtitle">Roteiro de Turnê · ${monthLabel}</p>
-<div class="stats">
-<div class="stat"><div class="stat-number" style="color:#dc2626">${totalVendidos}</div><div class="stat-label">Vendidos</div></div>
-<div class="stat"><div class="stat-number" style="color:#ea580c">${totalReservados}</div><div class="stat-label">Reservados</div></div>
-<div class="stat"><div class="stat-number" style="color:#7c3aed">${totalPropostas}</div><div class="stat-label">Propostas</div></div>
-<div class="stat"><div class="stat-number" style="color:#475569">${totalCadastros}</div><div class="stat-label">Cadastros</div></div>
+  <div class="brand-row">
+    <div class="brand"><span class="brand-mark">S</span><span class="logo">ShowMap</span></div>
+    <div class="generated">Documento gerado em ${today}</div>
+  </div>
+  <div class="title-row">
+    <div>
+      <p class="eyebrow">Roteiro profissional de turnê</p>
+      <h1>${escapeHtml(artistLabel)}</h1>
+      <p class="subtitle">${escapeHtml(monthLabel)}</p>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="stat-number" style="color:#f87171">${totalVendidos}</div><div class="stat-label">Vendidos</div></div>
+      <div class="stat"><div class="stat-number" style="color:#fb923c">${totalReservados}</div><div class="stat-label">Agendados</div></div>
+      <div class="stat"><div class="stat-number" style="color:#c084fc">${totalPropostas}</div><div class="stat-label">Propostas</div></div>
+      <div class="stat"><div class="stat-number" style="color:#67e8f9">${totalCadastros}</div><div class="stat-label">Cadastros</div></div>
+    </div>
+  </div>
 </div>
+<div class="section-heading">
+  <h2>Agenda consolidada</h2>
+  <p>${exportEvents.length} ${exportEvents.length === 1 ? 'registro' : 'registros'} no período</p>
 </div>
-<table><thead><tr><th>Data</th><th>Cidade</th><th>UF</th><th>Status</th><th>Contratante</th><th>Telefone</th></tr></thead><tbody>${rows}</tbody></table>
-<div class="footer">Gerado em ${today} via ShowMap · showmap.vercel.app</div>
-<script>window.onload=function(){window.print()}</script>
+<div class="table-shell">
+  <table>
+    <colgroup><col class="date"><col class="city"><col class="state"><col class="status-col"><col class="contractor"><col class="contact"></colgroup>
+    <thead><tr><th>Data</th><th>Cidade</th><th>UF</th><th>Status</th><th>Contratante / Evento</th><th>Contato</th></tr></thead>
+    <tbody>${rows}</tbody>
+  </table>
+</div>
+<div class="footer"><span>ShowMap - Gestão logística de espetáculos</span><span>showmap.vercel.app</span></div>
+</main>
+<script>window.onload=function(){setTimeout(function(){window.print()},250)}</script>
 </body></html>`;
     const win = window.open('', '_blank');
     if (win) { win.document.write(html); win.document.close(); }
@@ -2514,7 +2585,7 @@ th{padding:14px 16px;text-align:left;font-size:10px;text-transform:uppercase;let
                   const ev = events.find(e => e.id === viewedMapEvent.id) || viewedMapEvent;
                   const agent = users.find(u => u.id === ev.agentId);
                   return (
-                  <div className="absolute bottom-4 left-4 right-4 z-[600] bg-[#111827] border border-slate-700 rounded-xl p-4 shadow-2xl max-h-[60vh] overflow-y-auto">
+                  <div className="absolute bottom-4 left-4 right-4 z-[600] max-h-[60vh] overflow-y-auto rounded-2xl border border-cyan-500/50 bg-[#0B0F19]/95 p-4 shadow-2xl backdrop-blur-xl lg:bottom-auto lg:left-auto lg:right-4 lg:top-4 lg:w-64">
                     <button onClick={() => setViewedMapEvent(null)} className="absolute top-2 right-2 text-slate-400 hover:text-white" aria-label="Fechar"><X size={16}/></button>
                     <h4 className="text-white font-bold text-sm">{ev.city} · {ev.stateId} <span className="text-xs text-slate-400 font-normal ml-2">{new Date(`${ev.date}T12:00:00`).toLocaleDateString('pt-BR')}</span></h4>
                     {ev.contractorName && (
@@ -2605,7 +2676,7 @@ th{padding:14px 16px;text-align:left;font-size:10px;text-transform:uppercase;let
                   </div>
                   <p className="mb-4 text-xs leading-relaxed text-slate-400">Confira os dados antes de confirmar. Nenhuma oportunidade foi salva ainda.</p>
                   <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {importedOpportunities.map((opportunity) => (
+                    {importedOpportunities.slice((importPreviewPage - 1) * 30, importPreviewPage * 30).map((opportunity) => (
                       <article key={opportunity.id} className="rounded-2xl border border-slate-700 bg-[#0B0F19] p-4">
                         <div className="flex items-start justify-between gap-3">
                           <div>
@@ -2676,6 +2747,13 @@ th{padding:14px 16px;text-align:left;font-size:10px;text-transform:uppercase;let
                       </article>
                     ))}
                   </div>
+                  {importedOpportunities.length > 30 && (
+                    <div className="mt-4 flex items-center justify-center gap-3">
+                      <button type="button" onClick={() => setImportPreviewPage((page) => Math.max(1, page - 1))} disabled={importPreviewPage === 1} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-bold text-slate-200 disabled:opacity-40">Anterior</button>
+                      <span className="text-xs text-slate-400">Página {importPreviewPage} de {Math.ceil(importedOpportunities.length / 30)}</span>
+                      <button type="button" onClick={() => setImportPreviewPage((page) => Math.min(Math.ceil(importedOpportunities.length / 30), page + 1))} disabled={importPreviewPage >= Math.ceil(importedOpportunities.length / 30)} className="rounded-lg border border-slate-700 px-3 py-2 text-xs font-bold text-slate-200 disabled:opacity-40">Próxima</button>
+                    </div>
+                  )}
                   <div className="mt-5 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs leading-relaxed text-amber-100">Confirme somente os cards corretos. Cada confirmação salva uma oportunidade anual no banco, sem reservar nem vender a data.</div>
                 </div>
               )}

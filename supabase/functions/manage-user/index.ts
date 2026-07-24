@@ -21,6 +21,17 @@ const getCorsHeaders = (request: Request) => {
 type Role = 'superadmin' | 'company_admin' | 'agent'
 type Plan = 'lite' | 'pro' | 'ultra'
 const planAgentLimits: Record<Plan, number> = { lite: 5, pro: 10, ultra: 20 }
+const requestHistory = new Map<string, number[]>()
+const RATE_LIMIT_WINDOW_MS = 60_000
+const RATE_LIMIT_MAX_REQUESTS = 90
+
+const assertWithinRateLimit = (userId: string) => {
+  const now = Date.now()
+  const recent = (requestHistory.get(userId) || []).filter((timestamp) => now - timestamp < RATE_LIMIT_WINDOW_MS)
+  if (recent.length >= RATE_LIMIT_MAX_REQUESTS) throw new Error('Muitas solicitações. Aguarde um minuto e tente novamente.')
+  recent.push(now)
+  requestHistory.set(userId, recent)
+}
 
 type RequestBody = {
   action: 'bootstrap' | 'create' | 'update' | 'delete' | 'save_event' | 'delete_event' | 'list_events' | 'list_users' | 'list_companies' | 'save_company' | 'delete_company' | 'renew_company_plan'
@@ -51,8 +62,11 @@ Deno.serve(async (request) => {
     const token = authHeader.replace('Bearer ', '')
     const { data: authData, error: authError } = await admin.auth.getUser(token)
     if (authError || !authData.user) throw new Error('Sessão inválida.')
+    assertWithinRateLimit(authData.user.id)
 
-    const body = await request.json() as RequestBody
+    const rawBody = await request.text()
+    if (rawBody.length > 1_000_000) throw new Error('Solicitação maior que o limite permitido.')
+    const body = JSON.parse(rawBody) as RequestBody
     const { data: caller, error: callerError } = await admin
       .from('profiles')
       .select('id, name, email, role, company_id')

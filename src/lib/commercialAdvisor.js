@@ -2,7 +2,7 @@ import { getCityLatLng } from './map.js';
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 const TOUR_STATUSES = new Set(['Reservado', 'Agendado', 'Vendido', 'Confirmado']);
-const OPPORTUNITY_STATUSES = new Set(['Disponível', 'Proposta']);
+const OPPORTUNITY_STATUSES = new Set(['Disponível', 'Proposta', 'Cadastro']);
 
 const STATE_ALIASES = {
   acre: 'AC', alagoas: 'AL', amapa: 'AP', amazonas: 'AM', bahia: 'BA', ceara: 'CE',
@@ -48,7 +48,14 @@ const findStateInQuestion = (question) => Object.entries(STATE_ALIASES)
 
 const futureFirst = (events) => [...events].sort((first, second) => toDate(first.date) - toDate(second.date));
 
+const getOpportunityDateNearAnchor = (event, anchorDate) => {
+  if (!event.isRecurring && event.status !== 'Cadastro') return toDate(event.date);
+  const source = toDate(event.date);
+  return new Date(anchorDate.getFullYear(), source.getMonth(), source.getDate(), 12);
+};
+
 export const LOCAL_ASSISTANT_QUESTIONS = [
+  'Quantos registros tenho no total?',
   'Qual show tenho em Goiás?',
   'Quais datas livres eu tenho?',
   'Mostre minhas propostas',
@@ -106,12 +113,16 @@ export const buildCommercialSuggestion = (events, referenceDate = new Date()) =>
   const anchorDate = toDate(anchor.date);
   const candidates = events
     .filter((event) => OPPORTUNITY_STATUSES.has(event.status))
-    .map((event) => ({ ...event, distance: distanceInKm(anchorCoordinates, getCityLatLng(event.stateId, event.city)) }))
-    .filter((event) => event.distance <= 600 && Math.abs((toDate(event.date) - anchorDate) / DAY_IN_MS) <= 1)
+    .map((event) => ({
+      ...event,
+      candidateDate: getOpportunityDateNearAnchor(event, anchorDate),
+      distance: distanceInKm(anchorCoordinates, getCityLatLng(event.stateId, event.city)),
+    }))
+    .filter((event) => event.distance <= 600 && Math.abs((event.candidateDate - anchorDate) / DAY_IN_MS) <= 1)
     .sort((first, second) => first.distance - second.distance);
 
-  const before = candidates.filter((event) => toDate(event.date) < anchorDate);
-  const after = candidates.filter((event) => toDate(event.date) > anchorDate);
+  const before = candidates.filter((event) => event.candidateDate < anchorDate);
+  const after = candidates.filter((event) => event.candidateDate > anchorDate);
   const describe = (items) => items.length
     ? items.slice(0, 3).map((event) => `${event.city} (${event.distance} km)`).join(', ')
     : 'nenhuma oportunidade cadastrada';
@@ -129,6 +140,14 @@ export const getSystemAnswer = (question, events) => {
   const futureEvents = futureFirst(scopedEvents.filter((event) => toDate(event.date) >= today));
   const hasShowIntent = /show|turne|agenda|evento|eventos|tenho|tem/.test(normalized);
 
+  if (/quant[oa]s?.*(registro|data|evento|oportunidade)|total.*(registro|data|evento|oportunidade)/.test(normalized)) {
+    const counts = events.reduce((result, event) => {
+      result[event.status] = (result[event.status] || 0) + 1;
+      return result;
+    }, {});
+    const details = Object.entries(counts).map(([status, total]) => `${total} ${status.toLocaleLowerCase('pt-BR')}`).join(', ');
+    return `Você tem ${events.length} registros no total${details ? `: ${details}` : ''}.`;
+  }
   if (/roteiro|sugest|viagem|km|distância|distancia/.test(normalized)) return buildCommercialSuggestion(events);
   if (/datas? livres?|dispon[ií]veis?/.test(normalized)) {
     const available = futureFirst(scopedEvents.filter((event) => event.status === 'Disponível' && toDate(event.date) >= today));

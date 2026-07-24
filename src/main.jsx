@@ -4,6 +4,9 @@ import './index.css'
 import { isSupabaseConfigured } from './supabase.js'
 import AppErrorBoundary from './components/AppErrorBoundary.jsx'
 import AppLoader from './components/AppLoader.jsx'
+import { installGlobalErrorMonitoring } from './lib/telemetry.js'
+
+installGlobalErrorMonitoring()
 
 if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {

@@ -1,4 +1,9 @@
 import { supabase } from './supabase';
+import {
+  clearVerifiedSnapshots as clearOfflineSnapshots,
+  readVerifiedSnapshot as readOfflineSnapshot,
+  saveVerifiedSnapshot,
+} from './lib/offlineCache';
 
 const TABLES = {
   companies: 'companies',
@@ -7,22 +12,21 @@ const TABLES = {
 };
 
 const DATA_CHANGED_EVENT = 'showmap:data-changed';
-const LOCAL_SNAPSHOT_PREFIX = 'showmap:verified-snapshot:';
-const LOCAL_SNAPSHOT_MAX_AGE = 6 * 60 * 60 * 1000;
+const LOCAL_SNAPSHOT_MAX_AGE = 7 * 24 * 60 * 60 * 1000;
 
 // Cópia local apenas para leitura temporária quando a conexão cai. Dados só entram
 // aqui depois de confirmados pelo Supabase; portanto, o banco remoto continua sendo
 // a única fonte oficial e não há conflito entre versões da agenda.
 const getSnapshotKey = async (collectionName) => {
   const { data: { session } } = await supabase.auth.getSession();
-  return session?.user?.id ? `${LOCAL_SNAPSHOT_PREFIX}${session.user.id}:${collectionName}` : null;
+  return session?.user?.id ? `${session.user.id}:${collectionName}` : null;
 };
 
 const storeVerifiedSnapshot = async (collectionName, items) => {
   try {
     const key = await getSnapshotKey(collectionName);
-    if (!key || !globalThis.sessionStorage) return;
-    globalThis.sessionStorage.setItem(key, JSON.stringify({ savedAt: Date.now(), items }));
+    if (!key) return;
+    await saveVerifiedSnapshot(key, items);
   } catch {
     // Cache é opcional: uma falha local não pode impedir o uso do Supabase.
   }
@@ -31,21 +35,17 @@ const storeVerifiedSnapshot = async (collectionName, items) => {
 const readVerifiedSnapshot = async (collectionName) => {
   try {
     const key = await getSnapshotKey(collectionName);
-    if (!key || !globalThis.sessionStorage) return null;
-    const snapshot = JSON.parse(globalThis.sessionStorage.getItem(key) || 'null');
-    if (!snapshot?.savedAt || !Array.isArray(snapshot.items) || Date.now() - snapshot.savedAt > LOCAL_SNAPSHOT_MAX_AGE) return null;
-    return snapshot.items;
+    if (!key) return null;
+    return await readOfflineSnapshot(key, LOCAL_SNAPSHOT_MAX_AGE);
   } catch {
     return null;
   }
 };
 
-const clearVerifiedSnapshots = () => {
+const clearVerifiedSnapshots = async () => {
   try {
-    if (!globalThis.sessionStorage) return;
-    Object.keys(globalThis.sessionStorage)
-      .filter((key) => key.startsWith(LOCAL_SNAPSHOT_PREFIX))
-      .forEach((key) => globalThis.sessionStorage.removeItem(key));
+    const { data: { session } } = await supabase.auth.getSession();
+    await clearOfflineSnapshots(session?.user?.id);
   } catch {
     // Limpeza local é preventiva e não deve interromper o logout.
   }
@@ -213,7 +213,7 @@ export const signIn = async (email, password) => {
 };
 
 export const signOut = async () => {
-  clearVerifiedSnapshots();
+  await clearVerifiedSnapshots();
   const { error } = await supabase.auth.signOut();
   throwIfError(error);
 };
